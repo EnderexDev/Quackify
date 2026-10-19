@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use futures_util::StreamExt;
 use http::{header, HeaderMap, HeaderValue, Method};
 use librespot_connect::{LoadRequest, LoadRequestOptions, PlayingTrack, Spirc};
+use librespot_playback::mixer::Mixer;
 use librespot_core::{dealer::protocol::Message, session::Session, spotify_uri::SpotifyUri};
 use librespot_metadata::{Metadata, Track};
 use librespot_protocol::connect::ClusterUpdate;
@@ -19,6 +20,11 @@ use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
 
 const REFRESH_DEBOUNCE: Duration = Duration::from_millis(250);
+// The device registers itself shortly after start, and the server does not tell the device
+// about its own registration: read the cluster again after this long.
+const SETTLE_REREAD: Duration = Duration::from_secs(3);
+/// How this device shows up in the other Spotify apps.
+pub const DEVICE_NAME: &str = "Quackify";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -83,6 +89,7 @@ pub struct Hub {
     app: AppHandle,
     session: Session,
     spirc: Arc<Spirc>,
+    mixer: Arc<dyn Mixer>,
     view: StdMutex<ConnectView>,
     // When the view was read, to move a playing position forward in snapshots.
     view_read_at: StdMutex<Instant>,
@@ -100,7 +107,7 @@ enum Target {
 }
 
 impl Hub {
-    pub fn start(app: AppHandle, session: Session, spirc: Arc<Spirc>) -> Arc<Self> {
+    pub fn start(app: AppHandle, session: Session, spirc: Arc<Spirc>, mixer: Arc<dyn Mixer>) -> Arc<Self> {
         let hub = Arc::new(Self {
             app,
             view: StdMutex::new(ConnectView {
@@ -110,6 +117,7 @@ impl Hub {
             view_read_at: StdMutex::new(Instant::now()),
             session,
             spirc,
+            mixer,
             now_playing: StdMutex::new(None),
             wanted_track: StdMutex::new(None),
             refresh_pending: AtomicBool::new(false),
@@ -132,6 +140,11 @@ impl Hub {
             Err(e) => eprintln!("connect: cluster subscription failed: {e}"),
         }
         hub.schedule_refresh();
+        let later = hub.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(SETTLE_REREAD).await;
+            later.schedule_refresh();
+        });
         hub
     }
 
@@ -177,7 +190,18 @@ impl Hub {
             .await
             .map_err(|e| e.to_string())?;
         let cluster: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-        let view = parse_cluster(&cluster, self.session.device_id());
+        let mut view = parse_cluster(&cluster, self.session.device_id());
+        // This device can always take the music, even before the cluster lists it.
+        if !view.devices.iter().any(|d| d.is_local) {
+            view.devices.insert(0, Device {
+                id: view.local_device_id.clone(),
+                name: DEVICE_NAME.to_string(),
+                kind: "COMPUTER".to_string(),
+                volume: f64::from(self.mixer.volume()) / f64::from(u16::MAX),
+                is_active: false,
+                is_local: true,
+            });
+        }
 
         let track = view.playback.as_ref().map(|p| p.track_uri.clone());
         let changed = {

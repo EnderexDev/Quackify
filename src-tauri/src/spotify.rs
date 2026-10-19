@@ -19,7 +19,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex;
 
-use crate::connect::{ConnectView, Hub, NowPlaying, Repeat};
+use crate::connect::{ConnectView, Hub, NowPlaying, Repeat, DEVICE_NAME};
 use crate::pathfinder::Pathfinder;
 
 // The client id and redirect librespot itself logs in with; Spotify has this redirect registered.
@@ -28,8 +28,6 @@ const REDIRECT_URI: &str = "http://127.0.0.1:8898/login";
 const SCOPES: &[&str] = &["streaming"];
 const LOGIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 const LOGIN_CLEANUP_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
-/// How this device shows up in the other Spotify apps' device lists.
-const DEVICE_NAME: &str = "Quackify";
 
 const LOGIN_DONE_PAGE: &str = r#"<!doctype html><html><body style="font-family:sans-serif;background:#1a1a1a;color:#ffd84d;text-align:center;padding-top:20vh"><h1>Quackify is in. You can close this tab.</h1></body></html>"#;
 
@@ -111,12 +109,12 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
         ..Default::default()
     };
     // Spirc connects the session itself and saves reusable credentials to the cache.
-    let (spirc, task) = Spirc::new(config, session.clone(), credentials, player.clone(), mixer)
+    let (spirc, task) = Spirc::new(config, session.clone(), credentials, player.clone(), mixer.clone())
         .await
         .map_err(|e| e.to_string())?;
     tauri::async_runtime::spawn(task);
     let spirc = Arc::new(spirc);
-    let hub = Hub::start(app.clone(), session.clone(), spirc.clone());
+    let hub = Hub::start(app.clone(), session.clone(), spirc.clone(), mixer);
 
     let mut events = player.get_player_event_channel();
     let (app2, hub2) = (app.clone(), hub.clone());
