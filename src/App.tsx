@@ -1,49 +1,124 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+type Status = { logged_in: boolean; username: string | null };
+type PlayerEvent =
+  | { kind: "loading"; uri: string }
+  | { kind: "playing"; uri: string; position_ms: number }
+  | { kind: "paused"; uri: string; position_ms: number }
+  | { kind: "stopped" }
+  | { kind: "end_of_track"; uri: string }
+  | { kind: "unavailable"; uri: string };
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
+// Temporary screen that proves login and audio; the real screens are still to be designed.
+function App() {
+  const [status, setStatus] = useState<Status | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [uri, setUri] = useState("");
+  const [player, setPlayer] = useState<PlayerEvent | null>(null);
+  const [log, setLog] = useState<string[]>([]);
+
+  async function run<T>(label: string, action: () => Promise<T>) {
+    setBusy(true);
+    setError("");
+    try {
+      return await action();
+    } catch (e) {
+      setError(`${label}: ${e}`);
+    } finally {
+      setBusy(false);
+    }
   }
+
+  useEffect(() => {
+    // A failed restore (stale credentials, no network) still has to land on the login button.
+    run("restore", () => invoke<Status>("spotify_restore")).then((s) =>
+      setStatus(s ?? { logged_in: false, username: null }),
+    );
+    const unlisten = listen<PlayerEvent>("player-event", ({ payload }) => {
+      setPlayer(payload);
+      setLog((l) => [`${payload.kind}${"uri" in payload ? ` ${payload.uri}` : ""}`, ...l].slice(0, 20));
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
+
+  const login = () => run("login", () => invoke<Status>("spotify_login")).then((s) => s && setStatus(s));
+  // Not through run(): the login call still holds busy, and its own error ends it.
+  const cancelLogin = () => invoke("spotify_cancel_login");
+  const logout = () =>
+    run("logout", async () => {
+      await invoke("spotify_logout");
+      return true;
+    }).then((ok) => ok && setStatus({ logged_in: false, username: null }));
+  const play = () => run("play", () => invoke<string>("spotify_play", { uri }));
+  const pause = () => run("pause", () => invoke("spotify_pause"));
+  const resume = () => run("resume", () => invoke("spotify_resume"));
+
+  const playing = player?.kind === "playing";
 
   return (
     <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+      <h1>Quackify</h1>
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+      {status === null ? (
+        <p>Connecting…</p>
+      ) : status.logged_in ? (
+        <>
+          <p className="who">
+            Logged in as <b>{status.username}</b>{" "}
+            <button className="link" onClick={logout} disabled={busy}>
+              log out
+            </button>
+          </p>
+          <form
+            className="row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              play();
+            }}
+          >
+            <input
+              value={uri}
+              onChange={(e) => setUri(e.currentTarget.value)}
+              placeholder="spotify:track:… or an open.spotify.com link"
+            />
+            <button type="submit" disabled={busy || !uri.trim()}>
+              Play
+            </button>
+          </form>
+          <div className="row">
+            <button onClick={playing ? pause : resume} disabled={busy || !player || player.kind === "stopped"}>
+              {playing ? "Pause" : "Resume"}
+            </button>
+          </div>
+          <p className="state">{player ? player.kind.replace(/_/g, " ") : "idle"}</p>
+        </>
+      ) : (
+        <div className="row">
+          <button onClick={login} disabled={busy}>
+            {busy ? "Waiting for the browser…" : "Log in with Spotify"}
+          </button>
+          {busy && (
+            <button className="secondary" onClick={cancelLogin}>
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+      {error && <p className="error">{error}</p>}
+      {log.length > 0 && (
+        <ul className="log">
+          {log.map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
+      )}
     </main>
   );
 }
