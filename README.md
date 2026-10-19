@@ -1,34 +1,16 @@
 # Quackify
 
-A yellow, duck-flavoured music player for Windows, with our own features. Electron + React + TypeScript.
+A yellow, duck-flavoured Spotify client for Windows, built from scratch to be fast, with our own features.
 
-## Recommended IDE Setup
+- UI: React + TypeScript (Vite)
+- Shell and backend: Tauri 2 (Rust)
+- Audio: librespot (Spotify Premium required)
 
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
-
-## Project Setup
-
-### Install
+## Develop
 
 ```bash
-$ npm install
+npm install
+npm run tauri dev
 ```
 
-### Development
-
-```bash
-$ npm run dev
-```
-
-### Build
-
-```bash
-# For windows
-$ npm run build:win
-
-# For macOS
-$ npm run build:mac
-
-# For Linux
-$ npm run build:linux
-```
+Requires Rust (rustup) and the MSVC Build Tools on Windows.
