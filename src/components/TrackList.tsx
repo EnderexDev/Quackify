@@ -1,13 +1,17 @@
 import type { Track } from "../api/types";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
+import { useSaved } from "../state/saved";
 import { formatDuration } from "../util/format";
+import { useContextMenu } from "./ContextMenu";
 import { Cover } from "./Cover";
 import { ClockIcon, PauseIcon, PlayIcon } from "./icons";
+import { LikeButton } from "./LikeButton";
+import { trackMenu } from "./menus";
 
 /**
  * Track rows. Double-click a row, or click its number, to play it. `onPlay` gets the row
- * index; `contextUri` marks which row is the one playing now.
+ * index; `contextUri` marks which row is the one playing now. Right-click opens the menu.
  */
 export function TrackList({
   tracks,
@@ -24,7 +28,6 @@ export function TrackList({
   showCover?: boolean;
   showHeader?: boolean;
 }) {
-  const nav = useNav();
   const player = usePlayer();
   const current = player.track;
 
@@ -47,48 +50,81 @@ export function TrackList({
           </span>
         </div>
       )}
-      {tracks.map((t, i) => {
-        const on = isCurrent(t, i);
-        return (
-          <div
-            key={`${t.uri}:${i}`}
-            className={`track-row ${on ? "current" : ""} ${t.playable ? "" : "unplayable"}`}
-            onDoubleClick={() => t.playable && onPlay(i)}
-          >
-            <span className="track-num">
-              <span className="num">{on && player.playing ? <span className="eq" /> : i + 1}</span>
-              <button
-                className="row-play"
-                aria-label="Play"
-                disabled={!t.playable}
-                onClick={() => (on ? player.toggle() : onPlay(i))}
-              >
-                {on && player.playing ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
-              </button>
-            </span>
-            <span className="track-main">
-              {showCover && <Cover src={t.image} className="track-cover" />}
-              <span className="track-text">
-                <span className="track-name">{t.name}</span>
-                <span className="track-artists">
-                  {t.artists.map((a, k) => (
-                    <span key={a.uri || k}>
-                      {k > 0 && ", "}
-                      <a onClick={() => a.uri && nav.open(a.uri)}>{a.name}</a>
-                    </span>
-                  ))}
-                </span>
+      {tracks.map((t, i) => (
+        <TrackRow
+          key={`${t.uri}:${i}`}
+          track={t}
+          index={i}
+          current={isCurrent(t, i)}
+          showAlbum={showAlbum}
+          showCover={showCover}
+          onPlay={() => onPlay(i)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TrackRow({
+  track: t,
+  index,
+  current,
+  showAlbum,
+  showCover,
+  onPlay,
+}: {
+  track: Track;
+  index: number;
+  current: boolean;
+  showAlbum: boolean;
+  showCover: boolean;
+  onPlay: () => void;
+}) {
+  const nav = useNav();
+  const player = usePlayer();
+  const openMenu = useContextMenu();
+  const [saved] = useSaved(t.uri);
+
+  return (
+    <div
+      className={`track-row ${current ? "current" : ""} ${t.playable ? "" : "unplayable"} ${saved ? "liked" : ""}`}
+      onDoubleClick={() => t.playable && onPlay()}
+      onContextMenu={(e) => openMenu(e, trackMenu(t, saved, nav))}
+    >
+      <span className="track-num">
+        <span className="num">{current && player.playing ? <span className="eq" /> : index + 1}</span>
+        <button
+          className="row-play"
+          aria-label="Play"
+          disabled={!t.playable}
+          onClick={() => (current ? player.toggle() : onPlay())}
+        >
+          {current && player.playing ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
+        </button>
+      </span>
+      <span className="track-main">
+        {showCover && <Cover src={t.image} className="track-cover" />}
+        <span className="track-text">
+          <span className="track-name">{t.name}</span>
+          <span className="track-artists">
+            {t.artists.map((a, k) => (
+              <span key={a.uri || k}>
+                {k > 0 && ", "}
+                <a onClick={() => a.uri && nav.open(a.uri)}>{a.name}</a>
               </span>
-            </span>
-            {showAlbum && (
-              <span className="track-album">
-                {t.album && <a onClick={() => nav.open(t.album!.uri)}>{t.album.name}</a>}
-              </span>
-            )}
-            <span className="track-time">{formatDuration(t.durationMs)}</span>
-          </div>
-        );
-      })}
+            ))}
+          </span>
+        </span>
+      </span>
+      {showAlbum && (
+        <span className="track-album">
+          {t.album && <a onClick={() => nav.open(t.album!.uri)}>{t.album.name}</a>}
+        </span>
+      )}
+      <span className="track-time">
+        <LikeButton uri={t.uri} size={16} className="row-like" />
+        <span>{formatDuration(t.durationMs)}</span>
+      </span>
     </div>
   );
 }

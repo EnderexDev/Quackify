@@ -175,3 +175,28 @@ export const DeviceIcon = ({ kind, ...p }: P & { kind: string }) => {
     </Icon>
   );
 };
+
+export const HeartOutlineIcon = (p: P) => (
+  <Icon {...p} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round">
+    <path d="M12 20.5s-7-4.3-9-8.8C1.5 8.2 3.7 4.8 7 4.8c2 0 3.4 1 5 2.8 1.6-1.8 3-2.8 5-2.8 3.3 0 5.5 3.4 4 6.9-2 4.5-9 8.8-9 8.8z" />
+  </Icon>
+);
+
+export const QueueIcon = (p: P) => (
+  <Icon {...p} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+    <path d="M4 6h12M4 11h12M4 16h7" />
+    <path d="M15 14v6l5-3z" fill="currentColor" stroke="none" />
+  </Icon>
+);
+
+export const ChevronRightIcon = (p: P) => (
+  <Icon {...p} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <path d="m9 6 6 6-6 6" />
+  </Icon>
+);
+
+export const CheckIcon = (p: P) => (
+  <Icon {...p} fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </Icon>
+);

@@ -28,6 +28,14 @@ const DEFAULT_HASHES: &[(&str, &str)] = &[
     ("getAlbum", "0b6ce3511e1b02e4a40fa95440f992acbe85080eb308af9194322d708fc1914f"),
     ("fetchLibraryTracks", "087278b20b743578a6262c2b0b4bcd20d879c503cc359a2285baf083ef944240"),
     ("queryArtistOverview", "9f8134ef565e78621f1e1793555bd6633c5ac144ae0f89604ed3ae3f80b3c8e6"),
+    // Read on 20/10/26.
+    ("areEntitiesInLibrary", "134337999233cc6fdd6b1e6dbf94841409f04a946c5c7b744b09ba0dfe5a85ed"),
+    ("addToLibrary", "896ebcb47815681340860d121cb5d494e157e2a78d3950385cd54e0393c67148"),
+    ("removeFromLibrary", "896ebcb47815681340860d121cb5d494e157e2a78d3950385cd54e0393c67148"),
+    ("editablePlaylists", "d5c4b8096437dcc2ac9528c91dfcd299e35b747cda2f8f75d28f41f49c5092ba"),
+    ("addToPlaylist", "b907ad6b088d5bf7680fa81198996d58398c2d55dfcdf59fcc959e0be98a418a"),
+    ("removeFromPlaylist", "b907ad6b088d5bf7680fa81198996d58398c2d55dfcdf59fcc959e0be98a418a"),
+    ("moveItemsInPlaylist", "b907ad6b088d5bf7680fa81198996d58398c2d55dfcdf59fcc959e0be98a418a"),
 ];
 
 pub struct Pathfinder {
@@ -60,7 +68,14 @@ impl Pathfinder {
     }
 
     pub async fn query(&self, session: &Session, op: &str, variables: Value) -> Result<Value, String> {
-        let hash = self.hash(op).await?;
+        // An operation this build does not know yet may exist in the live web player.
+        let hash = match self.hash(op).await {
+            Ok(h) => h,
+            Err(_) => {
+                self.refresh("", op).await?;
+                self.hash(op).await?
+            }
+        };
         match self.send(session, op, &hash, &variables).await? {
             Sent::Ok(v) => Ok(v),
             Sent::StaleHash => {
@@ -120,7 +135,7 @@ impl Pathfinder {
     /// failed: if another query already replaced it, there is nothing left to do.
     async fn refresh(&self, stale: &str, op: &str) -> Result<(), String> {
         let _guard = self.refreshing.lock().await;
-        if self.hash(op).await? != stale {
+        if self.hash(op).await.is_ok_and(|h| h != stale) {
             return Ok(());
         }
         let found = self.read_web_player().await?;

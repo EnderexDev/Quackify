@@ -16,7 +16,11 @@ function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
   return value;
 }
 
-export const clearCache = () => cache.clear();
+/** Drops cached reads: all of them, or those whose key starts with `prefix`. */
+export function clearCache(prefix?: string) {
+  if (!prefix) return cache.clear();
+  for (const key of [...cache.keys()]) if (key.startsWith(prefix)) cache.delete(key);
+}
 
 function query(op: string, variables: Record<string, unknown>): Promise<unknown> {
   return invoke("spotify_query", { op, variables });
@@ -120,4 +124,6 @@ export const play = {
   volume: (volume: number) => invoke("spotify_set_volume", { volume }),
   shuffle: (on: boolean) => invoke("spotify_set_shuffle", { on }),
   repeat: (repeat: Repeat) => invoke("spotify_set_repeat", { repeat }),
+  addToQueue: (uri: string) => invoke("spotify_add_to_queue", { uri }),
+  skipTo: (uri: string, uid: string) => invoke("spotify_skip_to", { uri, uid }),
 };

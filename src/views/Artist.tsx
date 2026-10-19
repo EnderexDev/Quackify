@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { artist, play } from "../api/spotify";
 import { Shelf } from "../components/Card";
+import { SaveButton } from "../components/LikeButton";
 import { PlayButton } from "../components/PlayButton";
 import { TrackList } from "../components/TrackList";
 import { usePlayer } from "../state/player";
@@ -39,6 +40,7 @@ export function Artist({ uri }: { uri: string }) {
           playing={isCurrent && player.playing}
           onClick={() => (isCurrent ? player.toggle() : top.length && play.tracks(topUris, 0).catch(toast))}
         />
+        <SaveButton uri={uri} kind="artist" />
       </div>
       {top.length > 0 && (
         <section className="artist-popular">

@@ -366,3 +366,21 @@ pub async fn spotify_set_repeat(repeat: Repeat, state: State<'_, SpotifyState>) 
 pub async fn spotify_transfer(device_id: String, state: State<'_, SpotifyState>) -> Result<(), String> {
     hub(&state).await?.transfer(device_id).await
 }
+
+/// Adds a track to the queue of the device that is playing.
+#[tauri::command]
+pub async fn spotify_add_to_queue(uri: String, state: State<'_, SpotifyState>) -> Result<(), String> {
+    hub(&state).await?.add_to_queue(uri).await
+}
+
+/// Metadata for a list of track URIs (the queue only carries URIs).
+#[tauri::command]
+pub async fn spotify_tracks(uris: Vec<String>, state: State<'_, SpotifyState>) -> Result<Vec<NowPlaying>, String> {
+    Ok(hub(&state).await?.tracks(uris).await)
+}
+
+/// Jumps to a track in the queue.
+#[tauri::command]
+pub async fn spotify_skip_to(uri: String, uid: String, state: State<'_, SpotifyState>) -> Result<(), String> {
+    hub(&state).await?.skip_to(uri, uid).await
+}

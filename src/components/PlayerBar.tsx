@@ -5,11 +5,12 @@ import { usePlayer } from "../state/player";
 import { toast } from "../state/toast";
 import { formatDuration } from "../util/format";
 import { Cover } from "./Cover";
+import { LikeButton } from "./LikeButton";
 import { DevicePicker, RemoteBanner } from "./Devices";
-import { NextIcon, PauseIcon, PlayIcon, PrevIcon, RepeatIcon, ShuffleIcon, VolumeIcon } from "./icons";
+import { NextIcon, PauseIcon, PlayIcon, PrevIcon, QueueIcon, RepeatIcon, ShuffleIcon, VolumeIcon } from "./icons";
 import { Slider } from "./Slider";
 
-export function PlayerBar() {
+export function PlayerBar({ queueOpen, onToggleQueue }: { queueOpen: boolean; onToggleQueue: () => void }) {
   const p = usePlayer();
   const nav = useNav();
   const t = p.track;
@@ -45,6 +46,7 @@ export function PlayerBar() {
                 ))}
               </div>
             </div>
+            <LikeButton uri={t.uri} className="pb-like" />
           </>
         )}
       </div>
@@ -87,6 +89,9 @@ export function PlayerBar() {
       </div>
 
       <div className="pb-right">
+        <button className={`icon-btn ${queueOpen ? "on" : ""}`} onClick={onToggleQueue} aria-label="Queue" title="Queue">
+          <QueueIcon size={20} />
+        </button>
         <DevicePicker />
         <button
           className="icon-btn"

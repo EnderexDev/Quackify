@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { collection, PAGE_SIZE, play } from "../api/spotify";
 import type { Collection as Data, Track } from "../api/types";
 import { Cover } from "../components/Cover";
+import { SaveButton } from "../components/LikeButton";
 import { PlayButton } from "../components/PlayButton";
 import { TrackList } from "../components/TrackList";
 import { usePlayer } from "../state/player";
@@ -88,6 +89,7 @@ function Loaded({ first }: { first: Data }) {
           playing={isCurrent && player.playing}
           onClick={() => (isCurrent ? player.toggle() : play.context(uri).catch(toast))}
         />
+        {(first.kind === "album" || first.kind === "playlist") && <SaveButton uri={uri} kind={first.kind} />}
       </div>
       <TrackList
         tracks={tracks}

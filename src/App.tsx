@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { clearCache } from "./api/spotify";
 import { DuckIcon } from "./components/icons";
+import { ContextMenuProvider } from "./components/ContextMenu";
 import { PlayerBar } from "./components/PlayerBar";
+import { QueuePanel } from "./components/Queue";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { NavProvider, useNav } from "./state/nav";
@@ -60,7 +62,9 @@ function App() {
   return (
     <NavProvider>
       <PlayerProvider>
+        <ContextMenuProvider>
         <Shell name={status.profile?.display_name ?? status.username ?? ""} image={status.profile?.image ?? null} onLogout={logout} />
+        </ContextMenuProvider>
         <Toasts />
       </PlayerProvider>
     </NavProvider>
@@ -71,6 +75,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
   const nav = useNav();
   const player = usePlayer();
   const route = nav.route;
+  const [queueOpen, setQueueOpen] = useState(false);
 
   // Space plays/pauses, Alt+arrows go back/forward, unless the user is typing.
   useEffect(() => {
@@ -88,7 +93,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
 
   const key = JSON.stringify(route);
   return (
-    <div className="shell">
+    <div className={`shell ${queueOpen ? "with-queue" : ""}`}>
       <TopBar name={name} image={image} onLogout={onLogout} />
       <Sidebar />
       <main className="main panel" key={route.page === "search" ? "search" : key}>
@@ -97,7 +102,8 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
         {route.page === "collection" && <Collection uri={route.uri} />}
         {route.page === "artist" && <Artist uri={route.uri} />}
       </main>
-      <PlayerBar />
+      {queueOpen && <QueuePanel onClose={() => setQueueOpen(false)} />}
+      <PlayerBar queueOpen={queueOpen} onToggleQueue={() => setQueueOpen(!queueOpen)} />
     </div>
   );
 }

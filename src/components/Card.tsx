@@ -3,6 +3,8 @@ import { play } from "../api/spotify";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
 import { toast } from "../state/toast";
+import { useContextMenu } from "./ContextMenu";
+import { cardMenuHandler } from "./menus";
 import { Cover } from "./Cover";
 import { PlayButton } from "./PlayButton";
 
@@ -12,6 +14,7 @@ export function Card({ card }: { card: CardData }) {
   const player = usePlayer();
   const isCurrent = player.contextUri === card.uri;
   const round = card.kind === "artist";
+  const openMenu = useContextMenu();
 
   const onPlay = () => {
     if (isCurrent) player.toggle();
@@ -19,7 +22,7 @@ export function Card({ card }: { card: CardData }) {
   };
 
   return (
-    <div className="card" onClick={() => nav.open(card.uri)} title={card.title}>
+    <div className="card" onClick={() => nav.open(card.uri)} onContextMenu={cardMenuHandler(card, nav, openMenu)} title={card.title}>
       <div className="card-art">
         <Cover src={card.image} round={round} liked={card.kind === "liked"} />
         <PlayButton className="card-play" playing={isCurrent && player.playing} onClick={onPlay} />

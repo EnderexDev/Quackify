@@ -36,7 +36,10 @@ type Playback = {
   duration_ms: number;
   shuffle: boolean;
   repeat: Repeat;
+  next_tracks: QueuedTrack[];
 };
+
+export type QueuedTrack = { uri: string; uid: string; provider: string };
 
 type ConnectView = {
   local_device_id: string;
@@ -62,6 +65,8 @@ type Player = {
   shuffle: boolean;
   repeat: Repeat;
   devices: Device[];
+  /** What plays next on the active device. */
+  queue: QueuedTrack[];
   /** The device playing now, if it is not this app. */
   remoteDevice: Device | null;
   /** Current position in ms, extrapolated while playing. */
@@ -198,6 +203,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     shuffle: pending.shuffle ?? pb?.shuffle ?? false,
     repeat,
     devices: view?.devices ?? [],
+    queue: pb?.next_tracks ?? [],
     remoteDevice,
     position: () => {
       const c = clock.current;

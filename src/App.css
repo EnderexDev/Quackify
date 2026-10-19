@@ -406,7 +406,8 @@ h2 {
 
 .shortcuts {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Up to 4 columns, fewer when the page is narrow (queue open, small window). */
+  grid-template-columns: repeat(auto-fill, minmax(max(220px, calc(25% - 8px)), 1fr));
   gap: 8px;
   margin-bottom: 32px;
 }
@@ -562,7 +563,8 @@ h2 {
 
 .search-top {
   display: grid;
-  grid-template-columns: minmax(280px, 2fr) 3fr;
+  /* Side by side when there is room, stacked when the page is narrow. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
   gap: 24px;
   margin-bottom: 28px;
 }
@@ -628,11 +630,12 @@ h2 {
 /* ---------- Track list ---------- */
 
 .tracklist {
-  --cols: 40px minmax(200px, 4fr) minmax(120px, 3fr) 64px;
+  /* The last column holds the heart and the duration. */
+  --cols: 40px minmax(200px, 4fr) minmax(120px, 3fr) 100px;
 }
 
 .tracklist.no-album {
-  --cols: 40px minmax(200px, 1fr) 64px;
+  --cols: 40px minmax(0, 1fr) 100px;
 }
 
 .track-row {
@@ -1270,4 +1273,204 @@ button.device:hover {
 .device.current .device-sub {
   color: var(--accent);
   opacity: 0.8;
+}
+
+/* ---------- Likes, save buttons, menus, queue ---------- */
+
+.like-btn {
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+}
+
+.like-btn:not(:disabled):hover {
+  color: var(--text);
+  transform: scale(1.06);
+}
+
+.like-btn.on {
+  color: var(--accent);
+}
+
+/* In rows the heart shows on hover, and always once the song is liked. */
+.row-like {
+  visibility: hidden;
+  margin-right: 14px;
+}
+
+.track-row:hover .row-like,
+.track-row.liked .row-like {
+  visibility: visible;
+}
+
+.track-time {
+  align-items: center;
+}
+
+.pb-like {
+  margin-left: 4px;
+  flex: none;
+}
+
+.save-btn {
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 16px;
+  border: 1px solid #777;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.save-btn:not(:disabled):hover {
+  border-color: var(--text);
+  transform: scale(1.03);
+}
+
+.save-btn.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 4px;
+  background: #282828;
+  border-radius: 6px;
+  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.5);
+}
+
+.menu.submenu {
+  position: absolute;
+  left: calc(100% + 2px);
+  top: -4px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.menu.submenu.flip {
+  left: auto;
+  right: calc(100% + 2px);
+}
+
+.menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px 0 6px;
+  border-radius: 3px;
+  cursor: default;
+  font-size: 14px;
+}
+
+.menu-item:not(.disabled):hover,
+.menu-item.open {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.menu-item.disabled {
+  color: var(--muted);
+}
+
+.menu-check {
+  width: 16px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+
+.menu-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.shell.with-queue {
+  grid-template-columns: minmax(240px, 300px) 1fr minmax(280px, 340px);
+  grid-template-areas:
+    "top top top"
+    "side main queue"
+    "player player player";
+}
+
+.queue {
+  grid-area: queue;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.queue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 8px;
+}
+
+.queue-head h2 {
+  font-size: 18px;
+}
+
+.queue-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 12px;
+}
+
+.queue-body h3 {
+  font-size: 14px;
+  margin: 16px 8px 8px;
+}
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: default;
+}
+
+.queue-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.queue-cover {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 4px;
+}
+
+.queue-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.queue-name,
+.queue-artists {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-row.current .queue-name {
+  color: var(--accent);
+}
+
+.queue-artists,
+.queue-time {
+  color: var(--muted);
+  font-size: 13px;
 }

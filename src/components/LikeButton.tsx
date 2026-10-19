@@ -1,0 +1,32 @@
+import { useSaved } from "../state/saved";
+import { HeartIcon, HeartOutlineIcon } from "./icons";
+
+/** The heart: saves a song to Liked Songs (or an album, playlist or artist to the library). */
+export function LikeButton({ uri, size = 18, className = "" }: { uri: string; size?: number; className?: string }) {
+  const [saved, toggle] = useSaved(uri);
+  return (
+    <button
+      className={`like-btn ${saved ? "on" : ""} ${className}`}
+      aria-label={saved ? "Remove from Liked Songs" : "Save to Liked Songs"}
+      title={saved ? "Remove from Liked Songs" : "Save to Liked Songs"}
+      disabled={saved === undefined}
+      onClick={(e) => {
+        e.stopPropagation();
+        toggle();
+      }}
+    >
+      {saved ? <HeartIcon size={size} /> : <HeartOutlineIcon size={size} />}
+    </button>
+  );
+}
+
+/** "Save" / "Saved" for albums and playlists, "Follow" / "Following" for artists. */
+export function SaveButton({ uri, kind }: { uri: string; kind: "album" | "playlist" | "artist" }) {
+  const [saved, toggle] = useSaved(uri);
+  const label = kind === "artist" ? (saved ? "Following" : "Follow") : saved ? "Saved" : "Save";
+  return (
+    <button className={`save-btn ${saved ? "on" : ""}`} disabled={saved === undefined} onClick={toggle}>
+      {label}
+    </button>
+  );
+}

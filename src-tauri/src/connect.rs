@@ -59,7 +59,21 @@ pub struct Playback {
     duration_ms: u64,
     shuffle: bool,
     repeat: Repeat,
+    /// What plays next: added to the queue first, then the rest of the context.
+    next_tracks: Vec<QueuedTrack>,
 }
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct QueuedTrack {
+    uri: String,
+    /// Tells two copies of the same song apart when skipping to one.
+    uid: String,
+    /// "queue" for a track the user added, "context" or "autoplay" for the rest.
+    provider: String,
+}
+
+/// How many upcoming tracks the queue view gets.
+const QUEUE_LIMIT: usize = 50;
 
 #[derive(Serialize, Clone, Debug, Default, PartialEq)]
 pub struct ConnectView {
@@ -99,6 +113,8 @@ pub struct Hub {
     refresh_pending: AtomicBool,
     // One cluster read at a time, in order, so an older answer never overwrites a newer one.
     refreshing: tokio::sync::Mutex<()>,
+    // Track metadata already fetched, for the queue and lists that only carry URIs.
+    track_cache: StdMutex<std::collections::HashMap<String, NowPlaying>>,
 }
 
 enum Target {
@@ -122,6 +138,7 @@ impl Hub {
             wanted_track: StdMutex::new(None),
             refresh_pending: AtomicBool::new(false),
             refreshing: tokio::sync::Mutex::new(()),
+            track_cache: StdMutex::new(Default::default()),
         });
         match hub
             .session
@@ -454,6 +471,54 @@ impl Hub {
         }
     }
 
+    /// Adds a track to the queue of whatever device is playing.
+    pub async fn add_to_queue(self: &Arc<Self>, uri: String) -> Result<(), String> {
+        let to = {
+            let v = self.view.lock().unwrap();
+            v.active_device_id.clone().ok_or("Nothing is playing right now")?
+        };
+        self.remote_command(
+            &to,
+            json!({
+                "endpoint": "add_to_queue",
+                "track": { "uri": uri, "metadata": { "is_queued": "true" }, "provider": "queue" },
+            }),
+        )
+        .await
+    }
+
+    /// Jumps to a track further down the queue, dropping the ones before it.
+    pub async fn skip_to(self: &Arc<Self>, uri: String, uid: String) -> Result<(), String> {
+        let to = {
+            let v = self.view.lock().unwrap();
+            v.active_device_id.clone().ok_or("Nothing is playing right now")?
+        };
+        self.remote_command(&to, json!({ "endpoint": "skip_next", "track": { "uri": uri, "uid": uid } }))
+            .await
+    }
+
+    /// Name, artists, album and cover for each URI, in order; unknown ones are left out.
+    pub async fn tracks(self: &Arc<Self>, uris: Vec<String>) -> Vec<NowPlaying> {
+        let missing: Vec<String> = {
+            let cache = self.track_cache.lock().unwrap();
+            uris.iter().filter(|u| !cache.contains_key(*u)).cloned().collect()
+        };
+        let fetched = futures_util::future::join_all(missing.into_iter().map(|uri| {
+            let session = self.session.clone();
+            async move {
+                let id = SpotifyUri::from_uri(&uri).ok()?;
+                let t = Track::get(&session, &id).await.ok()?;
+                Some(now_playing(&t, uri))
+            }
+        }))
+        .await;
+        let mut cache = self.track_cache.lock().unwrap();
+        for np in fetched.into_iter().flatten() {
+            cache.insert(np.uri.clone(), np);
+        }
+        uris.iter().filter_map(|u| cache.get(u).cloned()).collect()
+    }
+
     /// Moves playback to `device_id`: this device pulls it, another device gets it pushed.
     pub async fn transfer(self: &Arc<Self>, device_id: String) -> Result<(), String> {
         let (local, active) = {
@@ -561,6 +626,22 @@ pub fn parse_cluster(c: &Value, local_device_id: &str) -> ConnectView {
             duration_ms,
             shuffle: o["shuffling_context"].as_bool().unwrap_or(false),
             repeat,
+            next_tracks: ps["next_tracks"]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|t| {
+                            let uri = t["uri"].as_str()?;
+                            (uri.starts_with("spotify:track:") || uri.starts_with("spotify:episode:")).then(|| QueuedTrack {
+                                uri: uri.to_string(),
+                                uid: t["uid"].as_str().unwrap_or_default().to_string(),
+                                provider: t["provider"].as_str().unwrap_or("context").to_string(),
+                            })
+                        })
+                        .take(QUEUE_LIMIT)
+                        .collect()
+                })
+                .unwrap_or_default(),
         }
     });
 
@@ -617,7 +698,12 @@ mod tests {
                 "track": { "uri": "spotify:track:141ldaB3OVfIcklQmUj12O" },
                 "context_uri": "spotify:playlist:37i9dQZF1F5p3rmiWPIYgZ",
                 "index": { "page": 0, "track": 7 },
-                "options": { "shuffling_context": true, "repeating_context": true, "repeating_track": false }
+                "options": { "shuffling_context": true, "repeating_context": true, "repeating_track": false },
+                "next_tracks": [
+                    { "uri": "spotify:track:queued", "provider": "queue" },
+                    { "uri": "spotify:delimiter", "provider": "context" },
+                    { "uri": "spotify:track:next", "provider": "context" }
+                ]
             }
         })
     }
@@ -635,6 +721,8 @@ mod tests {
         assert_eq!(p.index, Some(7));
         assert!(p.shuffle);
         assert_eq!(p.repeat, Repeat::All);
+        let queue: Vec<(&str, &str)> = p.next_tracks.iter().map(|t| (t.uri.as_str(), t.provider.as_str())).collect();
+        assert_eq!(queue, [("spotify:track:queued", "queue"), ("spotify:track:next", "context")], "delimiters are not tracks");
     }
 
     #[test]
