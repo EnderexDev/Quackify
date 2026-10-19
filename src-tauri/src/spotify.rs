@@ -1,10 +1,11 @@
-// Spotify playback through librespot: OAuth login, a credentials cache and one local player.
+// The Spotify session: OAuth login, the credentials cache, and the local Connect device
+// (librespot's Spirc driving one player). What plays where is connect.rs.
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use librespot_connect::{ConnectConfig, Spirc};
 use librespot_core::{
-    authentication::Credentials, cache::Cache, config::SessionConfig, session::Session,
-    spotify_uri::SpotifyUri,
+    authentication::Credentials, cache::Cache, config::DeviceType, config::SessionConfig, session::Session,
 };
 use librespot_oauth::OAuthClientBuilder;
 use librespot_playback::{
@@ -14,20 +15,43 @@ use librespot_playback::{
     player::{Player, PlayerEvent},
 };
 use serde::Serialize;
+use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex;
+
+use crate::connect::{ConnectView, Hub, NowPlaying, Repeat};
+use crate::pathfinder::Pathfinder;
 
 // The client id and redirect librespot itself logs in with; Spotify has this redirect registered.
 const CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
 const REDIRECT_URI: &str = "http://127.0.0.1:8898/login";
 const SCOPES: &[&str] = &["streaming"];
 const LOGIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+const LOGIN_CLEANUP_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
+/// How this device shows up in the other Spotify apps' device lists.
+const DEVICE_NAME: &str = "Quackify";
 
 const LOGIN_DONE_PAGE: &str = r#"<!doctype html><html><body style="font-family:sans-serif;background:#1a1a1a;color:#ffd84d;text-align:center;padding-top:20vh"><h1>Quackify is in. You can close this tab.</h1></body></html>"#;
 
 struct Engine {
     session: Session,
-    player: Arc<Player>,
+    spirc: Arc<Spirc>,
+    hub: Arc<Hub>,
+    profile: Profile,
+}
+
+impl Engine {
+    fn shutdown(&self) {
+        let _ = self.spirc.shutdown();
+        self.session.shutdown();
+    }
+}
+
+/// The name and picture Spotify shows for the account.
+#[derive(Serialize, Clone, Default)]
+pub struct Profile {
+    display_name: Option<String>,
+    image: Option<String>,
 }
 
 #[derive(Default)]
@@ -37,16 +61,18 @@ pub struct SpotifyState(Mutex<Option<Engine>>);
 pub struct Status {
     logged_in: bool,
     username: Option<String>,
+    profile: Profile,
 }
 
+/// Local player events, for a precise clock while this device is the one playing.
 #[derive(Serialize, Clone)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum UiEvent {
     Loading { uri: String },
     Playing { uri: String, position_ms: u32 },
     Paused { uri: String, position_ms: u32 },
+    Seeked { uri: String, position_ms: u32 },
     Stopped,
-    EndOfTrack { uri: String },
     Unavailable { uri: String },
 }
 
@@ -59,32 +85,14 @@ fn cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn open_cache(app: &AppHandle) -> Result<Cache, String> {
     let dir = cache_dir(app)?;
-    Cache::new(Some(&dir), None, None, None).map_err(|e| e.to_string())
+    Cache::new(Some(&dir), Some(&dir), None, None).map_err(|e| e.to_string())
 }
 
-// Accepts spotify:track:<id> or an open.spotify.com/track/<id> link.
-fn parse_uri(input: &str) -> Result<SpotifyUri, String> {
-    let input = input.trim();
-    let uri = match input.split_once("open.spotify.com/") {
-        Some((_, rest)) => {
-            let path = rest.split(['?', '#']).next().unwrap_or("");
-            let parts: Vec<&str> = path.split('/').filter(|p| !p.is_empty() && !p.starts_with("intl-")).collect();
-            match parts.as_slice() {
-                [kind, id, ..] => format!("spotify:{kind}:{id}"),
-                _ => return Err(format!("not a Spotify link: {input}")),
-            }
-        }
-        None => input.to_string(),
-    };
-    SpotifyUri::from_uri(&uri).map_err(|e| format!("{uri}: {e}"))
-}
-
+/// Logs in and registers this app as a Spotify Connect device.
 async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, String> {
-    let session = Session::new(SessionConfig::default(), Some(open_cache(app)?));
-    session
-        .connect(credentials, true)
-        .await
-        .map_err(|e| e.to_string())?;
+    let cache = open_cache(app)?;
+    let initial_volume = cache.volume().unwrap_or(u16::MAX / 2);
+    let session = Session::new(SessionConfig::default(), Some(cache));
 
     let mixer = mixer::find(None).ok_or("no mixer")?(MixerConfig::default())
         .map_err(|e| e.to_string())?;
@@ -96,28 +104,68 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
         move || backend(None, AudioFormat::default()),
     );
 
+    let config = ConnectConfig {
+        name: DEVICE_NAME.to_string(),
+        device_type: DeviceType::Computer,
+        initial_volume,
+        ..Default::default()
+    };
+    // Spirc connects the session itself and saves reusable credentials to the cache.
+    let (spirc, task) = Spirc::new(config, session.clone(), credentials, player.clone(), mixer)
+        .await
+        .map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn(task);
+    let spirc = Arc::new(spirc);
+    let hub = Hub::start(app.clone(), session.clone(), spirc.clone());
+
     let mut events = player.get_player_event_channel();
-    let app = app.clone();
+    let (app2, hub2) = (app.clone(), hub.clone());
     tauri::async_runtime::spawn(async move {
         while let Some(event) = events.recv().await {
             let ui = match event {
-                PlayerEvent::Loading { track_id, .. } => UiEvent::Loading { uri: track_id.to_string() },
+                PlayerEvent::Loading { track_id, .. } => Some(UiEvent::Loading { uri: track_id.to_string() }),
                 PlayerEvent::Playing { track_id, position_ms, .. } => {
-                    UiEvent::Playing { uri: track_id.to_string(), position_ms }
+                    Some(UiEvent::Playing { uri: track_id.to_string(), position_ms })
                 }
                 PlayerEvent::Paused { track_id, position_ms, .. } => {
-                    UiEvent::Paused { uri: track_id.to_string(), position_ms }
+                    Some(UiEvent::Paused { uri: track_id.to_string(), position_ms })
                 }
-                PlayerEvent::Stopped { .. } => UiEvent::Stopped,
-                PlayerEvent::EndOfTrack { track_id, .. } => UiEvent::EndOfTrack { uri: track_id.to_string() },
-                PlayerEvent::Unavailable { track_id, .. } => UiEvent::Unavailable { uri: track_id.to_string() },
+                PlayerEvent::Seeked { track_id, position_ms, .. }
+                | PlayerEvent::PositionCorrection { track_id, position_ms, .. } => {
+                    Some(UiEvent::Seeked { uri: track_id.to_string(), position_ms })
+                }
+                PlayerEvent::Stopped { .. } => Some(UiEvent::Stopped),
+                PlayerEvent::Unavailable { track_id, .. } => Some(UiEvent::Unavailable { uri: track_id.to_string() }),
+                PlayerEvent::TrackChanged { audio_item } => {
+                    hub2.announce_track(audio_item.uri.clone());
+                    None
+                }
+                // Shuffle, repeat and volume can change from another Spotify app: re-read the state.
+                PlayerEvent::ShuffleChanged { .. }
+                | PlayerEvent::RepeatChanged { .. }
+                | PlayerEvent::VolumeChanged { .. } => None,
                 _ => continue,
             };
-            let _ = app.emit("player-event", ui);
+            hub2.schedule_refresh();
+            if let Some(ui) = ui {
+                let _ = app2.emit("player-event", ui);
+            }
         }
     });
 
-    Ok(Engine { session, player })
+    let profile = fetch_profile(&session).await;
+    Ok(Engine { session, spirc, hub, profile })
+}
+
+async fn fetch_profile(session: &Session) -> Profile {
+    let Ok(bytes) = session.spclient().get_user_profile(&session.username(), Some(0), Some(0)).await else {
+        return Profile::default();
+    };
+    let v: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    Profile {
+        display_name: v["name"].as_str().filter(|s| !s.is_empty()).map(str::to_string),
+        image: v["image_url"].as_str().filter(|s| !s.is_empty()).map(str::to_string),
+    }
 }
 
 fn status_of(engine: &Option<Engine>) -> Status {
@@ -125,9 +173,15 @@ fn status_of(engine: &Option<Engine>) -> Status {
         Some(e) if !e.session.is_invalid() => Status {
             logged_in: true,
             username: Some(e.session.username()),
+            profile: e.profile.clone(),
         },
-        _ => Status { logged_in: false, username: None },
+        _ => Status { logged_in: false, username: None, profile: Profile::default() },
     }
+}
+
+async fn hub(state: &State<'_, SpotifyState>) -> Result<Arc<Hub>, String> {
+    let slot = state.0.lock().await;
+    Ok(slot.as_ref().ok_or("not logged in")?.hub.clone())
 }
 
 #[tauri::command]
@@ -175,8 +229,10 @@ pub async fn spotify_login(app: AppHandle, state: State<'_, SpotifyState>) -> Re
     let joined = match tokio::time::timeout(LOGIN_TIMEOUT, &mut waiting).await {
         Ok(joined) => joined,
         Err(_) => {
+            // Wake the listener so its thread ends and frees the port. A token exchange already
+            // under way cannot be cancelled, so the wait for it is bounded too.
             wake_redirect_listener();
-            let _ = waiting.await;
+            let _ = tokio::time::timeout(LOGIN_CLEANUP_WAIT, waiting).await;
             return Err("login timed out, try again".into());
         }
     };
@@ -196,8 +252,7 @@ pub async fn spotify_login(app: AppHandle, state: State<'_, SpotifyState>) -> Re
     let engine = connect(&app, Credentials::with_access_token(token.access_token)).await?;
     let mut slot = state.0.lock().await;
     if let Some(old) = slot.replace(engine) {
-        old.player.stop();
-        old.session.shutdown();
+        old.shutdown();
     }
     Ok(status_of(&slot))
 }
@@ -210,53 +265,106 @@ pub fn spotify_cancel_login() {
 
 #[tauri::command]
 pub async fn spotify_logout(app: AppHandle, state: State<'_, SpotifyState>) -> Result<(), String> {
-    // The saved credentials go first: if they cannot be deleted, the session stays as it was.
+    // Holding the engine lock for the whole logout keeps a restore or login from writing the
+    // credentials back in between. They go first: if they cannot be deleted, the session stays.
+    let mut slot = state.0.lock().await;
     let file = cache_dir(&app)?.join("credentials.json");
     if file.exists() {
         std::fs::remove_file(file).map_err(|e| e.to_string())?;
     }
-    if let Some(old) = state.0.lock().await.take() {
-        old.player.stop();
-        old.session.shutdown();
+    if let Some(old) = slot.take() {
+        old.shutdown();
     }
     Ok(())
 }
 
+/// Runs one of Spotify's internal GraphQL operations (see pathfinder.rs) and returns its data.
 #[tauri::command]
-pub async fn spotify_play(uri: String, state: State<'_, SpotifyState>) -> Result<String, String> {
-    let uri = parse_uri(&uri)?;
-    let slot = state.0.lock().await;
-    let engine = slot.as_ref().ok_or("not logged in")?;
-    let shown = uri.to_string();
-    engine.player.load(uri, true, 0);
-    Ok(shown)
+pub async fn spotify_query(
+    op: String,
+    variables: Value,
+    state: State<'_, SpotifyState>,
+    pathfinder: State<'_, Pathfinder>,
+) -> Result<Value, String> {
+    let session = {
+        let slot = state.0.lock().await;
+        slot.as_ref().ok_or("not logged in")?.session.clone()
+    };
+    pathfinder.query(&session, &op, variables).await
+}
+
+#[derive(Serialize)]
+pub struct PlayerState {
+    connect: ConnectView,
+    now_playing: Option<NowPlaying>,
+}
+
+/// Devices, what plays where, and the current track: for a window that just (re)loaded.
+#[tauri::command]
+pub async fn spotify_player_state(state: State<'_, SpotifyState>) -> Result<PlayerState, String> {
+    let hub = hub(&state).await?;
+    Ok(PlayerState { connect: hub.view(), now_playing: hub.now_playing() })
+}
+
+/// Plays a playlist, album, artist or Liked Songs from `track_uri` (or from the top).
+#[tauri::command]
+pub async fn spotify_play_context(
+    context_uri: String,
+    track_uri: Option<String>,
+    state: State<'_, SpotifyState>,
+) -> Result<(), String> {
+    hub(&state).await?.play_context(context_uri, track_uri).await
+}
+
+/// Plays a loose list of tracks (search results) from `index`.
+#[tauri::command]
+pub async fn spotify_play_tracks(uris: Vec<String>, index: usize, state: State<'_, SpotifyState>) -> Result<(), String> {
+    hub(&state).await?.play_tracks(uris, index).await
 }
 
 #[tauri::command]
 pub async fn spotify_pause(state: State<'_, SpotifyState>) -> Result<(), String> {
-    let slot = state.0.lock().await;
-    slot.as_ref().ok_or("not logged in")?.player.pause();
-    Ok(())
+    hub(&state).await?.pause().await
 }
 
 #[tauri::command]
 pub async fn spotify_resume(state: State<'_, SpotifyState>) -> Result<(), String> {
-    let slot = state.0.lock().await;
-    slot.as_ref().ok_or("not logged in")?.player.play();
-    Ok(())
+    hub(&state).await?.resume().await
 }
 
-#[cfg(test)]
-mod tests {
-    use super::parse_uri;
+#[tauri::command]
+pub async fn spotify_next(state: State<'_, SpotifyState>) -> Result<(), String> {
+    hub(&state).await?.next().await
+}
 
-    #[test]
-    fn parses_uris_and_links() {
-        let id = "4uLU6hMCjMI75M1A2tKUQC";
-        let want = format!("spotify:track:{id}");
-        assert_eq!(parse_uri(&want).unwrap().to_string(), want);
-        assert_eq!(parse_uri(&format!("https://open.spotify.com/track/{id}?si=abc")).unwrap().to_string(), want);
-        assert_eq!(parse_uri(&format!("https://open.spotify.com/intl-pt/track/{id}")).unwrap().to_string(), want);
-        assert!(parse_uri("https://open.spotify.com/").is_err());
-    }
+#[tauri::command]
+pub async fn spotify_previous(state: State<'_, SpotifyState>) -> Result<(), String> {
+    hub(&state).await?.previous().await
+}
+
+#[tauri::command]
+pub async fn spotify_seek(position_ms: u32, state: State<'_, SpotifyState>) -> Result<(), String> {
+    hub(&state).await?.seek(position_ms).await
+}
+
+/// `volume` goes from 0 to 1.
+#[tauri::command]
+pub async fn spotify_set_volume(volume: f64, state: State<'_, SpotifyState>) -> Result<(), String> {
+    hub(&state).await?.set_volume(volume).await
+}
+
+#[tauri::command]
+pub async fn spotify_set_shuffle(on: bool, state: State<'_, SpotifyState>) -> Result<(), String> {
+    hub(&state).await?.shuffle(on).await
+}
+
+#[tauri::command]
+pub async fn spotify_set_repeat(repeat: Repeat, state: State<'_, SpotifyState>) -> Result<(), String> {
+    hub(&state).await?.repeat(repeat).await
+}
+
+/// Moves playback to another Spotify Connect device (or pulls it to this one).
+#[tauri::command]
+pub async fn spotify_transfer(device_id: String, state: State<'_, SpotifyState>) -> Result<(), String> {
+    hub(&state).await?.transfer(device_id).await
 }

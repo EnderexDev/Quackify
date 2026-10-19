@@ -14,7 +14,10 @@
       {
         "title": "Quackify",
         "width": 1280,
-        "height": 800
+        "height": 800,
+        "minWidth": 960,
+        "minHeight": 620,
+        "backgroundColor": "#0b0b0b"
       }
     ],
     "security": {

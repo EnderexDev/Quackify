@@ -27,6 +27,12 @@ librespot-playback = "0.8"
 librespot-oauth = "0.8"
 librespot-metadata = "0.8"
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "time"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls"] }
+regex = "1"
+librespot-connect = "0.8"
+librespot-protocol = "0.8"
+futures-util = "0.3"
+http = "1"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
