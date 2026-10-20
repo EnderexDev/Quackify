@@ -41,14 +41,14 @@ export function SettingsView() {
   const s = view.settings;
 
   const save = async (next: Partial<Settings>) => {
-    const before = view;
     setView({ ...view, settings: { ...s, ...next } });
     setApplying(true);
     try {
       await invoke("settings_set", { settings: { ...s, ...next } });
     } catch (e) {
       toast(e);
-      setView(before);
+      // The settings may be saved even if applying them failed: show what is saved.
+      await invoke<View>("settings_get").then(setView, () => {});
     } finally {
       setApplying(false);
     }
@@ -111,7 +111,7 @@ export function SettingsView() {
       <section className="settings-group">
         <h2>Desktop</h2>
         <Row title="Close button keeps Quackify in the tray" note="The music keeps playing; quit from the tray icon.">
-          <Toggle on={s.close_to_tray} onChange={(on) => save({ close_to_tray: on })} />
+          <Toggle on={s.close_to_tray} disabled={applying} onChange={(on) => save({ close_to_tray: on })} />
         </Row>
         <Row title="Start with Windows" note="Opens Quackify in the tray when you log in to the computer.">
           <Toggle on={view.start_with_windows} onChange={setStartup} />

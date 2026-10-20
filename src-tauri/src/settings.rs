@@ -94,16 +94,20 @@ impl Store {
         self.current.lock().unwrap().clone()
     }
 
-    /// Saves `settings`; the previous ones come back.
+    /// Saves `settings`; the previous ones come back. One save at a time, and the file is
+    /// replaced whole, so it always matches what is in memory.
     pub fn set(&self, settings: Settings) -> Result<Settings, String> {
+        let mut current = self.current.lock().unwrap();
         if let Some(file) = &self.file {
             if let Some(dir) = file.parent() {
                 std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
             }
             let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-            std::fs::write(file, json).map_err(|e| e.to_string())?;
+            let tmp = file.with_extension("json.tmp");
+            std::fs::write(&tmp, json).map_err(|e| e.to_string())?;
+            std::fs::rename(&tmp, file).map_err(|e| e.to_string())?;
         }
-        Ok(std::mem::replace(&mut *self.current.lock().unwrap(), settings))
+        Ok(std::mem::replace(&mut *current, settings))
     }
 }
 
