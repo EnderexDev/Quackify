@@ -127,6 +127,8 @@ pub struct Store {
     current: Mutex<Settings>,
     /// Why songs are not being cached right now (the folder could not be made), if so.
     cache_problem: Mutex<Option<String>>,
+    /// One cache move at a time, from the check to the old cache's deletion.
+    cache_move: tokio::sync::Mutex<()>,
 }
 
 impl Store {
@@ -137,11 +139,22 @@ impl Store {
             .and_then(|f| std::fs::read_to_string(f).ok())
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
-        Self { file, current: Mutex::new(current), cache_problem: Mutex::new(None) }
+        Self { file, current: Mutex::new(current), cache_problem: Mutex::new(None), cache_move: tokio::sync::Mutex::new(()) }
     }
 
     pub fn get(&self) -> Settings {
         self.current.lock().unwrap().clone()
+    }
+
+    /// Puts `parent` back as the cache folder, only if the folder is still `expected` (nothing
+    /// else changed it meanwhile); every other setting stays as it is now.
+    fn restore_cache_parent(&self, expected: &Option<String>, parent: Option<String>) -> Result<bool, String> {
+        let now = self.get();
+        if &now.cache_parent != expected {
+            return Ok(false);
+        }
+        self.set(Settings { cache_parent: parent, ..now })?;
+        Ok(true)
     }
 
     /// Saves `settings`; the previous ones come back. One save at a time, and the file is
@@ -305,9 +318,10 @@ pub async fn settings_set_cache_folder(app: AppHandle, parent: Option<String>) -
         tauri::async_runtime::spawn_blocking(move || check_writable(&p)).await.map_err(|e| e.to_string())??;
     }
     let store = app.state::<Store>();
+    let _one_at_a_time = store.cache_move.lock().await;
     let before = store.get();
     if before.cache_parent == parent {
-        return Ok(settings_cache_folder(app));
+        return Ok(settings_cache_folder(app.clone()));
     }
     let old = cache_dir_for(&app, before.cache_parent.as_deref()).and_then(real_dir);
     // The old cache is deleted after the move: the new one must not be inside it, or the other
@@ -318,13 +332,15 @@ pub async fn settings_set_cache_folder(app: AppHandle, parent: Option<String>) -
             return Err("Pick a folder outside the current song cache.".into());
         }
     }
-    store.set(Settings { cache_parent: parent, ..before.clone() })?;
+    store.set(Settings { cache_parent: parent.clone(), ..before.clone() })?;
     let _ = app.emit("settings-changed", ());
     if let Err(e) = crate::spotify::reconnect(&app).await {
-        // Back to the folder that was working, which still has its songs.
-        store.set(before)?;
-        let _ = app.emit("settings-changed", ());
-        let _ = crate::spotify::reconnect(&app).await;
+        // Back to the folder that was working, which still has its songs. Only the folder goes
+        // back: settings changed meanwhile are kept.
+        if store.restore_cache_parent(&parent, before.cache_parent)? {
+            let _ = app.emit("settings-changed", ());
+            let _ = crate::spotify::reconnect(&app).await;
+        }
         return Err(e);
     }
     if let Some(old) = old.filter(|o| Some(o) != audio_cache_dir(&app).as_ref()) {
@@ -334,7 +350,7 @@ pub async fn settings_set_cache_folder(app: AppHandle, parent: Option<String>) -
         })
         .await;
     }
-    Ok(settings_cache_folder(app))
+    Ok(settings_cache_folder(app.clone()))
 }
 
 /// The cache directory if it is a real directory: a link put in its place is never walked.
@@ -473,6 +489,25 @@ mod tests {
         assert!(nested(&base.join("a").join("b"), &base.join("a")));
         assert!(!nested(&base.join("a"), &base.join("keep")));
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn restoring_the_cache_folder_keeps_other_changes() {
+        let store = Store {
+            file: None,
+            current: Mutex::new(Settings { cache_parent: Some("E:\\New".into()), ..Settings::default() }),
+            cache_problem: Mutex::new(None),
+            cache_move: tokio::sync::Mutex::new(()),
+        };
+        // Changed meanwhile: kept.
+        store.set(Settings { device_name: "Sala".into(), ..store.get() }).unwrap();
+        assert!(store.restore_cache_parent(&Some("E:\\New".into()), None).unwrap());
+        assert_eq!(store.get().cache_parent, None);
+        assert_eq!(store.get().device_name, "Sala");
+        // Another move got there first: left alone.
+        store.set(Settings { cache_parent: Some("F:\\Other".into()), ..store.get() }).unwrap();
+        assert!(!store.restore_cache_parent(&Some("E:\\New".into()), None).unwrap());
+        assert_eq!(store.get().cache_parent.as_deref(), Some("F:\\Other"));
     }
 
     #[test]
