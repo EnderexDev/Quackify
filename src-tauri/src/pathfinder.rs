@@ -49,10 +49,12 @@ const DEFAULT_HASHES: &[(&str, &str)] = &[
     ("queryShowMetadataV2", "b475447846f37cc426add800b995a7859c169c53c72b62de6338c0c40a5dacea"),
     ("queryPodcastEpisodes", "3539d746cf882f3909660de40b4ef472b3f5893a0761d617c282541de5d412c5"),
     ("getEpisodeOrChapter", "5f77db47e5a2ce6680330bb61317aa09e17ddd1d189513cb218e7cd3e43288be"),
+    ("queryTrackCreditsGroupedModal", "f135fb9be58a72d041ab5d214d817021a272405d883860468e2627afb01a3ca9"),
 ];
 
-/// The lazily loaded route chunks that hold operations the app uses (search, genre pages, artist).
-const ROUTE_WORDS: &[&str] = &["search", "browse", "routes-artist"];
+/// The lazily loaded chunks that hold operations the app uses (search, genre pages, artist, and
+/// the dialogs, where song credits are).
+const ROUTE_WORDS: &[&str] = &["search", "browse", "routes-artist", "root-dialogs"];
 
 pub struct Pathfinder {
     http: reqwest::Client,

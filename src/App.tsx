@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { clearCache } from "./api/spotify";
 import { DuckIcon } from "./components/icons";
 import { ContextMenuProvider } from "./components/ContextMenu";
+import { CreditsHost } from "./components/Credits";
 import { PlayerBar } from "./components/PlayerBar";
 import { NowPlayingPanel } from "./components/NowPlaying";
 import { QueuePanel } from "./components/Queue";
@@ -70,6 +71,7 @@ function App() {
       <PlayerProvider>
         <ContextMenuProvider>
         <Shell name={status.profile?.display_name ?? status.username ?? ""} image={status.profile?.image ?? null} onLogout={logout} />
+        <CreditsHost />
         </ContextMenuProvider>
         <Toasts />
       </PlayerProvider>

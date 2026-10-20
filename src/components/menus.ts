@@ -1,6 +1,7 @@
 // The items of the right-click menus for tracks and for cards (playlists, albums, artists).
 import { addToPlaylist, areSaved, createPlaylist, editablePlaylists, save, unsave } from "../api/library";
-import { play } from "../api/spotify";
+import { play, songRadio } from "../api/spotify";
+import { openCredits } from "./Credits";
 import type { Card, Named } from "../api/types";
 import { markSaved, notifyLibraryChanged, setSaved } from "../state/saved";
 import { toast } from "../state/toast";
@@ -15,11 +16,17 @@ export function webLink(uri: string): string {
 }
 
 /** Copies to the clipboard and says whether it worked. */
-export const copy = (text: string) =>
+export const copy = (text: string, done = "Link copied") =>
   navigator.clipboard.writeText(text).then(
-    () => toast("Link copied"),
+    () => toast(done),
     (e) => toast(e),
   );
+
+/** The player Spotify gives to put a song in a web page. */
+export function embedCode(uri: string): string {
+  const [, kind, id] = uri.split(":");
+  return `<iframe style="border-radius:12px" src="https://open.spotify.com/embed/${kind}/${id}?utm_source=generator" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
+}
 
 export function trackMenu(
   track: { uri: string; name?: string; artists: Named[]; album: Named | null },
@@ -72,8 +79,20 @@ export function trackMenu(
           ]
         : []),
     ...(track.album?.uri ? [{ label: "Go to album", onClick: () => nav.open(track.album!.uri) }] : []),
+    ...(track.uri.startsWith("spotify:track:")
+      ? [
+          { label: "Go to song radio", onClick: () => songRadio(track.uri).then((u) => nav.open(u), toast) },
+          { label: "Show credits", onClick: () => openCredits(track.uri) },
+        ]
+      : []),
     "separator",
-    { label: "Copy song link", onClick: () => copy(webLink(track.uri)) },
+    {
+      label: "Share",
+      submenu: () => [
+        { label: "Copy song link", onClick: () => copy(webLink(track.uri)) },
+        { label: "Embed track", onClick: () => copy(embedCode(track.uri), "Embed code copied") },
+      ],
+    },
   ];
 }
 

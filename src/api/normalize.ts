@@ -7,6 +7,7 @@ import type {
   CardPage,
   Category,
   Collection,
+  Credits,
   Episode,
   EpisodePage,
   Home,
@@ -444,6 +445,26 @@ export function toTrackDetails(data: Raw): TrackDetails {
         }
       : null,
     credits,
+  };
+}
+
+export function toCredits(data: Raw): Credits {
+  const tr = data?.trackUnion;
+  const groups: Credits["groups"] = [];
+  for (const c of tr?.creditsTrait?.contributors?.items ?? []) {
+    if (!c?.name) continue;
+    const role = c.roleGroup?.name || "Credits";
+    let g = groups.find((x) => x.role === role);
+    if (!g) groups.push((g = { role, people: [] }));
+    const same = g.people.find((p) => p.name === c.name);
+    if (same) {
+      if (c.role && !same.roles.includes(c.role)) same.roles.push(c.role);
+    } else g.people.push({ uri: c.uri || null, name: c.name, roles: c.role ? [c.role] : [] });
+  }
+  return {
+    title: tr?.name ?? "",
+    groups,
+    sources: (tr?.creditsTrait?.sources?.items ?? []).map((s: Raw) => s?.name).filter(Boolean),
   };
 }
 

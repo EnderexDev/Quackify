@@ -140,3 +140,10 @@ export type Show = {
 };
 
 export type EpisodePage = { episodes: Episode[]; total: number; next: number | null };
+
+/** Everyone credited on a song, grouped like Spotify's credits dialog. */
+export type Credits = {
+  title: string;
+  groups: { role: string; people: { uri: string | null; name: string; roles: string[] }[] }[];
+  sources: string[];
+};

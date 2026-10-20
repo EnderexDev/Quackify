@@ -2321,3 +2321,40 @@ button.device:hover {
   background: rgba(255, 216, 77, 0.18);
   box-shadow: inset 0 0 0 2px var(--accent);
 }
+
+/* ---------- Credits dialog ---------- */
+
+.credits {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.credits-song {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.credits h3 {
+  font-size: 14px;
+  margin: 16px 0 8px;
+}
+
+.credits-person {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.credits-person a {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.credits-person a:hover {
+  text-decoration: underline;
+}
+
+.credits-source {
+  margin-top: 16px;
+}

@@ -462,6 +462,21 @@ pub async fn spotify_tracks(uris: Vec<String>, state: State<'_, SpotifyState>) -
     Ok(hub(&state).await?.tracks(uris).await)
 }
 
+/// The song radio of a track: the playlist Spotify makes from it ("Go to song radio").
+#[tauri::command]
+pub async fn spotify_song_radio(uri: String, state: State<'_, SpotifyState>) -> Result<String, String> {
+    use librespot_core::SpotifyUri;
+    let id = SpotifyUri::from_uri(&uri).map_err(|e| e.to_string())?;
+    let session = session(&state).await?;
+    let bytes = session.spclient().get_radio_for_track(&id).await.map_err(|e| e.to_string())?;
+    radio_playlist(&serde_json::from_slice(&bytes).map_err(|e| e.to_string())?)
+        .ok_or_else(|| "Spotify has no radio for this song.".to_string())
+}
+
+fn radio_playlist(v: &Value) -> Option<String> {
+    v["mediaItems"].as_array()?.iter().find_map(|m| m["uri"].as_str().filter(|u| u.starts_with("spotify:playlist:")).map(str::to_string))
+}
+
 /// Removes, moves or clears what plays next.
 #[tauri::command]
 pub async fn spotify_edit_queue(edit: crate::connect::QueueEdit, state: State<'_, SpotifyState>) -> Result<(), String> {
@@ -661,6 +676,13 @@ pub async fn spotify_rootlist_has(uris: Vec<String>, state: State<'_, SpotifySta
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_the_radio_playlist() {
+        let v = serde_json::json!({ "total": 1, "mediaItems": [{ "uri": "spotify:playlist:37i9dQZF1E8abc" }] });
+        assert_eq!(radio_playlist(&v).as_deref(), Some("spotify:playlist:37i9dQZF1E8abc"));
+        assert_eq!(radio_playlist(&serde_json::json!({ "mediaItems": [] })), None);
+    }
 
     #[test]
     fn reads_synced_lyrics_and_colors() {

@@ -9,6 +9,7 @@ import type {
   CardPage,
   Category,
   Collection,
+  Credits,
   Episode,
   EpisodePage,
   Home,
@@ -221,6 +222,18 @@ export async function saveRecentSearch(uri: string): Promise<void> {
 /** Removes these from recent searches. */
 export async function removeRecentSearches(uris: string[]): Promise<void> {
   await query("removeRecentSearches", { uris });
+}
+
+/** Everyone credited on a song. */
+export function credits(trackUri: string): Promise<Credits> {
+  return cached(`credits:${trackUri}`, async () =>
+    n.toCredits(await query("queryTrackCreditsGroupedModal", { trackUri, contributorsLimit: 100, contributorsOffset: 0 })),
+  );
+}
+
+/** The playlist Spotify makes from a song ("Go to song radio"). */
+export function songRadio(trackUri: string): Promise<string> {
+  return invoke<string>("spotify_song_radio", { uri: trackUri });
 }
 
 /** How many episodes one page of a show asks for. */
