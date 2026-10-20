@@ -1,11 +1,12 @@
 // Podcasts: a show's page (header, follow, every episode as you scroll) and an episode's page.
 import { useEffect, useRef, useState } from "react";
 import { episode as loadEpisode, play, show as loadShow, showEpisodes } from "../api/spotify";
+import { formatDay } from "../api/normalize";
 import type { Episode, EpisodePage } from "../api/types";
 import { useContextMenu } from "../components/ContextMenu";
 import { Cover } from "../components/Cover";
 import { SaveButton } from "../components/LikeButton";
-import { webLink } from "../components/menus";
+import { copy, webLink } from "../components/menus";
 import { PlayButton } from "../components/PlayButton";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
@@ -114,7 +115,7 @@ function Episodes({ showUri, first }: { showUri: string; first: EpisodePage }) {
 
 /** The date and how long is left, like "Oct 20, 2026 • 22 min left". */
 function episodeMeta(e: Episode, playingMs: number | null) {
-  const date = e.released ? new Date(e.released).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
+  const date = formatDay(e.released);
   const at = playingMs ?? e.playedMs;
   const time = e.finished
     ? "Played"
@@ -142,7 +143,7 @@ function EpisodeRow({ episode: e, contextUri }: { episode: Episode; contextUri: 
           { label: "Add to queue", onClick: () => play.addToQueue(e.uri).catch(toast) },
           "separator",
           { label: "Go to podcast", onClick: () => e.show.uri && nav.open(e.show.uri), disabled: !e.show.uri },
-          { label: "Copy episode link", onClick: () => navigator.clipboard.writeText(webLink(e.uri)).then(() => toast("Link copied")) },
+          { label: "Copy episode link", onClick: () => copy(webLink(e.uri)) },
         ])
       }
     >

@@ -271,11 +271,16 @@ export function toSearch(data: Raw): SearchResults {
   };
 }
 
-/** "Mar 3, 2024" for an ISO date. */
-function formatDay(iso: string | null | undefined): string {
+/**
+ * "Mar 3, 2024" for an ISO date. A day-only date (no time, or midnight UTC, as Spotify sends
+ * dates known only to the day) is that calendar day everywhere, not the day before west of UTC.
+ */
+export function formatDay(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
-  return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  if (isNaN(d.getTime())) return "";
+  const dayOnly = !iso.includes("T") || /T00:00(:00(.0+)?)?Z$/.test(iso);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", ...(dayOnly ? { timeZone: "UTC" } : {}) });
 }
 
 export function toEpisode(x: Raw): Episode | null {

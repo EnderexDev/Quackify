@@ -14,7 +14,8 @@ export function webLink(uri: string): string {
   return kind && id ? `https://open.spotify.com/${kind}/${id}` : uri;
 }
 
-const copy = (text: string) =>
+/** Copies to the clipboard and says whether it worked. */
+export const copy = (text: string) =>
   navigator.clipboard.writeText(text).then(
     () => toast("Link copied"),
     (e) => toast(e),
