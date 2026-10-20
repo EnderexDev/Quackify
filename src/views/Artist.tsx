@@ -4,7 +4,11 @@ import { Shelf } from "../components/Card";
 import { SaveButton } from "../components/LikeButton";
 import { PlayButton } from "../components/PlayButton";
 import { TrackList } from "../components/TrackList";
+import { useContextMenu } from "../components/ContextMenu";
+import { ShuffleIcon } from "../components/icons";
+import { followMenu } from "../components/menus";
 import { useNav } from "../state/nav";
+import { useSaved } from "../state/saved";
 import { usePlayer } from "../state/player";
 import { toast } from "../state/toast";
 import { formatCount } from "../util/format";
@@ -15,6 +19,8 @@ import { Failed, Loading } from "./common";
 export function Artist({ uri }: { uri: string }) {
   const player = usePlayer();
   const nav = useNav();
+  const openMenu = useContextMenu();
+  const [following] = useSaved(uri);
   const [showAll, setShowAll] = useState(false);
   const { data, error, loading } = useAsync(() => artist(uri), uri);
   if (error) return <Failed error={error} />;
@@ -45,7 +51,18 @@ export function Artist({ uri }: { uri: string }) {
           playing={isCurrent && player.playing}
           onClick={() => (isCurrent ? player.toggle() : top.length && play.tracks(topUris, 0).catch(toast))}
         />
+        <button
+          className={`icon-btn big ${player.shuffle ? "on" : ""}`}
+          onClick={() => player.setShuffle(!player.shuffle)}
+          aria-label={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
+          title={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
+        >
+          <ShuffleIcon size={28} />
+        </button>
         <SaveButton uri={uri} kind="artist" />
+        <button className="more-btn" aria-label={`More options for ${data.name}`} title="More options" onClick={(e) => openMenu(e, followMenu(uri, following))}>
+          •••
+        </button>
       </div>
       {top.length > 0 && (
         <section className="artist-popular">

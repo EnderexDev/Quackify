@@ -24,6 +24,7 @@ export function TrackList({
   onRemove,
   onMove,
   playlistName,
+  positions,
 }: {
   tracks: Track[];
   onPlay: (index: number) => void;
@@ -35,6 +36,8 @@ export function TrackList({
   onRemove?: (index: number) => void;
   onMove?: (from: number, to: number) => void;
   playlistName?: string;
+  /** Where each row sits in the list's own order, when the rows are sorted or filtered. */
+  positions?: number[];
 }) {
   const player = usePlayer();
   const [dragFrom, setDragFrom] = useState<number | null>(null);
@@ -46,7 +49,7 @@ export function TrackList({
     current.uri === t.uri &&
     (!contextUri || player.contextUri === contextUri) &&
     // In a context, the same song can be listed twice: only the playing copy lights up.
-    (!contextUri || player.index === i || !tracks.some((x, j) => j !== i && x.uri === t.uri));
+    (!contextUri || player.index === (positions?.[i] ?? i) || !tracks.some((x, j) => j !== i && x.uri === t.uri));
 
   return (
     <div className={`tracklist ${showAlbum ? "" : "no-album"}`}>

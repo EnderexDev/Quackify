@@ -6,9 +6,10 @@ import type { Episode, EpisodePage } from "../api/types";
 import { useContextMenu } from "../components/ContextMenu";
 import { Cover } from "../components/Cover";
 import { SaveButton } from "../components/LikeButton";
-import { copy, webLink } from "../components/menus";
+import { copy, followMenu, webLink } from "../components/menus";
 import { PlayButton } from "../components/PlayButton";
 import { useNav } from "../state/nav";
+import { useSaved } from "../state/saved";
 import { usePlayer } from "../state/player";
 import { toast } from "../state/toast";
 import { formatDuration } from "../util/format";
@@ -17,6 +18,8 @@ import { Failed, Loading } from "./common";
 
 export function ShowView({ uri }: { uri: string }) {
   const player = usePlayer();
+  const openMenu = useContextMenu();
+  const [following] = useSaved(uri);
   const { data, error, loading } = useAsync(() => Promise.all([loadShow(uri), showEpisodes(uri, 0)]), uri);
   if (error) return <Failed error={error} />;
   if (loading || !data) return <Loading />;
@@ -41,6 +44,9 @@ export function ShowView({ uri }: { uri: string }) {
       <div className="actions">
         <PlayButton size={56} playing={isCurrent && player.playing} onClick={playShow} />
         <SaveButton uri={uri} kind="show" />
+        <button className="more-btn" aria-label={`More options for ${s.name}`} title="More options" onClick={(e) => openMenu(e, followMenu(uri, following))}>
+          •••
+        </button>
       </div>
       <div className="show-body">
         <section className="show-episodes">

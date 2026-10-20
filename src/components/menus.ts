@@ -102,6 +102,108 @@ export function cardMenu(card: Card, saved: boolean | undefined, nav: Nav): Menu
   return items;
 }
 
+/** How many songs "Add to queue" takes from a whole list, one command each. */
+export const QUEUE_LIMIT = 100;
+/** Spotify adds at most this many songs to a playlist per request. */
+const ADD_BATCH = 100;
+
+async function addAll(playlistUri: string, uris: string[]) {
+  for (let i = 0; i < uris.length; i += ADD_BATCH) await addToPlaylist(playlistUri, uris.slice(i, i + ADD_BATCH));
+}
+
+/**
+ * The ••• menu of a playlist, album or Liked Songs. `songs` loads every song of the list (it may
+ * be paged); the other entries depend on what the list is and whether it is the user's own.
+ */
+export function collectionMenu(o: {
+  kind: "playlist" | "album" | "liked";
+  uri: string;
+  title: string;
+  saved: boolean | undefined;
+  own: boolean;
+  artists: Named[];
+  songs: () => Promise<string[]>;
+  nav: Nav;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}): MenuItem[] {
+  const items: MenuItem[] = [
+    {
+      label: "Add to queue",
+      onClick: async () => {
+        try {
+          const uris = await o.songs();
+          for (const u of uris.slice(0, QUEUE_LIMIT)) await play.addToQueue(u);
+          toast(uris.length > QUEUE_LIMIT ? `Added the first ${QUEUE_LIMIT} songs to the queue` : "Added to queue");
+        } catch (e) {
+          toast(e);
+        }
+      },
+    },
+    {
+      label: "Add to playlist",
+      submenuHead: [
+        {
+          label: "New playlist",
+          onClick: () =>
+            o
+              .songs()
+              .then(async (uris) => {
+                const created = await createPlaylist(o.title);
+                await addAll(created, uris);
+                notifyLibraryChanged();
+                toast("Added to a new playlist");
+                o.nav.open(created);
+              })
+              .catch(toast),
+        },
+        "separator",
+      ],
+      // The lookup takes a song, not a list: any song of the list does to get the playlists.
+      submenu: async () =>
+        (await editablePlaylists((await o.songs())[0] ?? o.uri))
+          .filter((p) => p.uri !== o.uri)
+          .map((p) => ({
+            label: p.name,
+            onClick: () =>
+              o
+                .songs()
+                .then((uris) => addAll(p.uri, uris))
+                .then(() => toast(`Added to ${p.name}`), toast),
+          })),
+    },
+  ];
+  if (o.kind !== "liked" && !o.own) {
+    items.push({
+      label: o.saved ? "Remove from Your Library" : "Save to Your Library",
+      disabled: o.saved === undefined,
+      onClick: () => setSaved(o.uri, !o.saved),
+    });
+  }
+  if (o.kind === "album" && o.artists.length) {
+    items.push("separator");
+    items.push(
+      o.artists.length === 1
+        ? { label: "Go to artist", onClick: () => o.nav.open(o.artists[0].uri) }
+        : { label: "Go to artist", submenu: () => o.artists.map((a) => ({ label: a.name, onClick: () => o.nav.open(a.uri) })) },
+    );
+  }
+  if (o.own) {
+    items.push("separator", { label: "Edit details", onClick: o.onEdit }, { label: "Delete", onClick: o.onDelete });
+  }
+  if (o.kind !== "liked") items.push("separator", { label: "Copy link", onClick: () => copy(webLink(o.uri)) });
+  return items;
+}
+
+/** The ••• menu of an artist's or a podcast's own page. */
+export function followMenu(uri: string, saved: boolean | undefined): MenuItem[] {
+  return [
+    { label: saved ? "Unfollow" : "Follow", disabled: saved === undefined, onClick: () => setSaved(uri, !saved) },
+    "separator",
+    { label: "Copy link", onClick: () => copy(webLink(uri)) },
+  ];
+}
+
 /** onContextMenu for a card: asks whether it is saved, then opens its menu. */
 export function cardMenuHandler(
   card: Card,

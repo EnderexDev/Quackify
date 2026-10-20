@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { editPlaylist, moveInPlaylist, removeFromPlaylist, unsave } from "../api/library";
 import { collection, PAGE_SIZE, play } from "../api/spotify";
 import type { Collection as Data, Track } from "../api/types";
@@ -6,6 +6,9 @@ import { useContextMenu } from "../components/ContextMenu";
 import { Cover } from "../components/Cover";
 import { ConfirmDialog, EditDetailsDialog } from "../components/Dialog";
 import { SaveButton } from "../components/LikeButton";
+import { collectionMenu } from "../components/menus";
+import { useSaved } from "../state/saved";
+import { SearchIcon, ShuffleIcon } from "../components/icons";
 import { PlayButton } from "../components/PlayButton";
 import { TrackList } from "../components/TrackList";
 import { useNav } from "../state/nav";
@@ -15,6 +18,28 @@ import { toast } from "../state/toast";
 import { formatCount, formatDuration } from "../util/format";
 import { useAsync } from "../util/useAsync";
 import { Failed, Loading } from "./common";
+
+type Sort = "custom" | "added" | "title" | "artist" | "album" | "duration";
+
+const SORT_LABEL: Record<Sort, string> = {
+  custom: "Custom order",
+  added: "Date added",
+  title: "Title",
+  artist: "Artist",
+  album: "Album",
+  duration: "Duration",
+};
+
+const byText = (pick: (t: Track) => string) => (a: Track, b: Track) =>
+  pick(a).localeCompare(pick(b), undefined, { sensitivity: "base" });
+const COMPARE: Record<Exclude<Sort, "custom">, (a: Track, b: Track) => number> = {
+  // Newest first, like Spotify.
+  added: (a, b) => (b.addedAt ?? "").localeCompare(a.addedAt ?? ""),
+  title: byText((t) => t.name),
+  artist: byText((t) => t.artists[0]?.name ?? ""),
+  album: byText((t) => t.album?.name ?? ""),
+  duration: (a, b) => a.durationMs - b.durationMs,
+};
 
 const KIND_LABEL = { playlist: "Playlist", album: "Album", liked: "Playlist", artist: "Artist", track: "Song", show: "Podcast", episode: "Episode" } as const;
 
@@ -41,6 +66,58 @@ function Loaded({ first }: { first: Data }) {
   const loadingMore = useRef(false);
   const sentinel = useRef<HTMLDivElement>(null);
   const uri = first.uri;
+  const [saved] = useSaved(first.kind === "album" || (first.kind === "playlist" && !own) ? uri : undefined);
+  // Search and sort, for playlists and Liked Songs. Liked Songs comes newest first already.
+  const listTools = first.kind !== "album";
+  const naturalSort: Sort = first.kind === "liked" ? "added" : "custom";
+  const [sort, setSort] = useState<Sort>(naturalSort);
+  const [filter, setFilter] = useState("");
+  const [searching, setSearching] = useState(false);
+  const reordered = sort !== naturalSort || filter.trim() !== "";
+
+  // Every page, for sorting, searching and whole-list actions: they need all the songs.
+  const tracksRef = useRef(tracks);
+  tracksRef.current = tracks;
+  const doneRef = useRef(done);
+  doneRef.current = done;
+  const loadingAll = useRef<Promise<Track[]> | null>(null);
+  const loadAll = (): Promise<Track[]> => {
+    if (doneRef.current) return Promise.resolve(tracksRef.current);
+    loadingAll.current ??= (async () => {
+      let all = tracksRef.current;
+      while (all.length < first.total) {
+        const page = await collection(uri, all.length);
+        if (page.tracks.length === 0) break;
+        all = [...all, ...page.tracks];
+      }
+      setTracks(all);
+      setDone(true);
+      return all;
+    })().finally(() => (loadingAll.current = null));
+    return loadingAll.current;
+  };
+  const [loadingForView, setLoadingForView] = useState(false);
+  useEffect(() => {
+    if (!reordered || done) return;
+    setLoadingForView(true);
+    loadAll()
+      .catch(toast)
+      .finally(() => setLoadingForView(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reordered, done]);
+
+  // The rows shown, and where each sits in the list's own order.
+  const view = useMemo(() => {
+    let rows = tracks.map((t, i) => ({ t, i }));
+    const q = filter.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter(({ t }) =>
+        [t.name, t.album?.name ?? "", ...t.artists.map((a) => a.name)].some((x) => x.toLowerCase().includes(q)),
+      );
+    }
+    if (sort !== naturalSort && sort !== "custom") rows = [...rows].sort((a, b) => COMPARE[sort](a.t, b.t));
+    return { tracks: rows.map((r) => r.t), positions: rows.map((r) => r.i) };
+  }, [tracks, filter, sort, naturalSort]);
 
   // Next page when the end of the list comes into view.
   useEffect(() => {
@@ -67,10 +144,11 @@ function Loaded({ first }: { first: Data }) {
     return () => io.disconnect();
   }, [tracks.length, done, uri, first.total]);
 
-  // Optimistic: the list changes at once and comes back if Spotify refuses.
+  // Optimistic: the list changes at once and comes back if Spotify refuses. `i` is the row's
+  // place in the list's own order.
   const removeAt = (i: number) => {
     const t = tracks[i];
-    if (!t.uid) return;
+    if (!t?.uid) return;
     const before = tracks;
     setTracks(tracks.filter((_, j) => j !== i));
     removeFromPlaylist(uri, [t.uid]).then(
@@ -98,6 +176,23 @@ function Loaded({ first }: { first: Data }) {
   };
 
   const isCurrent = player.contextUri === uri;
+  const playList = () => (isCurrent ? player.toggle() : play.context(uri).catch(toast));
+  const openMore = (e: React.MouseEvent) =>
+    openMenu(
+      e,
+      collectionMenu({
+        kind: first.kind as "playlist" | "album" | "liked",
+        uri,
+        title,
+        saved,
+        own,
+        artists: first.kind === "album" ? (tracks[0]?.artists ?? []) : [],
+        songs: () => loadAll().then((all) => all.filter((t) => t.playable).map((t) => t.uri)),
+        nav,
+        onEdit: () => setDialog("edit"),
+        onDelete: () => setDialog("delete"),
+      }),
+    );
   const totalMs = first.kind === "album" ? tracks.reduce((s, t) => s + t.durationMs, 0) : 0;
   const color = first.color ?? "#3a3a3a";
 
@@ -133,38 +228,80 @@ function Loaded({ first }: { first: Data }) {
         </div>
       </header>
       <div className="actions">
-        <PlayButton
-          size={56}
-          playing={isCurrent && player.playing}
-          onClick={() => (isCurrent ? player.toggle() : play.context(uri).catch(toast))}
-        />
+        <PlayButton size={56} playing={isCurrent && player.playing} onClick={playList} />
+        <button
+          className={`icon-btn big ${player.shuffle ? "on" : ""}`}
+          onClick={() => player.setShuffle(!player.shuffle)}
+          aria-label={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
+          title={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
+        >
+          <ShuffleIcon size={28} />
+        </button>
         {(first.kind === "album" || (first.kind === "playlist" && !own)) && <SaveButton uri={uri} kind={first.kind} />}
-        {own && (
-          <button
-            className="more-btn"
-            aria-label="More options"
-            onClick={(e) =>
-              openMenu(e, [
-                { label: "Edit details", onClick: () => setDialog("edit") },
-                { label: "Delete", onClick: () => setDialog("delete") },
-              ])
-            }
-          >
-            •••
-          </button>
+        <button className="more-btn" aria-label={`More options for ${title}`} title="More options" onClick={openMore}>
+          •••
+        </button>
+        {listTools && (
+          <div className="list-tools">
+            {searching || filter ? (
+              <label className="list-search">
+                <SearchIcon size={16} />
+                <input
+                  autoFocus
+                  value={filter}
+                  placeholder={first.kind === "liked" ? "Search in Liked Songs" : "Search in playlist"}
+                  onChange={(e) => setFilter(e.currentTarget.value)}
+                  onBlur={() => !filter && setSearching(false)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Escape") return;
+                    setFilter("");
+                    setSearching(false);
+                  }}
+                />
+              </label>
+            ) : (
+              <button
+                className="icon-btn"
+                aria-label="Search in this list"
+                title="Search in this list"
+                onClick={() => setSearching(true)}
+              >
+                <SearchIcon size={18} />
+              </button>
+            )}
+            <select className="list-sort" value={sort} aria-label="Sort by" onChange={(e) => setSort(e.currentTarget.value as Sort)}>
+              {(Object.keys(SORT_LABEL) as Sort[])
+                .filter((k) => first.kind !== "liked" || k !== "custom")
+                .map((k) => (
+                  <option key={k} value={k}>
+                    {SORT_LABEL[k]}
+                  </option>
+                ))}
+            </select>
+          </div>
         )}
       </div>
+      {loadingForView && (
+        <div className="more">
+          <div className="spinner small" />
+        </div>
+      )}
+      {reordered && !loadingForView && view.tracks.length === 0 && (
+        <p className="muted pad">No songs match “{filter.trim()}”.</p>
+      )}
       <TrackList
-        tracks={tracks}
+        tracks={view.tracks}
+        positions={reordered ? view.positions : undefined}
         contextUri={uri}
         showAlbum={first.kind !== "album"}
         showCover={first.kind !== "album"}
-        onPlay={(i) => play.context(uri, tracks[i].uri).catch(toast)}
-        onRemove={first.canEditItems ? removeAt : undefined}
-        onMove={first.canEditItems ? move : undefined}
+        onPlay={(i) => play.context(uri, view.tracks[i].uri).catch(toast)}
+        onRemove={first.canEditItems ? (i) => removeAt(view.positions[i]) : undefined}
+        // Dragging only means something in the list's own order.
+        onMove={first.canEditItems && !reordered ? move : undefined}
         playlistName={title}
       />
-      {!done && (
+      {!done && !reordered && (
         <div ref={sentinel} className="more">
           <div className="spinner small" />
         </div>

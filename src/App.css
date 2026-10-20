@@ -2105,3 +2105,60 @@ button.device:hover {
   white-space: pre-line;
   margin-bottom: 16px;
 }
+
+/* ---------- List actions: shuffle, search in the list, sort ---------- */
+
+.icon-btn.big {
+  width: 40px;
+  height: 40px;
+}
+
+.icon-btn.big.on::after {
+  bottom: -4px;
+}
+
+.list-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.list-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--muted);
+}
+
+.list-search input {
+  width: 200px;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+}
+
+.list-sort {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.list-sort:hover {
+  color: var(--text);
+}
+
+.list-sort option {
+  background: var(--panel-2);
+  color: var(--text);
+}
