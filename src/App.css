@@ -1574,3 +1574,7 @@ button.device:hover {
   gap: 8px;
   margin-top: 8px;
 }
+
+.dialog:focus {
+  outline: none;
+}

@@ -1,20 +1,83 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-/** A centered modal. Escape or a click outside closes it. */
-export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+const FOCUSABLE = 'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * A centered modal. Escape or a click outside closes it, unless `busy`. Keyboard focus moves
+ * into it, Tab stays inside, and focus goes back where it was when it closes.
+ */
+export function Dialog({
+  title,
+  onClose,
+  busy = false,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  busy?: boolean;
+  children: ReactNode;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const close = () => !busy && onClose();
+  const closeRef = useRef(close);
+  closeRef.current = close;
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    const before = document.activeElement as HTMLElement | null;
+    const first = box.current?.querySelector<HTMLElement>(FOCUSABLE);
+    if (!box.current?.contains(document.activeElement)) (first ?? box.current)?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeRef.current();
+      } else if (e.key === "Tab" && box.current) {
+        const items = [...box.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
+        e.preventDefault();
+        // While busy every control is disabled: focus stays on the dialog itself.
+        if (items.length === 0) return box.current.focus();
+        const at = items.indexOf(document.activeElement as HTMLElement);
+        const next = e.shiftKey ? (at <= 0 ? items.length - 1 : at - 1) : at === items.length - 1 ? 0 : at + 1;
+        items[next].focus();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      before?.focus?.();
+    };
+  }, []);
+
   return (
-    <div className="dialog-backdrop" onMouseDown={onClose}>
-      <div className="dialog" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
+    <div className="dialog-backdrop" onMouseDown={close}>
+      <div ref={box} className="dialog" tabIndex={-1} onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}>
         <h2>{title}</h2>
         {children}
       </div>
     </div>
   );
+}
+
+/** Runs `action` once at a time; a failure keeps the dialog open (the caller shows the error). */
+function useSubmit(action: () => Promise<void> | void, onDone: () => void) {
+  const [busy, setBusy] = useState(false);
+  const running = useRef(false);
+  const submit = async () => {
+    if (running.current) return;
+    running.current = true;
+    setBusy(true);
+    let ok = false;
+    try {
+      await action();
+      ok = true;
+    } catch {
+      // Already reported by the caller; stay open so the user can retry.
+    } finally {
+      running.current = false;
+      setBusy(false);
+    }
+    if (ok) onDone();
+  };
+  return { busy, submit };
 }
 
 export function ConfirmDialog({
@@ -30,27 +93,15 @@ export function ConfirmDialog({
   onConfirm: () => Promise<void> | void;
   onClose: () => void;
 }) {
-  const [busy, setBusy] = useState(false);
+  const { busy, submit } = useSubmit(onConfirm, onClose);
   return (
-    <Dialog title={title} onClose={onClose}>
+    <Dialog title={title} onClose={onClose} busy={busy}>
       <p className="muted">{message}</p>
       <div className="dialog-actions">
         <button className="secondary" onClick={onClose} disabled={busy}>
           Cancel
         </button>
-        <button
-          className="primary"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await onConfirm();
-              onClose();
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
+        <button className="primary" disabled={busy} onClick={submit}>
           {confirmLabel}
         </button>
       </div>
@@ -72,30 +123,34 @@ export function EditDetailsDialog({
 }) {
   const [n, setN] = useState(name);
   const [d, setD] = useState(description);
-  const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const { busy, submit } = useSubmit(() => onSave(n.trim(), d.trim()), onClose);
+  const save = () => n.trim() && submit();
   useEffect(() => input.current?.select(), []);
 
-  const save = async () => {
-    if (!n.trim()) return;
-    setBusy(true);
-    try {
-      await onSave(n.trim(), d.trim());
-      onClose();
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
-    <Dialog title="Edit details" onClose={onClose}>
+    <Dialog title="Edit details" onClose={onClose} busy={busy}>
       <label className="field">
         <span>Name</span>
-        <input ref={input} value={n} maxLength={100} onChange={(e) => setN(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && save()} />
+        <input
+          ref={input}
+          value={n}
+          maxLength={100}
+          disabled={busy}
+          onChange={(e) => setN(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === "Enter" && save()}
+        />
       </label>
       <label className="field">
         <span>Description</span>
-        <textarea value={d} maxLength={300} rows={4} placeholder="Add an optional description" onChange={(e) => setD(e.currentTarget.value)} />
+        <textarea
+          value={d}
+          maxLength={300}
+          rows={4}
+          disabled={busy}
+          placeholder="Add an optional description"
+          onChange={(e) => setD(e.currentTarget.value)}
+        />
       </label>
       <div className="dialog-actions">
         <button className="secondary" onClick={onClose} disabled={busy}>
