@@ -166,15 +166,18 @@ function Loaded({ first }: { first: Data }) {
 
   // Optimistic: the list changes at once and comes back if Spotify refuses. `i` is the row's
   // place in the list's own order.
-  const removeAt = (i: number) => {
-    const t = tracks[i];
-    if (!t?.uid) return;
+  const removeAt = (indices: number[]) => {
+    const gone = indices.map((i) => tracks[i]).filter((t) => t?.uid);
+    if (gone.length === 0) return;
     const before = tracks;
-    setTracks(tracks.filter((_, j) => j !== i));
-    removeFromPlaylist(uri, [t.uid]).then(
+    setTracks(tracks.filter((_, j) => !indices.includes(j)));
+    removeFromPlaylist(
+      uri,
+      gone.map((t) => t.uid!),
+    ).then(
       () => {
-        setRemoved((n) => n + 1);
-        toast(`Removed from ${title}`);
+        setRemoved((n) => n + gone.length);
+        toast(gone.length === 1 ? `Removed from ${title}` : `Removed ${gone.length} songs from ${title}`);
       },
       (e) => {
         setTracks(before);
@@ -182,14 +185,26 @@ function Loaded({ first }: { first: Data }) {
       },
     );
   };
-  const move = (from: number, to: number) => {
-    const t = tracks[from];
-    if (!t.uid || from === to || from + 1 === to) return;
+  // Rows `from` (in order) go to just before row `to` (or to the end).
+  const move = (from: number[], to: number) => {
+    const moving = from.map((i) => tracks[i]);
+    if (moving.some((t) => !t?.uid) || from.includes(to)) return;
+    // Dropped right after a single row being moved: nothing changes.
+    if (from.length === 1 && from[0] + 1 === to) return;
+    // The first row below the drop point that is not being moved anchors the move.
+    let anchorAt = to;
+    while (anchorAt < tracks.length && from.includes(anchorAt)) anchorAt++;
+    const anchorRow = tracks[anchorAt];
     const before = tracks;
-    const next = tracks.filter((_, j) => j !== from);
-    next.splice(to > from ? to - 1 : to, 0, t);
-    setTracks(next);
-    moveInPlaylist(uri, [t.uid], tracks[to]?.uid ?? null).catch((e) => {
+    const rest = tracks.filter((_, j) => !from.includes(j));
+    const at = anchorRow ? rest.indexOf(anchorRow) : rest.length;
+    rest.splice(at, 0, ...moving);
+    setTracks(rest);
+    moveInPlaylist(
+      uri,
+      moving.map((t) => t.uid!),
+      anchorRow?.uid ?? null,
+    ).catch((e) => {
       setTracks(before);
       toast(e);
     });
@@ -317,7 +332,7 @@ function Loaded({ first }: { first: Data }) {
         showCover={first.kind !== "album"}
         onPlay={(i) => play.context(uri, view.tracks[i].uri).catch(toast)}
         // While the rest of the list loads, rows are not removed or moved: their places are still moving.
-        onRemove={first.canEditItems && !bulkLoading ? (i) => removeAt(view.positions[i]) : undefined}
+        onRemove={first.canEditItems && !bulkLoading ? (rows) => removeAt(rows.map((i) => view.positions[i])) : undefined}
         // Dragging only means something in the list's own order.
         onMove={first.canEditItems && !reordered && !bulkLoading ? move : undefined}
         playlistName={title}

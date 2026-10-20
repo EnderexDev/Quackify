@@ -59,6 +59,12 @@ export async function setSaved(uri: string, value: boolean) {
   }
 }
 
+/** Records a change already made on Spotify (a batch save), so every heart follows. */
+export function markSaved(uri: string, value: boolean) {
+  known.set(uri, value);
+  notify();
+}
+
 /** [saved (undefined while unknown), toggle]. */
 export function useSaved(uri: string | null | undefined): [boolean | undefined, () => void] {
   const [, render] = useState(0);

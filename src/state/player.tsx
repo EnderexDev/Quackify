@@ -37,6 +37,7 @@ type Playback = {
   shuffle: boolean;
   repeat: Repeat;
   next_tracks: QueuedTrack[];
+  prev_tracks: QueuedTrack[];
 };
 
 export type QueuedTrack = { uri: string; uid: string; provider: string };
@@ -67,6 +68,8 @@ type Player = {
   devices: Device[];
   /** What plays next on the active device. */
   queue: QueuedTrack[];
+  /** Songs played before, the latest first (kept across restarts). */
+  history: QueuedTrack[];
   /** The device playing now, if it is not this app. */
   remoteDevice: Device | null;
   /** Current position in ms, extrapolated while playing. */
@@ -95,8 +98,39 @@ const VOLUME_HOLD_MS = 3000;
 /** The fastest volume commands go out while dragging or scrolling. */
 const VOLUME_SEND_MS = 80;
 
+const HISTORY_KEY = "recentlyPlayed";
+const HISTORY_SIZE = 50;
+const MIN_PLAYED_MS = 3000;
+
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [track, setTrack] = useState<NowPlaying | null>(null);
+  // What played before, the latest first, kept across restarts: each song that gives way to
+  // another goes on top. (Spotify's own list of previous tracks leaves out queued songs.)
+  const [history, setHistory] = useState<QueuedTrack[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]");
+    } catch {
+      return [];
+    }
+  });
+  const lastTrack = useRef<{ uri: string; since: number } | null>(null);
+  useEffect(() => {
+    const uri = track?.uri ?? null;
+    const prev = lastTrack.current;
+    if (prev?.uri === uri) return;
+    lastTrack.current = uri ? { uri, since: Date.now() } : null;
+    // A song swapped within seconds was not really played: Spotify relinks a song to another
+    // version of it right as it starts, and a skip that fast is not a listen either.
+    if (!prev || !uri || Date.now() - prev.since < MIN_PLAYED_MS) return;
+    setHistory((h) => {
+      const next = [{ uri: prev.uri, uid: `h${Date.now()}`, provider: "history" }, ...h.filter((x) => x.uri !== prev.uri)].slice(
+        0,
+        HISTORY_SIZE,
+      );
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, [track?.uri]);
   const [view, setView] = useState<ConnectView | null>(null);
   const [playing, setPlaying] = useState(false);
   // Optimistic values shown until the next cluster read confirms them.
@@ -217,6 +251,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     repeat,
     devices: view?.devices ?? [],
     queue: pb?.next_tracks ?? [],
+    history,
     remoteDevice,
     position: () => {
       const c = clock.current;

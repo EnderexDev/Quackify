@@ -5,10 +5,11 @@ import { library } from "../api/spotify";
 import type { Card, LibraryFilter } from "../api/types";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
-import { onLibraryChanged } from "../state/saved";
 import { useContextMenu } from "./ContextMenu";
 import { Cover } from "./Cover";
-import { cardMenuHandler } from "./menus";
+import { addAll, cardMenuHandler, TRACKS_MIME } from "./menus";
+import { save } from "../api/library";
+import { markSaved, notifyLibraryChanged, onLibraryChanged } from "../state/saved";
 import { createPlaylist } from "../api/library";
 import { toast } from "../state/toast";
 import { LibraryIcon, PlusIcon } from "./icons";
@@ -43,6 +44,29 @@ export function Sidebar() {
       off.then((f) => f());
     };
   }, []);
+  // Songs dragged from a list onto a playlist (added) or Liked Songs (liked).
+  const [dropOn, setDropOn] = useState<string | null>(null);
+  const takesSongs = (c: Card) => c.kind === "playlist" || c.kind === "liked";
+  const dropSongs = (c: Card, data: string) => {
+    let uris: string[];
+    try {
+      uris = JSON.parse(data);
+    } catch {
+      return;
+    }
+    if (!uris.length) return;
+    const n = uris.length === 1 ? "1 song" : `${uris.length} songs`;
+    if (c.kind === "liked") {
+      save(uris).then(() => {
+        uris.forEach((u) => markSaved(u, true));
+        notifyLibraryChanged();
+        toast(`Saved ${n} to Liked Songs`);
+      }, toast);
+    } else {
+      // Spotify refuses it for a playlist that is not yours; the toast says so.
+      addAll(c.uri, uris).then(() => toast(`Added ${n} to ${c.title}`), toast);
+    }
+  };
   const loadingMore = useRef(false);
   const sentinel = useRef<HTMLDivElement>(null);
 
@@ -121,7 +145,21 @@ export function Sidebar() {
           return (
             <div
               key={c.uri}
-              className={`library-item ${openUri === c.uri ? "open" : ""}`}
+              className={`library-item ${openUri === c.uri ? "open" : ""} ${dropOn === c.uri ? "drop-target" : ""}`}
+              onDragOver={(e) => {
+                if (!takesSongs(c) || !e.dataTransfer.types.includes(TRACKS_MIME)) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+                setDropOn(c.uri);
+              }}
+              onDragLeave={() => setDropOn((d) => (d === c.uri ? null : d))}
+              onDrop={(e) => {
+                setDropOn(null);
+                const data = e.dataTransfer.getData(TRACKS_MIME);
+                if (!takesSongs(c) || !data) return;
+                e.preventDefault();
+                dropSongs(c, data);
+              }}
               onClick={() => nav.open(c.uri)}
               onContextMenu={cardMenuHandler(c, nav, openMenu)}
               title={c.title}

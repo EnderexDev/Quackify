@@ -272,6 +272,12 @@ export function trackDetails(trackUri: string, artistUri: string): Promise<Track
 // Playback.
 export type Repeat = "off" | "all" | "one";
 
+/** A change to what plays next; tracks are named by their uid. */
+export type QueueEdit =
+  | { kind: "remove"; uids: string[] }
+  | { kind: "move"; uids: string[]; before: string | null }
+  | { kind: "clear" };
+
 export const play = {
   context: (contextUri: string, trackUri?: string) =>
     invoke("spotify_play_context", { contextUri, trackUri: trackUri ?? null }),
@@ -286,4 +292,5 @@ export const play = {
   repeat: (repeat: Repeat) => invoke("spotify_set_repeat", { repeat }),
   addToQueue: (uri: string) => invoke("spotify_add_to_queue", { uri }),
   skipTo: (uri: string, uid: string) => invoke("spotify_skip_to", { uri, uid }),
+  editQueue: (edit: QueueEdit) => invoke("spotify_edit_queue", { edit }),
 };

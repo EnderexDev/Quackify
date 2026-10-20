@@ -1,8 +1,8 @@
 // The items of the right-click menus for tracks and for cards (playlists, albums, artists).
-import { addToPlaylist, areSaved, createPlaylist, editablePlaylists } from "../api/library";
+import { addToPlaylist, areSaved, createPlaylist, editablePlaylists, save, unsave } from "../api/library";
 import { play } from "../api/spotify";
 import type { Card, Named } from "../api/types";
-import { notifyLibraryChanged, setSaved } from "../state/saved";
+import { markSaved, notifyLibraryChanged, setSaved } from "../state/saved";
 import { toast } from "../state/toast";
 import type { MenuItem } from "./ContextMenu";
 
@@ -77,6 +77,63 @@ export function trackMenu(
   ];
 }
 
+/** The drag data type for songs dragged out of a list: a JSON array of URIs. */
+export const TRACKS_MIME = "application/x-quackify-tracks";
+
+/** The menu for several selected songs at once. `allSaved`: whether every one is liked. */
+export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSaved: boolean | undefined, nav: Nav): MenuItem[] {
+  const uris = tracks.filter((t) => t.playable !== false).map((t) => t.uri);
+  const n = `${tracks.length} songs`;
+  return [
+    {
+      label: "Add to queue",
+      onClick: async () => {
+        try {
+          for (const u of uris.slice(0, QUEUE_LIMIT)) await play.addToQueue(u);
+          toast(`Added ${Math.min(uris.length, QUEUE_LIMIT)} songs to the queue`);
+        } catch (e) {
+          toast(e);
+        }
+      },
+    },
+    {
+      label: "Add to playlist",
+      submenuHead: [
+        {
+          label: "New playlist",
+          onClick: () =>
+            createPlaylist("New playlist")
+              .then(async (created) => {
+                await addAll(created, uris);
+                notifyLibraryChanged();
+                toast(`Added ${n} to a new playlist`);
+                nav.open(created);
+              })
+              .catch(toast),
+        },
+        "separator",
+      ],
+      submenu: async () =>
+        (await editablePlaylists(uris[0] ?? "")).map((p) => ({
+          label: p.name,
+          onClick: () => addAll(p.uri, uris).then(() => toast(`Added ${n} to ${p.name}`), toast),
+        })),
+    },
+    {
+      label: allSaved ? "Remove from Liked Songs" : "Save to Liked Songs",
+      disabled: allSaved === undefined,
+      onClick: () => {
+        const want = !allSaved;
+        (want ? save(uris) : unsave(uris)).then(() => {
+          uris.forEach((u) => markSaved(u, want));
+          notifyLibraryChanged();
+          toast(want ? `Saved ${n} to Liked Songs` : `Removed ${n} from Liked Songs`);
+        }, toast);
+      },
+    },
+  ];
+}
+
 export function cardMenu(card: Card, saved: boolean | undefined, nav: Nav): MenuItem[] {
   const isArtist = card.kind === "artist" || card.kind === "show";
   // A song or an episode: the card itself plays.
@@ -107,7 +164,7 @@ export const QUEUE_LIMIT = 100;
 /** Spotify adds at most this many songs to a playlist per request. */
 const ADD_BATCH = 100;
 
-async function addAll(playlistUri: string, uris: string[]) {
+export async function addAll(playlistUri: string, uris: string[]) {
   for (let i = 0; i < uris.length; i += ADD_BATCH) await addToPlaylist(playlistUri, uris.slice(i, i + ADD_BATCH));
 }
 

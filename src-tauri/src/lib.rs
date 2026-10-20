@@ -56,6 +56,7 @@ pub fn run() {
             spotify::spotify_add_to_queue,
             spotify::spotify_tracks,
             spotify::spotify_skip_to,
+            spotify::spotify_edit_queue,
             spotify::spotify_create_playlist,
             spotify::spotify_edit_playlist,
             spotify::spotify_rootlist_change,

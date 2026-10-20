@@ -1,18 +1,23 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { areSaved } from "../api/library";
 import type { Track } from "../api/types";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
 import { useSaved } from "../state/saved";
 import { formatDuration } from "../util/format";
-import { useContextMenu } from "./ContextMenu";
+import { useContextMenu, type MenuItem } from "./ContextMenu";
 import { Cover } from "./Cover";
 import { ClockIcon, PauseIcon, PlayIcon } from "./icons";
 import { LikeButton } from "./LikeButton";
-import { trackMenu } from "./menus";
+import { TRACKS_MIME, trackMenu, tracksMenu } from "./menus";
 
 /**
- * Track rows. Double-click a row, or click its number, to play it. `onPlay` gets the row
- * index; `contextUri` marks which row is the one playing now. Right-click opens the menu.
+ * Track rows. Double-click a row, or click its number, to play it; `onPlay` gets the row index
+ * and `contextUri` marks which row is the one playing now.
+ *
+ * Rows can be selected like in Spotify: click, Ctrl+click to add or take one out, Shift+click
+ * for a range, Ctrl+A for all, Escape to clear. The right-click menu, Delete and dragging act
+ * on every selected row; songs can also be dragged onto a playlist in Your Library.
  */
 export function TrackList({
   tracks,
@@ -32,17 +37,33 @@ export function TrackList({
   showAlbum?: boolean;
   showCover?: boolean;
   showHeader?: boolean;
-  /** For the user's own playlists: remove a row, or move row `from` to just before row `to`. */
-  onRemove?: (index: number) => void;
-  onMove?: (from: number, to: number) => void;
+  /** For the user's own playlists: remove rows, or move rows to just before row `to`. */
+  onRemove?: (indices: number[]) => void;
+  onMove?: (from: number[], to: number) => void;
   playlistName?: string;
   /** Where each row sits in the list's own order, when the rows are sorted or filtered. */
   positions?: number[];
 }) {
   const player = usePlayer();
-  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const nav = useNav();
+  const openMenu = useContextMenu();
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const anchor = useRef<number | null>(null);
+  const [dragFrom, setDragFrom] = useState<number[] | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
   const current = player.track;
+
+  // The rows change (removed, moved, sorted, filtered): the selection would point elsewhere.
+  // More rows loaded at the end keep it.
+  const rowsKey = tracks.map((t) => t.uid ?? t.uri).join(",");
+  const lastKey = useRef(rowsKey);
+  useEffect(() => {
+    const appended = rowsKey.startsWith(lastKey.current);
+    lastKey.current = rowsKey;
+    if (appended) return;
+    setSelected(new Set());
+    anchor.current = null;
+  }, [rowsKey]);
 
   const isCurrent = (t: Track, i: number) =>
     !!current &&
@@ -51,8 +72,62 @@ export function TrackList({
     // In a context, the same song can be listed twice: only the playing copy lights up.
     (!contextUri || player.index === (positions?.[i] ?? i) || !tracks.some((x, j) => j !== i && x.uri === t.uri));
 
+  const sorted = (s: Set<number>) => [...s].sort((a, b) => a - b);
+  const removable = (indices: number[]) => !!onRemove && indices.every((i) => tracks[i]?.uid);
+
+  const select = (i: number, e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => {
+    const from = anchor.current;
+    if (e.shiftKey && from !== null) {
+      const [a, b] = [Math.min(from, i), Math.max(from, i)];
+      setSelected((prev) => {
+        const range = new Set<number>(e.ctrlKey || e.metaKey ? prev : []);
+        for (let k = a; k <= b; k++) range.add(k);
+        return range;
+      });
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        if (next.has(i)) next.delete(i);
+        else next.add(i);
+        return next;
+      });
+    } else {
+      setSelected(new Set([i]));
+    }
+    anchor.current = i;
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.target as HTMLElement).closest("input, textarea")) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      setSelected(new Set(tracks.map((_, i) => i)));
+    } else if (e.key === "Escape") {
+      setSelected(new Set());
+    } else if (e.key === "Delete" && selected.size && removable(sorted(selected))) {
+      e.preventDefault();
+      onRemove!(sorted(selected));
+    }
+  };
+
+  // Several rows: one menu for all of them, once Spotify says which are liked.
+  const openMultiMenu = (e: React.MouseEvent, indices: number[]) => {
+    e.preventDefault();
+    const at = { clientX: e.clientX, clientY: e.clientY, preventDefault: () => {} };
+    const rows = indices.map((i) => tracks[i]);
+    const extra: MenuItem[] = removable(indices)
+      ? ["separator", { label: `Remove from ${playlistName ?? "this playlist"}`, onClick: () => onRemove!(indices) }]
+      : [];
+    areSaved(rows.map((t) => t.uri)).then(
+      (saved) => openMenu(at, [...tracksMenu(rows, saved.every(Boolean), nav), ...extra]),
+      () => openMenu(at, [...tracksMenu(rows, undefined, nav), ...extra]),
+    );
+  };
+
   return (
-    <div className={`tracklist ${showAlbum ? "" : "no-album"}`}>
+    <div className={`tracklist ${showAlbum ? "" : "no-album"}`} tabIndex={-1} onKeyDown={onKeyDown}>
       {showHeader && (
         <div className="track-row track-head">
           <span className="track-num">#</span>
@@ -69,26 +144,35 @@ export function TrackList({
           track={t}
           index={i}
           current={isCurrent(t, i)}
+          selected={selected.has(i)}
           showAlbum={showAlbum}
           showCover={showCover}
           onPlay={() => onPlay(i)}
-          onRemove={onRemove && t.uid ? () => onRemove(i) : undefined}
+          onSelect={(e) => select(i, e)}
+          onMenu={(e, single) => {
+            if (selected.has(i) && selected.size > 1) return openMultiMenu(e, sorted(selected));
+            setSelected(new Set([i]));
+            anchor.current = i;
+            single();
+          }}
+          onRemove={removable([i]) ? () => onRemove!([i]) : undefined}
           playlistName={playlistName}
-          drag={
-            onMove && t.uid
-              ? {
-                  start: () => setDragFrom(i),
-                  over: (after) => setDropAt(after ? i + 1 : i),
-                  end: () => {
-                    if (dragFrom !== null && dropAt !== null) onMove(dragFrom, dropAt);
-                    setDragFrom(null);
-                    setDropAt(null);
-                  },
-                  marker: dropAt === i ? "before" : dropAt === i + 1 && i === tracks.length - 1 ? "after" : null,
-                  dragging: dragFrom === i,
-                }
-              : undefined
-          }
+          drag={{
+            // Dragging a selected row takes the whole selection along.
+            rows: () => (selected.has(i) ? sorted(selected) : [i]).map((k) => tracks[k]),
+            start: () => {
+              if (!selected.has(i)) setSelected(new Set([i]));
+              setDragFrom(selected.has(i) ? sorted(selected) : [i]);
+            },
+            over: onMove && t.uid ? (after) => setDropAt(after ? i + 1 : i) : undefined,
+            end: () => {
+              if (onMove && dragFrom && dropAt !== null && dragFrom.every((k) => tracks[k]?.uid)) onMove(dragFrom, dropAt);
+              setDragFrom(null);
+              setDropAt(null);
+            },
+            marker: dragFrom && dropAt === i ? "before" : dragFrom && dropAt === i + 1 && i === tracks.length - 1 ? "after" : null,
+            dragging: !!dragFrom?.includes(i),
+          }}
         />
       ))}
     </div>
@@ -99,9 +183,12 @@ function TrackRow({
   track: t,
   index,
   current,
+  selected,
   showAlbum,
   showCover,
   onPlay,
+  onSelect,
+  onMenu,
   onRemove,
   playlistName,
   drag,
@@ -109,14 +196,18 @@ function TrackRow({
   track: Track;
   index: number;
   current: boolean;
+  selected: boolean;
   showAlbum: boolean;
   showCover: boolean;
   onPlay: () => void;
+  onSelect: (e: React.MouseEvent) => void;
+  onMenu: (e: React.MouseEvent, single: () => void) => void;
   onRemove?: () => void;
   playlistName?: string;
-  drag?: {
+  drag: {
+    rows: () => Track[];
     start: () => void;
-    over: (after: boolean) => void;
+    over?: (after: boolean) => void;
     end: () => void;
     marker: "before" | "after" | null;
     dragging: boolean;
@@ -129,27 +220,36 @@ function TrackRow({
 
   return (
     <div
-      className={`track-row ${current ? "current" : ""} ${t.playable ? "" : "unplayable"} ${saved ? "liked" : ""} ${drag?.marker ? "drop-" + drag.marker : ""} ${drag?.dragging ? "dragging" : ""}`}
+      className={`track-row ${current ? "current" : ""} ${selected ? "selected" : ""} ${t.playable ? "" : "unplayable"} ${saved ? "liked" : ""} ${drag.marker ? "drop-" + drag.marker : ""} ${drag.dragging ? "dragging" : ""}`}
+      onClick={(e) => {
+        // Links (artist, album) and buttons do their own thing.
+        if (!(e.target as HTMLElement).closest("a, button")) onSelect(e);
+      }}
       onDoubleClick={() => t.playable && onPlay()}
       onContextMenu={(e) =>
-        openMenu(e, [
-          ...trackMenu(t, saved, nav),
-          ...(onRemove ? (["separator", { label: `Remove from ${playlistName ?? "this playlist"}`, onClick: onRemove }] as const) : []),
-        ])
+        onMenu(e, () =>
+          openMenu(e, [
+            ...trackMenu(t, saved, nav),
+            ...(onRemove ? (["separator", { label: `Remove from ${playlistName ?? "this playlist"}`, onClick: onRemove }] as const) : []),
+          ]),
+        )
       }
-      draggable={!!drag}
+      draggable
       onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = "move";
-        drag?.start();
+        const rows = drag.rows();
+        e.dataTransfer.effectAllowed = "copyMove";
+        e.dataTransfer.setData(TRACKS_MIME, JSON.stringify(rows.map((r) => r.uri)));
+        e.dataTransfer.setData("text/plain", rows.map((r) => r.name).join(", "));
+        drag.start();
       }}
       onDragOver={(e) => {
-        if (!drag) return;
+        if (!drag.over) return;
         e.preventDefault();
         const r = e.currentTarget.getBoundingClientRect();
         drag.over(e.clientY > r.top + r.height / 2);
       }}
-      onDrop={(e) => e.preventDefault()}
-      onDragEnd={() => drag?.end()}
+      onDrop={(e) => drag.over && e.preventDefault()}
+      onDragEnd={() => drag.end()}
     >
       <span className="track-num">
         <span className="num">{current && player.playing ? <span className="eq" /> : index + 1}</span>

@@ -462,6 +462,12 @@ pub async fn spotify_tracks(uris: Vec<String>, state: State<'_, SpotifyState>) -
     Ok(hub(&state).await?.tracks(uris).await)
 }
 
+/// Removes, moves or clears what plays next.
+#[tauri::command]
+pub async fn spotify_edit_queue(edit: crate::connect::QueueEdit, state: State<'_, SpotifyState>) -> Result<(), String> {
+    hub(&state).await?.edit_queue(edit).await
+}
+
 /// Jumps to a track in the queue.
 #[tauri::command]
 pub async fn spotify_skip_to(uri: String, uid: String, state: State<'_, SpotifyState>) -> Result<(), String> {
