@@ -10,7 +10,7 @@ use librespot_core::{
 use librespot_oauth::OAuthClientBuilder;
 use librespot_playback::{
     audio_backend,
-    config::{AudioFormat, PlayerConfig},
+    config::{AudioFormat, PlayerConfig, VolumeCtrl},
     mixer::{self, MixerConfig},
     player::{Player, PlayerEvent},
 };
@@ -92,7 +92,10 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     let initial_volume = cache.volume().unwrap_or(u16::MAX / 2);
     let session = Session::new(SessionConfig::default(), Some(cache));
 
-    let mixer = mixer::find(None).ok_or("no mixer")?(MixerConfig::default())
+    // Linear: the slider's 50% is half the level. librespot's default curve (log, 60 dB) makes the
+    // lower half of the slider nearly silent.
+    let mixer_config = MixerConfig { volume_ctrl: VolumeCtrl::Linear, ..Default::default() };
+    let mixer = mixer::find(None).ok_or("no mixer")?(mixer_config)
         .map_err(|e| e.to_string())?;
     let backend = audio_backend::find(None).ok_or("no audio backend")?;
     let player = Player::new(
@@ -180,6 +183,22 @@ fn status_of(engine: &Option<Engine>) -> Status {
 async fn session(state: &State<'_, SpotifyState>) -> Result<Session, String> {
     let slot = state.0.lock().await;
     Ok(slot.as_ref().ok_or("not logged in")?.session.clone())
+}
+
+/// Ends the session, if any, when the app quits.
+pub async fn shutdown(app: &AppHandle) {
+    let state = app.state::<SpotifyState>();
+    if let Some(engine) = state.0.lock().await.take() {
+        engine.shutdown();
+    }
+    crate::media::publish(app, None);
+}
+
+/// The hub of the logged-in session, for callers outside a command (media keys, tray).
+pub async fn current_hub(app: &AppHandle) -> Option<Arc<Hub>> {
+    let state = app.state::<SpotifyState>();
+    let slot = state.0.lock().await;
+    slot.as_ref().map(|e| e.hub.clone())
 }
 
 async fn hub(state: &State<'_, SpotifyState>) -> Result<Arc<Hub>, String> {
@@ -278,6 +297,7 @@ pub async fn spotify_logout(app: AppHandle, state: State<'_, SpotifyState>) -> R
     if let Some(old) = slot.take() {
         old.shutdown();
     }
+    crate::media::publish(&app, None);
     Ok(())
 }
 

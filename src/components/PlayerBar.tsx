@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { play } from "../api/spotify";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
@@ -12,12 +12,24 @@ import { MicIcon, NextIcon, NowPlayingIcon, PauseIcon, PlayIcon, PrevIcon, Queue
 import { Slider } from "./Slider";
 
 /** `onPanel` toggles a right-hand panel; `panel` is the one open. */
+/** How much one mouse wheel notch over the volume changes it. */
+const VOLUME_STEP = 0.05;
+
 export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclude<Panel, null>) => void }) {
   const p = usePlayer();
   const nav = useNav();
   const t = p.track;
   const [, tick] = useState(0);
   const [lastVolume, setLastVolume] = useState(0.5);
+  // The volume as last set here, so several wheel notches between renders add up.
+  const volume = useRef(p.volume);
+  volume.current = p.volume;
+  const onVolumeWheel = (e: React.WheelEvent) => {
+    if (e.deltaY === 0) return;
+    const next = Math.min(1, Math.max(0, volume.current - Math.sign(e.deltaY) * VOLUME_STEP));
+    volume.current = next;
+    p.setVolume(next);
+  };
 
   // Re-render a few times a second while playing, so the progress bar moves.
   useEffect(() => {
@@ -115,6 +127,7 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
         <DevicePicker />
         <button
           className="icon-btn"
+          onWheel={onVolumeWheel}
           aria-label={p.volume === 0 ? "Unmute" : "Mute"}
           onClick={() => {
             if (p.volume > 0) {
@@ -125,7 +138,7 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
         >
           <VolumeIcon size={20} level={p.volume} />
         </button>
-        <Slider value={p.volume} onCommit={p.setVolume} live className="volume" />
+        <Slider value={p.volume} onCommit={p.setVolume} live className="volume" onWheel={onVolumeWheel} />
       </div>
     </footer>
   );

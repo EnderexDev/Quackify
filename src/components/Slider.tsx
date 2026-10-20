@@ -10,12 +10,14 @@ export function Slider({
   live = false,
   disabled = false,
   className = "",
+  onWheel,
 }: {
   value: number;
   onCommit: (v: number) => void;
   live?: boolean;
   disabled?: boolean;
   className?: string;
+  onWheel?: (e: React.WheelEvent) => void;
 }) {
   const bar = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<number | null>(null);
@@ -31,6 +33,7 @@ export function Slider({
     <div
       ref={bar}
       className={`slider ${disabled ? "disabled" : ""} ${drag !== null ? "dragging" : ""} ${className}`}
+      onWheel={onWheel}
       onPointerDown={(e) => {
         if (disabled) return;
         e.currentTarget.setPointerCapture(e.pointerId);

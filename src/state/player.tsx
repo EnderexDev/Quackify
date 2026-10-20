@@ -90,6 +90,11 @@ export function usePlayer(): Player {
 /** Liked Songs plays as the user's collection; the pages call it spotify:collection:tracks. */
 const pageUri = (uri: string | null) => (uri && /^spotify:user:[^:]+:collection$/.test(uri) ? "spotify:collection:tracks" : uri);
 
+/** How long a volume the user just picked is kept over cluster reads. */
+const VOLUME_HOLD_MS = 3000;
+/** The fastest volume commands go out while dragging or scrolling. */
+const VOLUME_SEND_MS = 80;
+
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [track, setTrack] = useState<NowPlaying | null>(null);
   const [view, setView] = useState<ConnectView | null>(null);
@@ -103,6 +108,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const viewVersion = useRef(0);
   const trackVersion = useRef(0);
   const resyncRef = useRef<() => void>(() => {});
+  // A volume just picked wins over cluster reads for a moment: those can still carry the
+  // volume from before (or from the middle of a drag), which would make the slider jump back.
+  const volumeHeldUntil = useRef(0);
+  // Volume commands go out at most every VOLUME_SEND_MS; the last value always goes.
+  const volumeQueued = useRef<number | null>(null);
+  const volumeTimer = useRef(0);
 
   const setClock = (ms: number, running: boolean) => {
     clock.current = { ms, at: performance.now(), running };
@@ -116,7 +127,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const applyView = (v: ConnectView) => {
       viewRef.current = v;
       setView(v);
-      setPending({});
+      setPending((p) =>
+        p.volume !== undefined && performance.now() < volumeHeldUntil.current ? { volume: p.volume } : {},
+      );
       if (v.playback) {
         setPlaying(v.playback.is_playing);
         setClock(v.playback.position_ms, v.playback.is_playing);
@@ -222,8 +235,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       play.seek(ms).catch(failed);
     },
     setVolume: (v) => {
+      v = Math.min(1, Math.max(0, v));
       setPending((p) => ({ ...p, volume: v }));
-      play.volume(v).catch(failed);
+      volumeHeldUntil.current = performance.now() + VOLUME_HOLD_MS;
+      volumeQueued.current = v;
+      if (volumeTimer.current) return;
+      const send = () => {
+        const next = volumeQueued.current;
+        volumeQueued.current = null;
+        if (next === null) {
+          volumeTimer.current = 0;
+          return;
+        }
+        play.volume(next).catch(failed);
+        volumeTimer.current = window.setTimeout(send, VOLUME_SEND_MS);
+      };
+      send();
     },
     setShuffle: (on) => {
       setPending((p) => ({ ...p, shuffle: on }));

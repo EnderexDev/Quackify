@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -34,6 +34,9 @@ librespot-protocol = "0.8"
 futures-util = "0.3"
 http = "1"
 protobuf = "3.7"
+souvlaki = { version = "0.8", default-features = false }
+tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = "2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

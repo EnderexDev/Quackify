@@ -208,13 +208,18 @@ impl Hub {
             .map_err(|e| e.to_string())?;
         let cluster: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
         let mut view = parse_cluster(&cluster, self.session.device_id());
+        // This device's volume is its mixer's: the cluster's copy can lag behind a change.
+        let local_volume = f64::from(self.mixer.volume()) / f64::from(u16::MAX);
+        for d in view.devices.iter_mut().filter(|d| d.is_local) {
+            d.volume = local_volume;
+        }
         // This device can always take the music, even before the cluster lists it.
         if !view.devices.iter().any(|d| d.is_local) {
             view.devices.insert(0, Device {
                 id: view.local_device_id.clone(),
                 name: DEVICE_NAME.to_string(),
                 kind: "COMPUTER".to_string(),
-                volume: f64::from(self.mixer.volume()) / f64::from(u16::MAX),
+                volume: local_volume,
                 is_active: false,
                 is_local: true,
             });
@@ -234,7 +239,46 @@ impl Hub {
         if let Some(uri) = track {
             self.announce_track(uri);
         }
+        self.publish_media();
         Ok(())
+    }
+
+    /// Tells Windows (media flyout, media keys, tray) what plays now. Until the playing track's
+    /// metadata arrives, it keeps showing the previous one rather than a blank.
+    fn publish_media(&self) {
+        let view = self.view();
+        let showing = match view.playback {
+            None => None,
+            Some(p) => {
+                let np = self.now_playing.lock().unwrap().clone();
+                match np {
+                    Some(t) if t.uri == p.track_uri => Some(crate::media::Showing {
+                        title: t.name,
+                        artist: t.artists.iter().map(|a| a.name.as_str()).collect::<Vec<_>>().join(", "),
+                        album: t.album.name,
+                        cover: t.image,
+                        duration_ms: u64::from(t.duration_ms),
+                        playing: p.is_playing,
+                        position_ms: p.position_ms,
+                    }),
+                    _ => return,
+                }
+            }
+        };
+        crate::media::publish(&self.app, showing);
+    }
+
+    /// Where the song playing is, in ms.
+    pub fn position_ms(&self) -> u64 {
+        self.view().playback.map_or(0, |p| p.position_ms)
+    }
+
+    pub async fn toggle(self: &Arc<Self>) -> Result<(), String> {
+        if self.view().playback.is_some_and(|p| p.is_playing) {
+            self.pause().await
+        } else {
+            self.resume().await
+        }
     }
 
     /// Fetches a track's metadata and tells the UI it is the one playing now.
@@ -270,6 +314,7 @@ impl Hub {
             *hub.now_playing.lock().unwrap() = Some(np.clone());
             let _ = hub.app.emit("now-playing", np);
             drop(wanted);
+            hub.publish_media();
         });
     }
 

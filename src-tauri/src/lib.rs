@@ -1,4 +1,6 @@
 mod connect;
+mod desktop;
+mod media;
 mod pathfinder;
 mod spotify;
 
@@ -7,7 +9,13 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // First, so a second launch only brings this window back instead of starting a second device.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| desktop::show_window(app)))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![desktop::MINIMIZED_ARG]),
+        ))
         .manage(spotify::SpotifyState::default())
         .setup(|app| {
             let hashes = app
@@ -16,8 +24,16 @@ pub fn run() {
                 .ok()
                 .map(|dir| dir.join("pathfinder-hashes.json"));
             app.manage(pathfinder::Pathfinder::new(hashes));
+            desktop::setup(app)?;
+            match media::Media::start(app.handle()) {
+                Ok(media) => {
+                    app.manage(media);
+                }
+                Err(e) => eprintln!("media: Windows media controls unavailable: {e}"),
+            }
             Ok(())
         })
+        .on_window_event(desktop::on_window_event)
         .invoke_handler(tauri::generate_handler![
             spotify::spotify_status,
             spotify::spotify_restore,
