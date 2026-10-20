@@ -2,6 +2,7 @@ mod connect;
 mod desktop;
 mod media;
 mod pathfinder;
+mod settings;
 mod spotify;
 
 use tauri::Manager;
@@ -24,6 +25,8 @@ pub fn run() {
                 .ok()
                 .map(|dir| dir.join("pathfinder-hashes.json"));
             app.manage(pathfinder::Pathfinder::new(hashes));
+            // Before the tray and the player, which read it.
+            app.manage(settings::Store::load(app.handle()));
             desktop::setup(app)?;
             match media::Media::start(app.handle()) {
                 Ok(media) => {
@@ -61,6 +64,9 @@ pub fn run() {
             spotify::spotify_rootlist_change,
             spotify::spotify_rootlist_has,
             spotify::spotify_lyrics,
+            settings::settings_get,
+            settings::settings_set,
+            settings::settings_set_start_with_windows,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

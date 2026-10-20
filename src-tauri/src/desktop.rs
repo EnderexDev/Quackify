@@ -1,64 +1,49 @@
 // Living on the Windows desktop: the tray icon and its menu, closing to the tray, starting with
 // Windows (straight to the tray), and bringing the window back.
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use serde::{Deserialize, Serialize};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{App, AppHandle, Manager, WindowEvent};
+use tauri::{App, AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_autostart::ManagerExt;
 
 use crate::media::{self, Action};
+use crate::settings::{self, Store};
 
 pub const TRAY_ID: &str = "main";
 /// Passed by the Windows startup entry: start in the tray, without the window.
 pub const MINIMIZED_ARG: &str = "--minimized";
 
-#[derive(Serialize, Deserialize)]
-#[serde(default)]
-struct Settings {
-    /// The window's close button hides it to the tray, and the music keeps playing.
-    close_to_tray: bool,
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Self { close_to_tray: true }
-    }
-}
-
 pub struct Desktop {
-    file: Option<PathBuf>,
-    close_to_tray: AtomicBool,
     quitting: AtomicBool,
+    // The tray's check marks, kept in step with the Settings page.
+    close_item: CheckMenuItem<tauri::Wry>,
+    autostart_item: CheckMenuItem<tauri::Wry>,
 }
 
-impl Desktop {
-    fn save(&self) {
-        let Some(file) = &self.file else { return };
-        let settings = Settings { close_to_tray: self.close_to_tray.load(Ordering::SeqCst) };
-        if let Some(dir) = file.parent() {
-            let _ = std::fs::create_dir_all(dir);
-        }
-        if let Err(e) = std::fs::write(file, serde_json::to_string_pretty(&settings).unwrap_or_default()) {
-            eprintln!("desktop: settings not saved: {e}");
-        }
+/// Puts the tray's check marks back in line with the settings and Windows' startup entry.
+pub fn sync_tray(app: &AppHandle) {
+    if let Some(desktop) = app.try_state::<Desktop>() {
+        let _ = desktop.close_item.set_checked(settings::current(app).close_to_tray);
+        let _ = desktop.autostart_item.set_checked(start_with_windows(app));
     }
+}
+
+pub fn start_with_windows(app: &AppHandle) -> bool {
+    app.autolaunch().is_enabled().unwrap_or(false)
+}
+
+/// Turns the Windows startup entry on or off; says what Windows has afterwards.
+pub fn set_start_with_windows(app: &AppHandle, on: bool) -> Result<bool, String> {
+    let launch = app.autolaunch();
+    let result = if on { launch.enable() } else { launch.disable() };
+    sync_tray(app);
+    result.map_err(|e| e.to_string())?;
+    Ok(start_with_windows(app))
 }
 
 pub fn setup(app: &mut App) -> tauri::Result<()> {
-    let file = app.path().app_data_dir().ok().map(|d| d.join("settings.json"));
-    let settings: Settings = file
-        .as_ref()
-        .and_then(|f| std::fs::read_to_string(f).ok())
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default();
-    app.manage(Desktop {
-        file,
-        close_to_tray: AtomicBool::new(settings.close_to_tray),
-        quitting: AtomicBool::new(false),
-    });
+    let settings = settings::current(app.handle());
 
     let show = MenuItem::with_id(app, "show", "Show Quackify", true, None::<&str>)?;
     let toggle = MenuItem::with_id(app, "toggle", "Play / Pause", true, None::<&str>)?;
@@ -66,7 +51,7 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
     let previous = MenuItem::with_id(app, "previous", "Previous", true, None::<&str>)?;
     let close_to_tray =
         CheckMenuItem::with_id(app, "close_to_tray", "Close to tray", true, settings.close_to_tray, None::<&str>)?;
-    let autostart_on = app.autolaunch().is_enabled().unwrap_or(false);
+    let autostart_on = start_with_windows(app.handle());
     let autostart = CheckMenuItem::with_id(app, "autostart", "Start with Windows", true, autostart_on, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit Quackify", true, None::<&str>)?;
     let menu = Menu::with_items(
@@ -85,7 +70,12 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
         ],
     )?;
 
-    let (close_item, autostart_item) = (close_to_tray.clone(), autostart.clone());
+    app.manage(Desktop {
+        quitting: AtomicBool::new(false),
+        close_item: close_to_tray.clone(),
+        autostart_item: autostart.clone(),
+    });
+
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().cloned().expect("the bundle has an icon"))
         .tooltip("Quackify")
@@ -98,20 +88,19 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
             "previous" => media::run(app, Action::Previous),
             "close_to_tray" => {
                 // The item has already flipped its own check mark.
-                let on = close_item.is_checked().unwrap_or(true);
-                let desktop = app.state::<Desktop>();
-                desktop.close_to_tray.store(on, Ordering::SeqCst);
-                desktop.save();
+                let on = app.state::<Desktop>().close_item.is_checked().unwrap_or(true);
+                let store = app.state::<Store>();
+                if let Err(e) = store.set(settings::Settings { close_to_tray: on, ..store.get() }) {
+                    eprintln!("desktop: settings not saved: {e}");
+                }
+                let _ = app.emit("settings-changed", ());
             }
             "autostart" => {
-                let want = autostart_item.is_checked().unwrap_or(false);
-                let launch = app.autolaunch();
-                let result = if want { launch.enable() } else { launch.disable() };
-                if let Err(e) = result {
+                let want = app.state::<Desktop>().autostart_item.is_checked().unwrap_or(false);
+                if let Err(e) = set_start_with_windows(app, want) {
                     eprintln!("desktop: start with Windows: {e}");
                 }
-                // Show what Windows actually has, in case the change failed.
-                let _ = autostart_item.set_checked(launch.is_enabled().unwrap_or(false));
+                let _ = app.emit("settings-changed", ());
             }
             "quit" => quit(app),
             _ => {}
@@ -142,8 +131,8 @@ pub fn show_window(app: &AppHandle) {
 /// The close button hides the window when closing to the tray is on.
 pub fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
     if let WindowEvent::CloseRequested { api, .. } = event {
-        let desktop = window.state::<Desktop>();
-        if desktop.close_to_tray.load(Ordering::SeqCst) && !desktop.quitting.load(Ordering::SeqCst) {
+        let quitting = window.state::<Desktop>().quitting.load(Ordering::SeqCst);
+        if settings::current(window.app_handle()).close_to_tray && !quitting {
             api.prevent_close();
             let _ = window.hide();
         }

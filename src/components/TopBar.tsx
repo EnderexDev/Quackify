@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNav } from "../state/nav";
-import { BackIcon, DuckIcon, ForwardIcon, HomeIcon, SearchIcon } from "./icons";
+import { BackIcon, DuckIcon, ForwardIcon, HomeIcon, SearchIcon, SettingsIcon } from "./icons";
 
 /** Back/forward, home, and the search box (which opens the search page as you type). */
 export function TopBar({ name, image, onLogout }: { name: string; image: string | null; onLogout: () => void }) {
@@ -79,6 +79,14 @@ export function TopBar({ name, image, onLogout }: { name: string; image: string 
         <span className="user-name" title={name}>
           {name}
         </span>
+        <button
+          className={`icon-btn ${route.page === "settings" ? "on" : ""}`}
+          onClick={() => nav.go({ page: "settings" })}
+          aria-label="Settings"
+          title="Settings"
+        >
+          <SettingsIcon size={20} />
+        </button>
         <button className="link" onClick={onLogout}>
           Log out
         </button>

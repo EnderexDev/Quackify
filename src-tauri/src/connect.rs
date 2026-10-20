@@ -587,6 +587,13 @@ impl Hub {
         Ok(())
     }
 
+    /// Whether this device holds the account's playback: `Some(playing)` if so.
+    pub fn active_here(&self) -> Option<bool> {
+        let v = self.view.lock().unwrap();
+        (v.active_device_id.as_deref() == Some(v.local_device_id.as_str()))
+            .then(|| v.playback.as_ref().is_some_and(|p| p.is_playing))
+    }
+
     /// The library's Liked Songs entry is the user's collection context.
     fn resolvable(&self, uri: &str) -> String {
         if uri.starts_with("spotify:collection") {

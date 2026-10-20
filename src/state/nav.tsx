@@ -7,6 +7,7 @@ export type Route =
   | { page: "collection"; uri: string }
   | { page: "artist"; uri: string }
   | { page: "lyrics" }
+  | { page: "settings" }
   /** A genre or mood page from Browse all. */
   | { page: "browse"; uri: string }
   /** "Show all" of a row: a Home section, a genre page's section, a discography or related artists. */

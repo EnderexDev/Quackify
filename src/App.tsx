@@ -18,6 +18,7 @@ import { Collection } from "./views/Collection";
 import { Home } from "./views/Home";
 import { LyricsView } from "./views/Lyrics";
 import { Search } from "./views/Search";
+import { SettingsView } from "./views/Settings";
 import "./App.css";
 
 type Profile = { display_name: string | null; image: string | null };
@@ -117,6 +118,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
         {route.page === "collection" && <Collection uri={route.uri} />}
         {route.page === "artist" && <Artist uri={route.uri} />}
         {route.page === "lyrics" && <LyricsView />}
+        {route.page === "settings" && <SettingsView />}
         {route.page === "browse" && <BrowseView uri={route.uri} />}
         {route.page === "cards" && <CardsView source={route.source} uri={route.uri} title={route.title} />}
       </main>

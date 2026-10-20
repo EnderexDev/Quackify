@@ -10,7 +10,7 @@ use librespot_core::{
 use librespot_oauth::OAuthClientBuilder;
 use librespot_playback::{
     audio_backend,
-    config::{AudioFormat, PlayerConfig, VolumeCtrl},
+    config::{AudioFormat, Bitrate, PlayerConfig, VolumeCtrl},
     mixer::{self, MixerConfig},
     player::{Player, PlayerEvent},
 };
@@ -21,6 +21,7 @@ use tokio::sync::Mutex;
 
 use crate::connect::{ConnectView, Hub, NowPlaying, Repeat, DEVICE_NAME};
 use crate::pathfinder::Pathfinder;
+use crate::settings::Quality;
 
 // The client id and redirect librespot itself logs in with; Spotify has this redirect registered.
 const CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
@@ -28,6 +29,7 @@ const REDIRECT_URI: &str = "http://127.0.0.1:8898/login";
 const SCOPES: &[&str] = &["streaming"];
 const LOGIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 const LOGIN_CLEANUP_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
+const HANDOFF_WAIT: std::time::Duration = std::time::Duration::from_secs(2);
 
 const LOGIN_DONE_PAGE: &str = r#"<!doctype html><html><body style="font-family:sans-serif;background:#1a1a1a;color:#ffd84d;text-align:center;padding-top:20vh"><h1>Quackify is in. You can close this tab.</h1></body></html>"#;
 
@@ -90,7 +92,8 @@ fn open_cache(app: &AppHandle) -> Result<Cache, String> {
 async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, String> {
     let cache = open_cache(app)?;
     let initial_volume = cache.volume().unwrap_or(u16::MAX / 2);
-    let session = Session::new(SessionConfig::default(), Some(cache));
+    let settings = crate::settings::current(app);
+    let session = Session::new(SessionConfig { autoplay: Some(settings.autoplay), ..Default::default() }, Some(cache));
 
     // Linear: the slider's 50% is half the level. librespot's default curve (log, 60 dB) makes the
     // lower half of the slider nearly silent.
@@ -98,8 +101,18 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     let mixer = mixer::find(None).ok_or("no mixer")?(mixer_config)
         .map_err(|e| e.to_string())?;
     let backend = audio_backend::find(None).ok_or("no audio backend")?;
+    let player_config = PlayerConfig {
+        bitrate: match settings.quality {
+            Quality::Normal => Bitrate::Bitrate96,
+            Quality::High => Bitrate::Bitrate160,
+            Quality::VeryHigh => Bitrate::Bitrate320,
+        },
+        normalisation: settings.normalize,
+        normalisation_pregain_db: settings.loudness.pregain_db(),
+        ..Default::default()
+    };
     let player = Player::new(
-        PlayerConfig::default(),
+        player_config,
         session.clone(),
         mixer.get_soft_volume(),
         move || backend(None, AudioFormat::default()),
@@ -183,6 +196,47 @@ fn status_of(engine: &Option<Engine>) -> Status {
 async fn session(state: &State<'_, SpotifyState>) -> Result<Session, String> {
     let slot = state.0.lock().await;
     Ok(slot.as_ref().ok_or("not logged in")?.session.clone())
+}
+
+/// Builds the player again with the current settings (they only apply at connection). The new
+/// device comes up first and takes the music from the old one, still playing if it was, like a
+/// Connect transfer between two devices; then the old one goes.
+pub async fn reconnect(app: &AppHandle) -> Result<(), String> {
+    use librespot_core::{dealer::protocol::TransferOptions, spclient::TransferRequest};
+    let state = app.state::<SpotifyState>();
+    let mut slot = state.0.lock().await;
+    let Some(old) = slot.take() else { return Ok(()) };
+    let credentials = match open_cache(app)?.credentials() {
+        Some(c) => c,
+        None => {
+            *slot = Some(old);
+            return Err("the saved login is gone; log in again".into());
+        }
+    };
+    let engine = match connect(app, credentials).await {
+        Ok(engine) => engine,
+        Err(e) => {
+            *slot = Some(old);
+            return Err(e);
+        }
+    };
+    if let Some(playing) = old.hub.active_here() {
+        // The new device has to be in the cluster before it can receive the music.
+        tokio::time::sleep(HANDOFF_WAIT).await;
+        let request = TransferRequest {
+            transfer_options: TransferOptions {
+                restore_paused: Some(if playing { "resume" } else { "restore" }.to_string()),
+                ..Default::default()
+            },
+        };
+        let (from, to) = (old.session.device_id().to_string(), engine.session.device_id().to_string());
+        if let Err(e) = engine.session.spclient().transfer(&from, &to, Some(&request)).await {
+            eprintln!("settings: playback not handed over: {e}");
+        }
+    }
+    old.shutdown();
+    *slot = Some(engine);
+    Ok(())
 }
 
 /// Ends the session, if any, when the app quits.
