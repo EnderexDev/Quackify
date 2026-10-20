@@ -15,7 +15,7 @@ import { PlayButton } from "./PlayButton";
 export function Card({ card, onPick, onRemove }: { card: CardData; onPick?: () => void; onRemove?: () => void }) {
   const nav = useNav();
   const player = usePlayer();
-  const isTrack = card.kind === "track";
+  const isTrack = card.kind === "track" || card.kind === "episode";
   const isCurrent = isTrack ? player.track?.uri === card.uri : player.contextUri === card.uri;
   const round = card.kind === "artist";
   const openMenu = useContextMenu();

@@ -13,7 +13,7 @@ use http::{header, HeaderMap, HeaderValue, Method};
 use librespot_connect::{LoadRequest, LoadRequestOptions, PlayingTrack, Spirc};
 use librespot_playback::mixer::Mixer;
 use librespot_core::{dealer::protocol::Message, session::Session, spotify_uri::SpotifyUri};
-use librespot_metadata::{Metadata, Track};
+use librespot_metadata::{Episode, Metadata, Track};
 use librespot_protocol::connect::ClusterUpdate;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -293,11 +293,8 @@ impl Hub {
         }
         let hub = self.clone();
         tauri::async_runtime::spawn(async move {
-            let fetched = match SpotifyUri::from_uri(&uri) {
-                Ok(id) => Track::get(&hub.session, &id).await.ok(),
-                Err(_) => None,
-            };
-            let Some(t) = fetched else {
+            let fetched = fetch_item(&hub.session, &uri).await;
+            let Some(np) = fetched else {
                 // Let a later trigger try this track again.
                 let mut wanted = hub.wanted_track.lock().unwrap();
                 if wanted.as_deref() == Some(uri.as_str()) {
@@ -310,7 +307,6 @@ impl Hub {
             if wanted.as_deref() != Some(uri.as_str()) {
                 return;
             }
-            let np = now_playing(&t, uri);
             *hub.now_playing.lock().unwrap() = Some(np.clone());
             let _ = hub.app.emit("now-playing", np);
             drop(wanted);
@@ -551,9 +547,7 @@ impl Hub {
         let fetched = futures_util::future::join_all(missing.into_iter().map(|uri| {
             let session = self.session.clone();
             async move {
-                let id = SpotifyUri::from_uri(&uri).ok()?;
-                let t = Track::get(&session, &id).await.ok()?;
-                Some(now_playing(&t, uri))
+                fetch_item(&session, &uri).await
             }
         }))
         .await;
@@ -705,14 +699,39 @@ pub fn parse_cluster(c: &Value, local_device_id: &str) -> ConnectView {
     }
 }
 
-fn now_playing(t: &Track, uri: String) -> NowPlaying {
-    let image = t
-        .album
-        .covers
+/// What plays, for the player bar: a song, or a podcast episode (its show stands in for the
+/// album and the artist).
+async fn fetch_item(session: &Session, uri: &str) -> Option<NowPlaying> {
+    let id = SpotifyUri::from_uri(uri).ok()?;
+    match id {
+        SpotifyUri::Episode { .. } => Some(episode_playing(&Episode::get(session, &id).await.ok()?, uri.to_string())),
+        _ => Some(now_playing(&Track::get(session, &id).await.ok()?, uri.to_string())),
+    }
+}
+
+fn largest_cover(covers: &librespot_metadata::image::Images) -> Option<String> {
+    covers
         .iter()
         .max_by_key(|i| i.width)
         .and_then(|i| i.id.to_base16().ok())
-        .map(|hex| format!("https://i.scdn.co/image/{hex}"));
+        .map(|hex| format!("https://i.scdn.co/image/{hex}"))
+}
+
+fn episode_playing(e: &Episode, uri: String) -> NowPlaying {
+    // The episode's metadata names its show but not the show's URI; the pages look it up.
+    let show = Named { uri: String::new(), name: e.show_name.clone() };
+    NowPlaying {
+        uri,
+        name: e.name.clone(),
+        artists: vec![show.clone()],
+        album: show,
+        image: largest_cover(&e.covers),
+        duration_ms: e.duration.max(0) as u32,
+    }
+}
+
+fn now_playing(t: &Track, uri: String) -> NowPlaying {
+    let image = largest_cover(&t.album.covers);
     NowPlaying {
         uri,
         name: t.name.clone(),

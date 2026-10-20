@@ -46,6 +46,9 @@ const DEFAULT_HASHES: &[(&str, &str)] = &[
     ("recentSearches", "ece96d7b82c820fb9938dd1df50dee3e53737d808c3883e3d01c467c423601b0"),
     ("saveRecentSearches", "ece96d7b82c820fb9938dd1df50dee3e53737d808c3883e3d01c467c423601b0"),
     ("removeRecentSearches", "ece96d7b82c820fb9938dd1df50dee3e53737d808c3883e3d01c467c423601b0"),
+    ("queryShowMetadataV2", "b475447846f37cc426add800b995a7859c169c53c72b62de6338c0c40a5dacea"),
+    ("queryPodcastEpisodes", "3539d746cf882f3909660de40b4ef472b3f5893a0761d617c282541de5d412c5"),
+    ("getEpisodeOrChapter", "5f77db47e5a2ce6680330bb61317aa09e17ddd1d189513cb218e7cd3e43288be"),
 ];
 
 /// The lazily loaded route chunks that hold operations the app uses (search, genre pages, artist).

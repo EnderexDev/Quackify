@@ -49,19 +49,19 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
           <>
             <Cover src={t.image} className="pb-cover" />
             <div className="pb-text">
-              <a className="pb-title" onClick={() => t.album.uri && nav.open(t.album.uri)} title={t.name}>
+              <a className="pb-title" onClick={() => (t.uri.startsWith("spotify:episode:") ? nav.open(t.uri) : t.album.uri && nav.open(t.album.uri))} title={t.name}>
                 {t.name}
               </a>
               <div className="pb-artists">
                 {t.artists.map((a, i) => (
                   <span key={a.uri || i}>
                     {i > 0 && ", "}
-                    <a onClick={() => nav.open(a.uri)}>{a.name}</a>
+                    <a onClick={() => (a.uri ? nav.open(a.uri) : t.uri.startsWith("spotify:episode:") && nav.open(t.uri))}>{a.name}</a>
                   </span>
                 ))}
               </div>
             </div>
-            <LikeButton uri={t.uri} className="pb-like" />
+            {t.uri.startsWith("spotify:track:") && <LikeButton uri={t.uri} className="pb-like" />}
           </>
         )}
       </div>

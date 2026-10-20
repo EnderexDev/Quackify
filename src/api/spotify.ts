@@ -9,11 +9,14 @@ import type {
   CardPage,
   Category,
   Collection,
+  Episode,
+  EpisodePage,
   Home,
   LibraryFilter,
   LibraryPage,
   Lyrics,
   SearchResults,
+  Show,
   TrackDetails,
 } from "./types";
 
@@ -218,6 +221,31 @@ export async function saveRecentSearch(uri: string): Promise<void> {
 /** Removes these from recent searches. */
 export async function removeRecentSearches(uris: string[]): Promise<void> {
   await query("removeRecentSearches", { uris });
+}
+
+/** How many episodes one page of a show asks for. */
+export const EPISODE_PAGE_SIZE = 50;
+
+export function show(uri: string): Promise<Show> {
+  return cached(`show:${uri}`, async () =>
+    n.toShow(await query("queryShowMetadataV2", { uri, includeContentCapabilityTrait: false, includeEpisodeContentRatingsV2: false })),
+  );
+}
+
+/** One page of a show's episodes, newest first. */
+export function showEpisodes(uri: string, offset = 0): Promise<EpisodePage> {
+  return cached(`showEpisodes:${uri}:${offset}`, async () =>
+    n.toEpisodePage(
+      await query("queryPodcastEpisodes", { uri, offset, limit: EPISODE_PAGE_SIZE, includeEpisodeContentRatingsV2: false }),
+      offset,
+    ),
+  );
+}
+
+export async function episode(uri: string): Promise<Episode> {
+  const e = n.toSingleEpisode(await query("getEpisodeOrChapter", { uri, includeEpisodeContentRatingsV2: false }));
+  if (!e) throw new Error("Spotify did not send this episode.");
+  return e;
 }
 
 /** The track's lyrics, or null when Spotify has none. */

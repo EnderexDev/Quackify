@@ -86,7 +86,8 @@ function Results({ term }: { term: string }) {
   const top = data.top;
   const songs = data.tracks.slice(0, 5);
   const topIsCurrent = !!top && player.contextUri === top.uri;
-  const nothing = !top && !data.tracks.length && !data.artists.length && !data.albums.length && !data.playlists.length;
+  const nothing =
+    !top && !data.tracks.length && !data.artists.length && !data.albums.length && !data.playlists.length && !data.podcasts.length;
   if (nothing) {
     return (
       <div className="page center">
@@ -145,6 +146,8 @@ function Results({ term }: { term: string }) {
       <Shelf title="Artists" cards={data.artists} onPick={(c) => remember(c.uri)} />
       <Shelf title="Albums" cards={data.albums} onPick={(c) => remember(c.uri)} />
       <Shelf title="Playlists" cards={data.playlists} onPick={(c) => remember(c.uri)} />
+      <Shelf title="Podcasts" cards={data.podcasts} onPick={(c) => remember(c.uri)} />
+      <Shelf title="Episodes" cards={data.episodes} onPick={(c) => remember(c.uri)} />
     </div>
   );
 }

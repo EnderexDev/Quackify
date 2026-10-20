@@ -21,9 +21,10 @@ export function LikeButton({ uri, size = 18, className = "" }: { uri: string; si
 }
 
 /** "Save" / "Saved" for albums and playlists, "Follow" / "Following" for artists. */
-export function SaveButton({ uri, kind }: { uri: string; kind: "album" | "playlist" | "artist" }) {
+export function SaveButton({ uri, kind }: { uri: string; kind: "album" | "playlist" | "artist" | "show" }) {
   const [saved, toggle] = useSaved(uri);
-  const label = kind === "artist" ? (saved ? "Following" : "Follow") : saved ? "Saved" : "Save";
+  const follows = kind === "artist" || kind === "show";
+  const label = follows ? (saved ? "Following" : "Follow") : saved ? "Saved" : "Save";
   return (
     <button className={`save-btn ${saved ? "on" : ""}`} disabled={saved === undefined} onClick={toggle}>
       {label}

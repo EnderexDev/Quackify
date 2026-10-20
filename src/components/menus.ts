@@ -77,8 +77,9 @@ export function trackMenu(
 }
 
 export function cardMenu(card: Card, saved: boolean | undefined, nav: Nav): MenuItem[] {
-  const isArtist = card.kind === "artist";
-  const isTrack = card.kind === "track";
+  const isArtist = card.kind === "artist" || card.kind === "show";
+  // A song or an episode: the card itself plays.
+  const isTrack = card.kind === "track" || card.kind === "episode";
   const items: MenuItem[] = [
     isTrack
       ? { label: "Play", onClick: () => play.tracks([card.uri], 0).catch(toast) }

@@ -15,6 +15,7 @@ const FILTERS: { id: LibraryFilter; label: string }[] = [
   { id: "Playlists", label: "Playlists" },
   { id: "Artists", label: "Artists" },
   { id: "Albums", label: "Albums" },
+  { id: "Podcasts & Shows", label: "Podcasts" },
 ];
 
 /** Your Library: Liked Songs, saved playlists, artists and albums, loaded 50 at a time. */
@@ -116,7 +117,7 @@ export function Sidebar() {
               <div className="library-text">
                 <div className={`library-title ${playingHere ? "accent" : ""}`}>{c.title}</div>
                 <div className="library-sub">
-                  {c.kind === "liked" ? `Playlist • ${c.subtitle}` : c.kind === "artist" ? "Artist" : c.subtitle}
+                  {c.kind === "liked" ? `Playlist • ${c.subtitle}` : c.kind === "artist" ? "Artist" : c.kind === "show" ? `Podcast • ${c.subtitle}` : c.subtitle}
                 </div>
               </div>
             </div>

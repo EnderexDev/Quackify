@@ -16,7 +16,7 @@ import { formatCount, formatDuration } from "../util/format";
 import { useAsync } from "../util/useAsync";
 import { Failed, Loading } from "./common";
 
-const KIND_LABEL = { playlist: "Playlist", album: "Album", liked: "Playlist", artist: "Artist", track: "Song" } as const;
+const KIND_LABEL = { playlist: "Playlist", album: "Album", liked: "Playlist", artist: "Artist", track: "Song", show: "Podcast", episode: "Episode" } as const;
 
 /** A playlist, album or Liked Songs: header, play button, and every track (paged on scroll). */
 export function Collection({ uri }: { uri: string }) {

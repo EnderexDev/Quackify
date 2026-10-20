@@ -63,19 +63,19 @@ export function NowPlayingPanel({ onClose, onOpenQueue }: { onClose: () => void;
             <Cover src={t.image} className="npv-cover" />
             <div className="npv-title-row">
               <div className="npv-text">
-                <a className="npv-title" title={t.name} onClick={() => t.album.uri && nav.open(t.album.uri)}>
+                <a className="npv-title" title={t.name} onClick={() => (t.uri.startsWith("spotify:episode:") ? nav.open(t.uri) : t.album.uri && nav.open(t.album.uri))}>
                   {t.name}
                 </a>
                 <div className="npv-artists">
                   {t.artists.map((a, i) => (
                     <span key={a.uri || i}>
                       {i > 0 && ", "}
-                      <a onClick={() => a.uri && nav.open(a.uri)}>{a.name}</a>
+                      <a onClick={() => (a.uri ? nav.open(a.uri) : t.uri.startsWith("spotify:episode:") && nav.open(t.uri))}>{a.name}</a>
                     </span>
                   ))}
                 </div>
               </div>
-              <LikeButton uri={t.uri} size={20} />
+              {t.uri.startsWith("spotify:track:") && <LikeButton uri={t.uri} size={20} />}
             </div>
 
             {artist && (

@@ -2,7 +2,7 @@
 
 export type Named = { uri: string; name: string };
 
-export type Kind = "playlist" | "album" | "artist" | "liked" | "track";
+export type Kind = "playlist" | "album" | "artist" | "liked" | "track" | "show" | "episode";
 
 /** Anything shown as a tile: a playlist, album, artist, the Liked Songs entry, or a song (recent searches). */
 export type Card = {
@@ -46,9 +46,11 @@ export type SearchResults = {
   artists: Card[];
   albums: Card[];
   playlists: Card[];
+  podcasts: Card[];
+  episodes: Card[];
 };
 
-export type LibraryFilter = "Playlists" | "Artists" | "Albums" | null;
+export type LibraryFilter = "Playlists" | "Artists" | "Albums" | "Podcasts & Shows" | null;
 
 export type LibraryPage = { items: Card[]; total: number };
 
@@ -108,3 +110,33 @@ export type TrackDetails = {
   } | null;
   credits: { uri: string | null; name: string; roles: string[] }[];
 };
+
+/** A podcast episode, as a show's list and the episode page show it. */
+export type Episode = {
+  uri: string;
+  name: string;
+  description: string;
+  image: string | null;
+  durationMs: number;
+  /** ISO date. */
+  released: string | null;
+  show: Named;
+  /** Where the user left it; `finished` when listened to the end. */
+  playedMs: number;
+  finished: boolean;
+  playable: boolean;
+};
+
+/** A podcast: its header and one page of episodes, newest first. */
+export type Show = {
+  uri: string;
+  name: string;
+  publisher: string;
+  description: string;
+  image: string | null;
+  color: string | null;
+  rating: number | null;
+  topics: string[];
+};
+
+export type EpisodePage = { episodes: Episode[]; total: number; next: number | null };

@@ -8,6 +8,8 @@ export type Route =
   | { page: "artist"; uri: string }
   | { page: "lyrics" }
   | { page: "settings" }
+  | { page: "show"; uri: string }
+  | { page: "episode"; uri: string }
   /** A genre or mood page from Browse all. */
   | { page: "browse"; uri: string }
   /** "Show all" of a row: a Home section, a genre page's section, a discography or related artists. */
@@ -55,6 +57,8 @@ export function NavProvider({ children }: { children: ReactNode }) {
       if (uri.startsWith("spotify:artist:")) go({ page: "artist", uri });
       else if (/^spotify:(playlist|album|collection)/.test(uri)) go({ page: "collection", uri });
       else if (uri.startsWith("spotify:page:")) go({ page: "browse", uri });
+      else if (uri.startsWith("spotify:show:")) go({ page: "show", uri });
+      else if (uri.startsWith("spotify:episode:")) go({ page: "episode", uri });
     },
   };
 

@@ -7,12 +7,15 @@ import type {
   CardPage,
   Category,
   Collection,
+  Episode,
+  EpisodePage,
   Home,
   Kind,
   LibraryPage,
   Named,
   SearchResults,
   Section,
+  Show,
   Track,
   TrackDetails,
 } from "./types";
@@ -97,6 +100,26 @@ export function toCard(x: Raw): Card | null {
     }
     case "Artist":
       return { uri, kind: "artist", title: d.profile?.name ?? "", subtitle: "Artist", image: imageOf(d) };
+    case "Podcast":
+    case "Audiobook":
+      return {
+        uri,
+        kind: "show",
+        title: d.name ?? "",
+        subtitle: d.publisher?.name ?? "Podcast",
+        image: imageOf(d),
+      };
+    case "Episode": {
+      const date = formatDay(d.releaseDate?.isoString);
+      const show = d.podcastV2?.data?.name;
+      return {
+        uri,
+        kind: "episode",
+        title: d.name ?? "",
+        subtitle: [date, show].filter(Boolean).join(" • ") || "Episode",
+        image: imageOf(d),
+      };
+    }
     case "Track":
       return {
         uri,
@@ -243,7 +266,62 @@ export function toSearch(data: Raw): SearchResults {
     artists: cards(s?.artists?.items),
     albums: cards(s?.albumsV2?.items),
     playlists: cards(s?.playlists?.items),
+    podcasts: cards(s?.podcasts?.items),
+    episodes: cards(s?.episodes?.items),
   };
+}
+
+/** "Mar 3, 2024" for an ISO date. */
+function formatDay(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+export function toEpisode(x: Raw): Episode | null {
+  const d = x?.entity?.data ?? x?.data ?? x;
+  if (d?.__typename !== "Episode" && d?.__typename !== "Chapter") return null;
+  const show = d.podcastV2?.data;
+  const played = d.playedState;
+  return {
+    uri: d.uri ?? x?.entity?._uri ?? "",
+    name: d.name ?? "",
+    description: plainText(d.description ?? d.htmlDescription),
+    image: imageOf(d, 300),
+    durationMs: d.duration?.totalMilliseconds ?? 0,
+    released: d.releaseDate?.isoString ?? null,
+    show: { uri: show?.uri ?? "", name: show?.name ?? "" },
+    playedMs: played?.playPositionMilliseconds ?? 0,
+    finished: played?.state === "COMPLETED",
+    playable: d.playability?.playable !== false,
+  };
+}
+
+export function toShow(data: Raw): Show {
+  const p = data?.podcastUnionV2;
+  return {
+    uri: p?.uri ?? "",
+    name: p?.name ?? "",
+    publisher: p?.publisher?.name ?? "",
+    description: plainText(p?.description ?? p?.htmlDescription),
+    image: imageOf(p, 640),
+    color: colorOf(p),
+    rating: p?.rating?.averageRating?.showAverage ? p.rating.averageRating.average ?? null : null,
+    topics: (p?.topics?.items ?? []).map((t: Raw) => t?.title).filter(Boolean),
+  };
+}
+
+export function toEpisodePage(data: Raw, offset: number): EpisodePage {
+  const list = data?.podcastUnionV2?.episodesV2;
+  const items = list?.items ?? [];
+  const episodes = items.map(toEpisode).filter((e: Episode | null): e is Episode => e !== null);
+  const total = list?.totalCount ?? offset + items.length;
+  const next = list?.pagingInfo?.nextOffset ?? (offset + items.length < total ? offset + items.length : null);
+  return { episodes, total, next: items.length ? next : null };
+}
+
+export function toSingleEpisode(data: Raw): Episode | null {
+  return toEpisode(data?.episodeUnionV2);
 }
 
 export function toLibrary(data: Raw): LibraryPage {
@@ -367,5 +445,6 @@ export function toTrackDetails(data: Raw): TrackDetails {
 export const kindOf = (uri: string): Kind | null => {
   if (uri.startsWith("spotify:collection")) return "liked";
   const k = uri.split(":")[1];
+  if (k === "show" || k === "episode") return k;
   return k === "playlist" || k === "album" || k === "artist" ? k : null;
 };
