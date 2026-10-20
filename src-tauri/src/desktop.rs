@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{App, AppHandle, Emitter, Manager, WindowEvent};
-use tauri_plugin_autostart::ManagerExt;
+use auto_launch::{AutoLaunch, AutoLaunchBuilder, WindowsEnableMode};
 
 use crate::media::{self, Action};
 use crate::settings::{self, Store};
@@ -29,13 +29,27 @@ pub fn sync_tray(app: &AppHandle) {
     }
 }
 
-pub fn start_with_windows(app: &AppHandle) -> bool {
-    app.autolaunch().is_enabled().unwrap_or(false)
+/// The Windows startup entry (the user's Run key), with or without `--minimized`.
+fn launcher(minimized: bool) -> Result<AutoLaunch, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let args: &[&str] = if minimized { &[MINIMIZED_ARG] } else { &[] };
+    AutoLaunchBuilder::new()
+        .set_app_name("Quackify")
+        .set_app_path(&exe.display().to_string())
+        .set_args(args)
+        .set_windows_enable_mode(WindowsEnableMode::CurrentUser)
+        .build()
+        .map_err(|e| e.to_string())
 }
 
-/// Turns the Windows startup entry on or off; says what Windows has afterwards.
+pub fn start_with_windows(_app: &AppHandle) -> bool {
+    launcher(false).and_then(|l| l.is_enabled().map_err(|e| e.to_string())).unwrap_or(false)
+}
+
+/// Turns the Windows startup entry on (minimized or not, per the settings) or off; says what
+/// Windows has afterwards.
 pub fn set_start_with_windows(app: &AppHandle, on: bool) -> Result<bool, String> {
-    let launch = app.autolaunch();
+    let launch = launcher(settings::current(app).start_minimized)?;
     let result = if on { launch.enable() } else { launch.disable() };
     sync_tray(app);
     result.map_err(|e| e.to_string())?;

@@ -119,7 +119,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
         {route.page === "collection" && <Collection uri={route.uri} />}
         {route.page === "artist" && <Artist uri={route.uri} />}
         {route.page === "lyrics" && <LyricsView />}
-        {route.page === "settings" && <SettingsView />}
+        {route.page === "settings" && <SettingsView account={{ name, image, onLogout }} />}
         {route.page === "show" && <ShowView uri={route.uri} />}
         {route.page === "episode" && <EpisodeView uri={route.uri} />}
         {route.page === "browse" && <BrowseView uri={route.uri} />}

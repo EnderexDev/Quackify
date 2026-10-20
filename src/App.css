@@ -2162,3 +2162,59 @@ button.device:hover {
   background: var(--panel-2);
   color: var(--text);
 }
+
+/* Your Library, compact: one line per item, no covers. */
+.library-list.compact .library-item {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.library-list.compact .library-cover {
+  display: none;
+}
+
+.library-list.compact .library-text {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* The name keeps its room; the kind and owner shrink first. */
+.library-list.compact .library-title {
+  flex: 0 1 auto;
+  max-width: 75%;
+}
+
+.library-list.compact .library-sub {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.settings-account {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.settings-account .avatar {
+  width: 48px;
+  height: 48px;
+}
+
+.settings-input {
+  flex: none;
+  width: 220px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}

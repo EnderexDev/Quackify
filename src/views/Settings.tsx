@@ -2,12 +2,25 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getVersion } from "@tauri-apps/api/app";
 import { toast } from "../state/toast";
 import { Loading } from "./common";
 
 type Quality = "normal" | "high" | "very_high";
 type Loudness = "quiet" | "normal" | "loud";
-type Settings = { close_to_tray: boolean; quality: Quality; normalize: boolean; loudness: Loudness; autoplay: boolean };
+type Settings = {
+  close_to_tray: boolean;
+  quality: Quality;
+  normalize: boolean;
+  loudness: Loudness;
+  autoplay: boolean;
+  gapless: boolean;
+  audio_cache: boolean;
+  cache_size_gb: number;
+  device_name: string;
+  start_minimized: boolean;
+  compact_library: boolean;
+};
 type View = { settings: Settings; start_with_windows: boolean };
 
 const QUALITIES: { value: Quality; label: string }[] = [
@@ -16,14 +29,34 @@ const QUALITIES: { value: Quality; label: string }[] = [
   { value: "very_high", label: "Very high (320 kbps)" },
 ];
 
+const CACHE_SIZES = [1, 2, 5, 10, 20];
+
+/** "1.4 GB", "230 MB". */
+function formatBytes(n: number): string {
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} GB`;
+  if (n >= 1024 ** 2) return `${Math.round(n / 1024 ** 2)} MB`;
+  return n > 0 ? `${Math.max(1, Math.round(n / 1024))} KB` : "Empty";
+}
+
 const LOUDNESS: { value: Loudness; label: string }[] = [
   { value: "loud", label: "Loud" },
   { value: "normal", label: "Normal" },
   { value: "quiet", label: "Quiet" },
 ];
 
-export function SettingsView() {
+type Account = { name: string; image: string | null; onLogout: () => void };
+
+export function SettingsView({ account }: { account: Account }) {
   const [view, setView] = useState<View | null>(null);
+  const [cacheBytes, setCacheBytes] = useState<number | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [deviceName, setDeviceName] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState("");
+  const readCache = () => invoke<number>("settings_cache_size").then(setCacheBytes, () => {});
+  useEffect(() => {
+    readCache();
+    getVersion().then(setAppVersion, () => {});
+  }, []);
   // An audio change rebuilds the player; the controls wait for it.
   const [applying, setApplying] = useState(false);
   // Bumped by every save and read: an answer to an older read is dropped, so a read that was
@@ -70,9 +103,51 @@ export function SettingsView() {
     }
   };
 
+  const clearCache = async () => {
+    setClearing(true);
+    try {
+      setCacheBytes(await invoke<number>("settings_clear_cache"));
+      toast("Cache cleared");
+    } catch (e) {
+      toast(e);
+      readCache();
+    } finally {
+      setClearing(false);
+    }
+  };
+  const nameDraft = deviceName ?? s.device_name;
+  const saveName = () => {
+    const name = nameDraft.trim();
+    setDeviceName(null);
+    if (name && name !== s.device_name) save({ device_name: name });
+  };
+
   return (
     <div className="page settings">
       <h1 className="page-title">Settings</h1>
+
+      <section className="settings-group">
+        <h2>Account</h2>
+        <div className="settings-row">
+          <div className="settings-account">
+            {account.image ? <img className="avatar" src={account.image} alt="" /> : <span className="avatar">{account.name.slice(0, 1)}</span>}
+            <div>
+              <div className="settings-title">{account.name}</div>
+              <div className="muted small">Logged in with Spotify Premium</div>
+            </div>
+          </div>
+          <button className="secondary" onClick={account.onLogout}>
+            Log out
+          </button>
+        </div>
+      </section>
+
+      <section className="settings-group">
+        <h2>Your Library</h2>
+        <Row title="Compact layout" note="Show Your Library as a list, without covers.">
+          <Toggle on={s.compact_library} disabled={applying} onChange={(on) => save({ compact_library: on })} />
+        </Row>
+      </section>
 
       <section className="settings-group">
         <h2>Audio quality</h2>
@@ -108,6 +183,9 @@ export function SettingsView() {
         <Row title="Autoplay" note="When your music ends, keep playing similar songs.">
           <Toggle on={s.autoplay} disabled={applying} onChange={(on) => save({ autoplay: on })} />
         </Row>
+        <Row title="Gapless playback" note="Start the next song with no silence after the one ending, as albums are meant to be heard.">
+          <Toggle on={s.gapless} disabled={applying} onChange={(on) => save({ gapless: on })} />
+        </Row>
         <p className="muted small settings-note">
           {applying
             ? "Applying… Quackify reconnects to Spotify for this."
@@ -116,13 +194,67 @@ export function SettingsView() {
       </section>
 
       <section className="settings-group">
-        <h2>Desktop</h2>
+        <h2>Storage</h2>
+        <Row
+          title="Cache songs"
+          note="Songs you play are kept on this computer, so playing them again starts at once and uses no data. The oldest go first when the cache is full."
+        >
+          <Toggle on={s.audio_cache} disabled={applying} onChange={(on) => save({ audio_cache: on })} />
+        </Row>
+        <Row title="Cache size" note="The most the cache may take on disk.">
+          <select
+            value={s.cache_size_gb}
+            disabled={applying || !s.audio_cache}
+            onChange={(e) => save({ cache_size_gb: Number(e.currentTarget.value) })}
+          >
+            {CACHE_SIZES.map((gb) => (
+              <option key={gb} value={gb}>
+                {gb} GB
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row title="Cache in use" note={cacheBytes === null ? "Measuring…" : formatBytes(cacheBytes)}>
+          <button className="secondary" disabled={clearing || applying || !cacheBytes} onClick={clearCache}>
+            {clearing ? "Clearing…" : "Clear cache"}
+          </button>
+        </Row>
+      </section>
+
+      <section className="settings-group">
+        <h2>Spotify Connect</h2>
+        <Row title="Device name" note="How this computer shows up in your other Spotify apps.">
+          <input
+            className="settings-input"
+            value={nameDraft}
+            maxLength={40}
+            disabled={applying}
+            onChange={(e) => setDeviceName(e.currentTarget.value)}
+            onBlur={saveName}
+            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+          />
+        </Row>
+      </section>
+
+      <section className="settings-group">
+        <h2>Startup and window</h2>
         <Row title="Close button keeps Quackify in the tray" note="The music keeps playing; quit from the tray icon.">
           <Toggle on={s.close_to_tray} disabled={applying} onChange={(on) => save({ close_to_tray: on })} />
         </Row>
-        <Row title="Start with Windows" note="Opens Quackify in the tray when you log in to the computer.">
+        <Row title="Start with Windows" note="Open Quackify when you log in to the computer.">
           <Toggle on={view.start_with_windows} onChange={setStartup} />
         </Row>
+        <Row title="Start minimized" note="When it starts with Windows, Quackify waits in the tray instead of opening its window.">
+          <Toggle on={s.start_minimized} disabled={applying} onChange={(on) => save({ start_minimized: on })} />
+        </Row>
+      </section>
+
+      <section className="settings-group">
+        <h2>About</h2>
+        <p className="muted">
+          Quackify {appVersion}. Not in Quackify yet: crossfade, the equalizer and mono audio (its player has none of
+          them). Lossless audio and downloads for offline listening are only allowed in Spotify&apos;s own apps.
+        </p>
       </section>
     </div>
   );

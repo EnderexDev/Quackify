@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { library } from "../api/spotify";
 import type { Card, LibraryFilter } from "../api/types";
 import { useNav } from "../state/nav";
@@ -30,6 +32,17 @@ export function Sidebar() {
   // Bumped when something is saved or removed, to reload the list.
   const [version, setVersion] = useState(0);
   useEffect(() => onLibraryChanged(() => setVersion((v) => v + 1)), []);
+  // The compact layout is a setting; it changes from the Settings page or another window.
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const read = () =>
+      invoke<{ settings: { compact_library: boolean } }>("settings_get").then((v) => setCompact(v.settings.compact_library), () => {});
+    read();
+    const off = listen("settings-changed", read);
+    return () => {
+      off.then((f) => f());
+    };
+  }, []);
   const loadingMore = useRef(false);
   const sentinel = useRef<HTMLDivElement>(null);
 
@@ -101,7 +114,7 @@ export function Sidebar() {
           </button>
         ))}
       </div>
-      <div className="library-list">
+      <div className={`library-list ${compact ? "compact" : ""}`}>
         {error && <div className="muted small pad">{error}</div>}
         {items.map((c) => {
           const playingHere = player.contextUri === c.uri;

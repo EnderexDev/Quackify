@@ -35,7 +35,7 @@ futures-util = "0.3"
 http = "1"
 protobuf = "3.7"
 souvlaki = { version = "0.8", default-features = false }
-tauri-plugin-autostart = "2"
+auto-launch = "0.6"
 tauri-plugin-single-instance = "2"
 
 

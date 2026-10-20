@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
 #[serde(rename_all = "snake_case")]
@@ -50,7 +50,23 @@ pub struct Settings {
     pub loudness: Loudness,
     /// When what plays ends, keep playing similar songs.
     pub autoplay: bool,
+    /// The next song starts with no gap after the one ending.
+    pub gapless: bool,
+    /// Songs played are kept on disk, so playing them again starts at once and saves data.
+    pub audio_cache: bool,
+    /// Most the audio cache may take, in GB; the oldest songs go first.
+    pub cache_size_gb: u32,
+    /// The name other Spotify apps show for this computer.
+    pub device_name: String,
+    /// Starting with Windows opens Quackify in the tray rather than in a window.
+    pub start_minimized: bool,
+    /// Your Library as a compact list, without covers.
+    pub compact_library: bool,
 }
+
+pub const DEFAULT_DEVICE_NAME: &str = "Quackify";
+/// The cache sizes the Settings page offers, in GB.
+pub const CACHE_SIZES_GB: &[u32] = &[1, 2, 5, 10, 20];
 
 impl Default for Settings {
     fn default() -> Self {
@@ -60,6 +76,12 @@ impl Default for Settings {
             normalize: true,
             loudness: Loudness::default(),
             autoplay: true,
+            gapless: true,
+            audio_cache: true,
+            cache_size_gb: 2,
+            device_name: DEFAULT_DEVICE_NAME.to_string(),
+            start_minimized: true,
+            compact_library: false,
         }
     }
 }
@@ -71,8 +93,26 @@ impl Settings {
             || self.normalize != other.normalize
             || self.loudness != other.loudness
             || self.autoplay != other.autoplay
+            || self.gapless != other.gapless
+            || self.audio_cache != other.audio_cache
+            || self.cache_size_gb != other.cache_size_gb
+            || self.device_name() != other.device_name()
+    }
+
+    /// The device name to use: never empty, and short like Spotify's own.
+    pub fn device_name(&self) -> String {
+        let name: String = self.device_name.trim().chars().take(MAX_DEVICE_NAME).collect();
+        if name.is_empty() { DEFAULT_DEVICE_NAME.to_string() } else { name }
+    }
+
+    /// The cache size limit in bytes, from one of the offered sizes.
+    pub fn cache_limit_bytes(&self) -> u64 {
+        let gb = if CACHE_SIZES_GB.contains(&self.cache_size_gb) { self.cache_size_gb } else { 2 };
+        u64::from(gb) * 1024 * 1024 * 1024
     }
 }
+
+const MAX_DEVICE_NAME: usize = 40;
 
 pub struct Store {
     file: Option<PathBuf>,
@@ -133,6 +173,12 @@ pub fn settings_get(app: AppHandle) -> View {
 pub async fn settings_set(app: AppHandle, settings: Settings) -> Result<(), String> {
     let before = app.state::<Store>().set(settings.clone())?;
     crate::desktop::sync_tray(&app);
+    // The startup entry carries "start minimized" in its command line: rewrite it.
+    if before.start_minimized != settings.start_minimized && crate::desktop::start_with_windows(&app) {
+        crate::desktop::set_start_with_windows(&app, true)?;
+    }
+    // Other windows' views (Your Library's layout) follow.
+    let _ = app.emit("settings-changed", ());
     if before.player_differs(&settings) {
         crate::spotify::reconnect(&app).await?;
     }
@@ -142,6 +188,53 @@ pub async fn settings_set(app: AppHandle, settings: Settings) -> Result<(), Stri
 #[tauri::command]
 pub fn settings_set_start_with_windows(app: AppHandle, on: bool) -> Result<bool, String> {
     crate::desktop::set_start_with_windows(&app, on)
+}
+
+/// Where songs are cached: the local (not roaming) app data, as it can grow to gigabytes.
+pub fn audio_cache_dir(app: &AppHandle) -> Option<PathBuf> {
+    app.path().app_local_data_dir().ok().map(|d| d.join("audio-cache"))
+}
+
+fn dir_size(dir: &std::path::Path) -> u64 {
+    let Ok(entries) = std::fs::read_dir(dir) else { return 0 };
+    entries
+        .flatten()
+        .map(|e| match e.metadata() {
+            Ok(m) if m.is_dir() => dir_size(&e.path()),
+            Ok(m) => m.len(),
+            Err(_) => 0,
+        })
+        .sum()
+}
+
+/// How many bytes the audio cache takes now.
+#[tauri::command]
+pub fn settings_cache_size(app: AppHandle) -> u64 {
+    audio_cache_dir(&app).map(|d| dir_size(&d)).unwrap_or(0)
+}
+
+/// Empties the audio cache. Files the player has open stay; the player is rebuilt afterwards
+/// so its count of the cache's size starts over. Returns the size left.
+#[tauri::command]
+pub async fn settings_clear_cache(app: AppHandle) -> Result<u64, String> {
+    if let Some(dir) = audio_cache_dir(&app) {
+        clear_dir(&dir);
+        crate::spotify::reconnect(&app).await?;
+    }
+    Ok(settings_cache_size(app))
+}
+
+fn clear_dir(dir: &std::path::Path) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for e in entries.flatten() {
+        let path = e.path();
+        if path.is_dir() {
+            clear_dir(&path);
+            let _ = std::fs::remove_dir(&path);
+        } else {
+            let _ = std::fs::remove_file(&path);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -157,6 +250,18 @@ mod tests {
         assert!(s.normalize && s.autoplay);
         let back: Settings = serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap();
         assert_eq!(back, s);
+    }
+
+    #[test]
+    fn new_fields_default_and_device_name_is_never_empty() {
+        let s: Settings = serde_json::from_str(r#"{ "quality": "high" }"#).unwrap();
+        assert!(s.gapless && s.audio_cache && s.start_minimized && !s.compact_library);
+        assert_eq!(s.cache_size_gb, 2);
+        assert_eq!(Settings { device_name: "   ".into(), ..s.clone() }.device_name(), "Quackify");
+        assert_eq!(Settings { device_name: " Sala ".into(), ..s.clone() }.device_name(), "Sala");
+        assert_eq!(Settings { cache_size_gb: 7, ..s.clone() }.cache_limit_bytes(), 2 * 1024 * 1024 * 1024);
+        assert!(s.player_differs(&Settings { device_name: "Sala".into(), ..s.clone() }));
+        assert!(!s.player_differs(&Settings { compact_library: true, start_minimized: false, ..s.clone() }));
     }
 
     #[test]

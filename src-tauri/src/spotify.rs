@@ -19,7 +19,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex;
 
-use crate::connect::{ConnectView, Hub, NowPlaying, Repeat, DEVICE_NAME};
+use crate::connect::{ConnectView, Hub, NowPlaying, Repeat};
 use crate::pathfinder::Pathfinder;
 use crate::settings::Quality;
 
@@ -83,16 +83,18 @@ fn cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| e.to_string())
 }
 
-fn open_cache(app: &AppHandle) -> Result<Cache, String> {
+/// The login and volume cache; with `audio_limit`, songs are cached too, up to that many bytes.
+fn open_cache(app: &AppHandle, audio_limit: Option<u64>) -> Result<Cache, String> {
     let dir = cache_dir(app)?;
-    Cache::new(Some(&dir), Some(&dir), None, None).map_err(|e| e.to_string())
+    let audio = audio_limit.and(crate::settings::audio_cache_dir(app));
+    Cache::new(Some(&dir), Some(&dir), audio.as_ref(), audio_limit).map_err(|e| e.to_string())
 }
 
 /// Logs in and registers this app as a Spotify Connect device.
 async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, String> {
-    let cache = open_cache(app)?;
-    let initial_volume = cache.volume().unwrap_or(u16::MAX / 2);
     let settings = crate::settings::current(app);
+    let cache = open_cache(app, settings.audio_cache.then(|| settings.cache_limit_bytes()))?;
+    let initial_volume = cache.volume().unwrap_or(u16::MAX / 2);
     let session = Session::new(SessionConfig { autoplay: Some(settings.autoplay), ..Default::default() }, Some(cache));
 
     // Linear: the slider's 50% is half the level. librespot's default curve (log, 60 dB) makes the
@@ -109,6 +111,7 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
         },
         normalisation: settings.normalize,
         normalisation_pregain_db: settings.loudness.pregain_db(),
+        gapless: settings.gapless,
         ..Default::default()
     };
     let player = Player::new(
@@ -119,7 +122,7 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     );
 
     let config = ConnectConfig {
-        name: DEVICE_NAME.to_string(),
+        name: settings.device_name(),
         device_type: DeviceType::Computer,
         initial_volume,
         ..Default::default()
@@ -206,7 +209,7 @@ pub async fn reconnect(app: &AppHandle) -> Result<(), String> {
     let state = app.state::<SpotifyState>();
     let mut slot = state.0.lock().await;
     let Some(old) = slot.take() else { return Ok(()) };
-    let credentials = match open_cache(app)?.credentials() {
+    let credentials = match open_cache(app, None)?.credentials() {
         Some(c) => c,
         None => {
             *slot = Some(old);
@@ -270,7 +273,7 @@ pub async fn spotify_status(state: State<'_, SpotifyState>) -> Result<Status, St
 pub async fn spotify_restore(app: AppHandle, state: State<'_, SpotifyState>) -> Result<Status, String> {
     let mut slot = state.0.lock().await;
     if slot.is_none() {
-        if let Some(credentials) = open_cache(&app)?.credentials() {
+        if let Some(credentials) = open_cache(&app, None)?.credentials() {
             *slot = Some(connect(&app, credentials).await?);
         }
     }
