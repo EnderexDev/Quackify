@@ -69,3 +69,26 @@ export type Artist = {
   albums: Card[];
   singles: Card[];
 };
+
+/** A song's lyrics. When `synced`, each line starts at `start_ms`. Colors are `#rrggbb`. */
+export type Lyrics = {
+  synced: boolean;
+  lines: { start_ms: number; words: string }[];
+  provider: string;
+  background: string | null;
+  text: string | null;
+  highlight: string | null;
+};
+
+/** What the Now Playing panel shows besides the track: its main artist and its credits. */
+export type TrackDetails = {
+  artist: {
+    uri: string;
+    name: string;
+    image: string | null;
+    monthlyListeners: number | null;
+    bio: string;
+    verified: boolean;
+  } | null;
+  credits: { uri: string | null; name: string; roles: string[] }[];
+};

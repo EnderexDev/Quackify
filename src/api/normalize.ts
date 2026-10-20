@@ -1,6 +1,6 @@
 // Spotify's GraphQL (pathfinder) responses into the app's shapes. Every reader is defensive:
 // the same entity comes back with different fields depending on the operation that sent it.
-import type { Artist, Card, Collection, Home, Kind, LibraryPage, Named, SearchResults, Section, Track } from "./types";
+import type { Artist, Card, Collection, Home, Kind, LibraryPage, Named, SearchResults, Section, Track, TrackDetails } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Raw = any;
@@ -226,6 +226,33 @@ export function toArtist(data: Raw): Artist {
     topTracks: tracks(a?.discography?.topTracks?.items),
     albums: releases(a?.discography?.albums),
     singles: releases(a?.discography?.singles),
+  };
+}
+
+export function toTrackDetails(data: Raw): TrackDetails {
+  const a = data?.artistUnion;
+  // One person can have several roles (writer and producer): one credit each.
+  const credits: TrackDetails["credits"] = [];
+  for (const c of data?.trackUnion?.creditsTrait?.contributors?.items ?? []) {
+    if (!c?.name) continue;
+    const same = credits.find((x) => x.name === c.name);
+    if (same) {
+      if (c.role && !same.roles.includes(c.role)) same.roles.push(c.role);
+    } else credits.push({ uri: c.uri ?? null, name: c.name, roles: c.role ? [c.role] : [] });
+  }
+  return {
+    artist: a?.profile?.name
+      ? {
+          uri: a.uri ?? "",
+          name: a.profile.name,
+          // The wide gallery photo, as Spotify's panel shows; the avatar when there is none.
+          image: pickImage(a.visuals?.gallery?.items?.[0]?.sources, 640) ?? imageOf(a, 640),
+          monthlyListeners: a.stats?.monthlyListeners ?? null,
+          bio: plainText(a.profile.biography?.text),
+          verified: !!a.onPlatformReputationTrait?.verification?.isVerified,
+        }
+      : null,
+    credits,
   };
 }
 

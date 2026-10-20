@@ -486,6 +486,73 @@ pub async fn spotify_rootlist_change(uri: String, add: bool, state: State<'_, Sp
     Ok(())
 }
 
+/// A song's lyrics, as the web player's lyrics view gets them.
+#[derive(Serialize, Debug, PartialEq)]
+pub struct Lyrics {
+    /// Each line has its start time; otherwise the times are all zero.
+    synced: bool,
+    lines: Vec<LyricsLine>,
+    provider: String,
+    /// The song's colors (`#rrggbb`), for the background, the lines, and the line being sung.
+    background: Option<String>,
+    text: Option<String>,
+    highlight: Option<String>,
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+pub struct LyricsLine {
+    start_ms: u64,
+    words: String,
+}
+
+fn parse_lyrics(v: &Value) -> Option<Lyrics> {
+    let l = &v["lyrics"];
+    let lines: Vec<LyricsLine> = l["lines"]
+        .as_array()?
+        .iter()
+        .map(|line| LyricsLine {
+            // Spotify sends the times as strings.
+            start_ms: line["startTimeMs"].as_str().and_then(|s| s.parse().ok()).unwrap_or(0),
+            words: line["words"].as_str().unwrap_or_default().to_string(),
+        })
+        .collect();
+    if lines.is_empty() {
+        return None;
+    }
+    // Colors are signed ARGB integers.
+    let color = |key: &str| v["colors"][key].as_i64().map(|c| format!("#{:06x}", c as u32 & 0xff_ffff));
+    Some(Lyrics {
+        synced: l["syncType"].as_str() == Some("LINE_SYNCED"),
+        lines,
+        provider: l["providerDisplayName"].as_str().unwrap_or_default().to_string(),
+        background: color("background"),
+        text: color("text"),
+        highlight: color("highlightText"),
+    })
+}
+
+/// The lyrics of a track, or nothing when Spotify has none for it.
+#[tauri::command]
+pub async fn spotify_lyrics(uri: String, state: State<'_, SpotifyState>) -> Result<Option<Lyrics>, String> {
+    use http::{header, HeaderMap, HeaderValue, Method};
+    use librespot_core::{error::ErrorKind, SpotifyId};
+    let id = uri.strip_prefix("spotify:track:").ok_or("not a track")?;
+    let id = SpotifyId::from_base62(id).map_err(|e| e.to_string())?;
+    let session = session(&state).await?;
+    let mut headers = HeaderMap::new();
+    headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
+    headers.insert("app-platform", HeaderValue::from_static("WebPlayer"));
+    let path = format!(
+        "/color-lyrics/v2/track/{}?format=json&vocalRemoval=false&market=from_token",
+        id.to_base62().map_err(|e| e.to_string())?
+    );
+    match session.spclient().request(&Method::GET, &path, Some(headers), None).await {
+        Ok(bytes) => Ok(serde_json::from_slice(&bytes).ok().as_ref().and_then(parse_lyrics)),
+        Err(e) if e.kind == ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// Whether each playlist URI is in the user's library, in order.
 #[tauri::command]
 pub async fn spotify_rootlist_has(uris: Vec<String>, state: State<'_, SpotifyState>) -> Result<Vec<bool>, String> {
@@ -505,4 +572,40 @@ pub async fn spotify_rootlist_has(uris: Vec<String>, state: State<'_, SpotifySta
         .map(|i| i.uri().to_string())
         .collect();
     Ok(uris.iter().map(|u| saved.contains(u)).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_synced_lyrics_and_colors() {
+        let v = serde_json::json!({
+            "lyrics": {
+                "syncType": "LINE_SYNCED",
+                "lines": [
+                    { "startTimeMs": "13120", "words": "Yeah", "endTimeMs": "0" },
+                    { "startTimeMs": "27170", "words": "I've been tryna call", "endTimeMs": "0" }
+                ],
+                "providerDisplayName": "Musixmatch"
+            },
+            "colors": { "background": -1889493, "text": -16777216, "highlightText": -1 }
+        });
+        let l = parse_lyrics(&v).unwrap();
+        assert!(l.synced);
+        assert_eq!(l.lines[1], LyricsLine { start_ms: 27170, words: "I've been tryna call".into() });
+        assert_eq!(l.provider, "Musixmatch");
+        assert_eq!(l.background.as_deref(), Some("#e32b2b"));
+        assert_eq!(l.text.as_deref(), Some("#000000"));
+        assert_eq!(l.highlight.as_deref(), Some("#ffffff"));
+    }
+
+    #[test]
+    fn unsynced_or_empty_lyrics() {
+        let v = serde_json::json!({ "lyrics": { "syncType": "UNSYNCED", "lines": [{ "startTimeMs": "0", "words": "la" }] } });
+        let l = parse_lyrics(&v).unwrap();
+        assert!(!l.synced);
+        assert_eq!(l.background, None);
+        assert_eq!(parse_lyrics(&serde_json::json!({ "lyrics": { "lines": [] } })), None);
+    }
 }

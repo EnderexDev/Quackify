@@ -206,3 +206,17 @@ export const PlusIcon = (p: P) => (
     <path d="M12 5v14M5 12h14" />
   </Icon>
 );
+
+export const MicIcon = (p: P) => (
+  <Icon {...p} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" />
+  </Icon>
+);
+
+export const NowPlayingIcon = (p: P) => (
+  <Icon {...p} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M10 9v6l5-3z" fill="currentColor" stroke="none" />
+  </Icon>
+);

@@ -5,7 +5,8 @@ export type Route =
   | { page: "home" }
   | { page: "search"; term: string }
   | { page: "collection"; uri: string }
-  | { page: "artist"; uri: string };
+  | { page: "artist"; uri: string }
+  | { page: "lyrics" };
 
 type Nav = {
   route: Route;

@@ -4,6 +4,7 @@ import { clearCache } from "./api/spotify";
 import { DuckIcon } from "./components/icons";
 import { ContextMenuProvider } from "./components/ContextMenu";
 import { PlayerBar } from "./components/PlayerBar";
+import { NowPlayingPanel } from "./components/NowPlaying";
 import { QueuePanel } from "./components/Queue";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
@@ -13,6 +14,7 @@ import { toast, Toasts } from "./state/toast";
 import { Artist } from "./views/Artist";
 import { Collection } from "./views/Collection";
 import { Home } from "./views/Home";
+import { LyricsView } from "./views/Lyrics";
 import { Search } from "./views/Search";
 import "./App.css";
 
@@ -71,11 +73,22 @@ function App() {
   );
 }
 
+export type Panel = "queue" | "nowplaying" | null;
+
 function Shell({ name, image, onLogout }: { name: string; image: string | null; onLogout: () => void }) {
   const nav = useNav();
   const player = usePlayer();
   const route = nav.route;
-  const [queueOpen, setQueueOpen] = useState(false);
+  // The right-hand panel. Which one was open is kept for the next start, like Spotify does.
+  const [panel, setPanelState] = useState<Panel>(() => {
+    const saved = localStorage.getItem("panel");
+    return saved === "queue" || saved === "nowplaying" ? saved : null;
+  });
+  const setPanel = (p: Panel) => {
+    setPanelState(p);
+    if (p) localStorage.setItem("panel", p);
+    else localStorage.removeItem("panel");
+  };
 
   // Space plays/pauses, Alt+arrows go back/forward, unless the user is typing.
   useEffect(() => {
@@ -93,7 +106,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
 
   const key = JSON.stringify(route);
   return (
-    <div className={`shell ${queueOpen ? "with-queue" : ""}`}>
+    <div className={`shell ${panel ? "with-queue" : ""}`}>
       <TopBar name={name} image={image} onLogout={onLogout} />
       <Sidebar />
       <main className="main panel" key={route.page === "search" ? "search" : key}>
@@ -101,9 +114,11 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
         {route.page === "search" && <Search term={route.term} />}
         {route.page === "collection" && <Collection uri={route.uri} />}
         {route.page === "artist" && <Artist uri={route.uri} />}
+        {route.page === "lyrics" && <LyricsView />}
       </main>
-      {queueOpen && <QueuePanel onClose={() => setQueueOpen(false)} />}
-      <PlayerBar queueOpen={queueOpen} onToggleQueue={() => setQueueOpen(!queueOpen)} />
+      {panel === "queue" && <QueuePanel onClose={() => setPanel(null)} />}
+      {panel === "nowplaying" && <NowPlayingPanel onClose={() => setPanel(null)} onOpenQueue={() => setPanel("queue")} />}
+      <PlayerBar panel={panel} onPanel={(p) => setPanel(panel === p ? null : p)} />
     </div>
   );
 }

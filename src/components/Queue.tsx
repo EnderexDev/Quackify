@@ -66,7 +66,7 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-function QueueRow({ track, item, current }: { track: NowPlaying | undefined; item?: QueuedTrack; current?: boolean }) {
+export function QueueRow({ track, item, current }: { track: NowPlaying | undefined; item?: QueuedTrack; current?: boolean }) {
   const nav = useNav();
   const openMenu = useContextMenu();
   const [saved] = useSaved(track?.uri);

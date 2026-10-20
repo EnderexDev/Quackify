@@ -1578,3 +1578,220 @@ button.device:hover {
 .dialog:focus {
   outline: none;
 }
+
+/* ---------- Lyrics ---------- */
+
+.lyrics-page {
+  min-height: 100%;
+  padding: 56px 64px 160px;
+  background: var(--panel-2);
+  transition: background 0.4s;
+}
+
+.lyrics-page.empty,
+.lyrics-page:has(> .spinner) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lyrics-page.empty p {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+}
+
+.lyrics-note {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  color: var(--ly-hi);
+  opacity: 0.8;
+}
+
+.lyrics {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 900px;
+}
+
+.lyrics-line {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--ly-hi);
+  user-select: text;
+}
+
+.lyrics.synced .lyrics-line {
+  color: var(--ly-text);
+  cursor: pointer;
+  transition: color 0.2s, opacity 0.2s;
+}
+
+.lyrics.synced .lyrics-line.past {
+  color: var(--ly-hi);
+  opacity: 0.6;
+}
+
+.lyrics.synced .lyrics-line.active {
+  color: var(--ly-hi);
+}
+
+.lyrics.synced .lyrics-line:hover {
+  color: var(--ly-hi);
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.lyrics-provider {
+  margin-top: 48px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ly-hi);
+  opacity: 0.7;
+}
+
+/* ---------- Now Playing panel ---------- */
+
+.npv-heading {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 12px;
+}
+
+.npv-body {
+  padding: 0 16px 16px;
+}
+
+.npv-cover {
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.npv-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+
+.npv-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.npv-title {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.npv-artists {
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.npv-title:hover,
+.npv-artists a:hover,
+.npv-credit a:not(.plain):hover {
+  text-decoration: underline;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.npv-card {
+  background: var(--panel-2);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.npv-card-body {
+  padding: 16px;
+}
+
+.npv-card h3 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+
+.npv-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.npv-card .queue-row {
+  margin: 0 -8px;
+}
+
+.npv-artist {
+  cursor: pointer;
+}
+
+.npv-artist:hover {
+  background: var(--hover);
+}
+
+.npv-artist-image {
+  height: 200px;
+  background: var(--hover) center / cover no-repeat;
+  position: relative;
+}
+
+.npv-card-label {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  font-weight: 700;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+
+.npv-artist-name {
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.npv-verified {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 11px;
+}
+
+.npv-bio {
+  margin-top: 8px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.npv-credit {
+  margin-bottom: 12px;
+}
+
+.npv-credit a {
+  font-weight: 600;
+}

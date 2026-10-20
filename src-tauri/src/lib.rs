@@ -44,6 +44,7 @@ pub fn run() {
             spotify::spotify_edit_playlist,
             spotify::spotify_rootlist_change,
             spotify::spotify_rootlist_has,
+            spotify::spotify_lyrics,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

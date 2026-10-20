@@ -2,7 +2,7 @@
 // is instant; a failed read is dropped from the cache so the next visit retries.
 import { invoke } from "@tauri-apps/api/core";
 import * as n from "./normalize";
-import type { Artist, Collection, Home, LibraryFilter, LibraryPage, SearchResults } from "./types";
+import type { Artist, Collection, Home, LibraryFilter, LibraryPage, Lyrics, SearchResults, TrackDetails } from "./types";
 
 const TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { at: number; value: Promise<unknown> }>();
@@ -106,6 +106,27 @@ export function collection(uri: string, offset = 0): Promise<Collection> {
 export function artist(uri: string): Promise<Artist> {
   return cached(`artist:${uri}`, async () =>
     n.toArtist(await query("queryArtistOverview", { uri, locale: "", includePrerelease: false })),
+  );
+}
+
+/** The track's lyrics, or null when Spotify has none. */
+export function lyrics(trackUri: string): Promise<Lyrics | null> {
+  return cached(`lyrics:${trackUri}`, () => invoke<Lyrics | null>("spotify_lyrics", { uri: trackUri }));
+}
+
+/** The main artist and the credits of a track, for the Now Playing panel. */
+export function trackDetails(trackUri: string, artistUri: string): Promise<TrackDetails> {
+  return cached(`npv:${trackUri}`, async () =>
+    n.toTrackDetails(
+      await query("queryNpvArtist", {
+        artistUri,
+        trackUri,
+        contributorsLimit: 10,
+        contributorsOffset: 0,
+        enableRelatedVideos: false,
+        enableRelatedAudioTracks: false,
+      }),
+    ),
   );
 }
 

@@ -7,10 +7,12 @@ import { formatDuration } from "../util/format";
 import { Cover } from "./Cover";
 import { LikeButton } from "./LikeButton";
 import { DevicePicker, RemoteBanner } from "./Devices";
-import { NextIcon, PauseIcon, PlayIcon, PrevIcon, QueueIcon, RepeatIcon, ShuffleIcon, VolumeIcon } from "./icons";
+import type { Panel } from "../App";
+import { MicIcon, NextIcon, NowPlayingIcon, PauseIcon, PlayIcon, PrevIcon, QueueIcon, RepeatIcon, ShuffleIcon, VolumeIcon } from "./icons";
 import { Slider } from "./Slider";
 
-export function PlayerBar({ queueOpen, onToggleQueue }: { queueOpen: boolean; onToggleQueue: () => void }) {
+/** `onPanel` toggles a right-hand panel; `panel` is the one open. */
+export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclude<Panel, null>) => void }) {
   const p = usePlayer();
   const nav = useNav();
   const t = p.track;
@@ -25,6 +27,7 @@ export function PlayerBar({ queueOpen, onToggleQueue }: { queueOpen: boolean; on
   }, [p.playing]);
 
   const duration = t?.duration_ms ?? 0;
+  const lyricsOpen = nav.route.page === "lyrics";
 
   return (
     <footer className={`playerbar ${p.remoteDevice ? "remote" : ""}`}>
@@ -89,7 +92,24 @@ export function PlayerBar({ queueOpen, onToggleQueue }: { queueOpen: boolean; on
       </div>
 
       <div className="pb-right">
-        <button className={`icon-btn ${queueOpen ? "on" : ""}`} onClick={onToggleQueue} aria-label="Queue" title="Queue">
+        <button
+          className={`icon-btn ${panel === "nowplaying" ? "on" : ""}`}
+          onClick={() => onPanel("nowplaying")}
+          aria-label="Now playing view"
+          title="Now playing view"
+        >
+          <NowPlayingIcon size={20} />
+        </button>
+        <button
+          className={`icon-btn ${lyricsOpen ? "on" : ""}`}
+          onClick={() => (lyricsOpen ? nav.back() : nav.go({ page: "lyrics" }))}
+          disabled={!t && !lyricsOpen}
+          aria-label="Lyrics"
+          title="Lyrics"
+        >
+          <MicIcon size={20} />
+        </button>
+        <button className={`icon-btn ${panel === "queue" ? "on" : ""}`} onClick={() => onPanel("queue")} aria-label="Queue" title="Queue">
           <QueueIcon size={20} />
         </button>
         <DevicePicker />

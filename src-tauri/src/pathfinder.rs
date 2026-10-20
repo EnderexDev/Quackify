@@ -36,6 +36,7 @@ const DEFAULT_HASHES: &[(&str, &str)] = &[
     ("addToPlaylist", "b907ad6b088d5bf7680fa81198996d58398c2d55dfcdf59fcc959e0be98a418a"),
     ("removeFromPlaylist", "b907ad6b088d5bf7680fa81198996d58398c2d55dfcdf59fcc959e0be98a418a"),
     ("moveItemsInPlaylist", "b907ad6b088d5bf7680fa81198996d58398c2d55dfcdf59fcc959e0be98a418a"),
+    ("queryNpvArtist", "e1ae46a21911a3075c1aa29bf09a6c60f9a45b6a2b1132429f10ad06c299b5d7"),
 ];
 
 pub struct Pathfinder {
