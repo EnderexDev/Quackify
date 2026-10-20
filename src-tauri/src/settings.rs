@@ -62,7 +62,13 @@ pub struct Settings {
     pub start_minimized: bool,
     /// Your Library as a compact list, without covers.
     pub compact_library: bool,
+    /// The folder the song cache goes in (its own subfolder is made there); none: the app's
+    /// local data folder.
+    pub cache_parent: Option<String>,
 }
+
+/// The cache's own folder inside a folder the user picks: only it is ever cleared.
+pub const CACHE_FOLDER_NAME: &str = "Quackify audio-cache";
 
 pub const DEFAULT_DEVICE_NAME: &str = "Quackify";
 /// The cache sizes the Settings page offers, in GB.
@@ -82,6 +88,7 @@ impl Default for Settings {
             device_name: DEFAULT_DEVICE_NAME.to_string(),
             start_minimized: true,
             compact_library: false,
+            cache_parent: None,
         }
     }
 }
@@ -97,6 +104,7 @@ impl Settings {
             || self.audio_cache != other.audio_cache
             || self.cache_size_gb != other.cache_size_gb
             || self.device_name() != other.device_name()
+            || self.cache_parent != other.cache_parent
     }
 
     /// The device name to use: never empty, and short like Spotify's own.
@@ -117,6 +125,8 @@ const MAX_DEVICE_NAME: usize = 40;
 pub struct Store {
     file: Option<PathBuf>,
     current: Mutex<Settings>,
+    /// Why songs are not being cached right now (the folder could not be made), if so.
+    cache_problem: Mutex<Option<String>>,
 }
 
 impl Store {
@@ -127,7 +137,7 @@ impl Store {
             .and_then(|f| std::fs::read_to_string(f).ok())
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
-        Self { file, current: Mutex::new(current) }
+        Self { file, current: Mutex::new(current), cache_problem: Mutex::new(None) }
     }
 
     pub fn get(&self) -> Settings {
@@ -190,9 +200,103 @@ pub fn settings_set_start_with_windows(app: AppHandle, on: bool) -> Result<bool,
     crate::desktop::set_start_with_windows(&app, on)
 }
 
-/// Where songs are cached: the local (not roaming) app data, as it can grow to gigabytes.
+/// Where songs are cached: a subfolder of the folder the user picked, or the local (not
+/// roaming) app data, as it can grow to gigabytes.
 pub fn audio_cache_dir(app: &AppHandle) -> Option<PathBuf> {
-    app.path().app_local_data_dir().ok().map(|d| d.join("audio-cache"))
+    cache_dir_for(app, current(app).cache_parent.as_deref())
+}
+
+fn cache_dir_for(app: &AppHandle, parent: Option<&str>) -> Option<PathBuf> {
+    match parent {
+        Some(p) => Some(PathBuf::from(p).join(CACHE_FOLDER_NAME)),
+        None => app.path().app_local_data_dir().ok().map(|d| d.join("audio-cache")),
+    }
+}
+
+/// Makes the cache folder ready, or says why it cannot be (a disk that is not there, no rights).
+/// Without it the player runs with no cache rather than failing the login.
+pub fn prepare_cache_dir(app: &AppHandle) -> Option<PathBuf> {
+    let dir = audio_cache_dir(app)?;
+    let problem = match std::fs::create_dir_all(&dir) {
+        Ok(()) if real_dir(dir.clone()).is_some() => None,
+        Ok(()) => Some(format!("{} is not a plain folder", dir.display())),
+        Err(e) => Some(format!("{} cannot be used: {e}", dir.display())),
+    };
+    let ok = problem.is_none();
+    if let Some(store) = app.try_state::<Store>() {
+        *store.cache_problem.lock().unwrap() = problem;
+    }
+    ok.then_some(dir)
+}
+
+/// Checks that songs can be written in `parent`, by writing and deleting a small file.
+fn check_writable(parent: &std::path::Path) -> Result<(), String> {
+    if !parent.is_dir() {
+        return Err(format!("{} is not a folder that exists.", parent.display()));
+    }
+    let dir = parent.join(CACHE_FOLDER_NAME);
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Cannot make a folder in {}: {e}", parent.display()))?;
+    let probe = dir.join(".quackify-write-test");
+    std::fs::write(&probe, b"ok").map_err(|e| format!("Cannot write in {}: {e}", dir.display()))?;
+    let _ = std::fs::remove_file(probe);
+    Ok(())
+}
+
+#[derive(Serialize)]
+pub struct CacheFolder {
+    /// The folder songs go in.
+    folder: String,
+    custom: bool,
+    problem: Option<String>,
+}
+
+#[tauri::command]
+pub fn settings_cache_folder(app: AppHandle) -> CacheFolder {
+    CacheFolder {
+        folder: audio_cache_dir(&app).map(|d| d.display().to_string()).unwrap_or_default(),
+        custom: current(&app).cache_parent.is_some(),
+        problem: app.try_state::<Store>().and_then(|s| s.cache_problem.lock().unwrap().clone()),
+    }
+}
+
+/// Opens Windows' folder picker; the chosen folder, if any.
+#[tauri::command]
+pub async fn settings_pick_folder(app: AppHandle) -> Option<String> {
+    use tauri_plugin_dialog::DialogExt;
+    let dialog = app.dialog().clone();
+    tauri::async_runtime::spawn_blocking(move || dialog.file().set_title("Folder for the song cache").blocking_pick_folder())
+        .await
+        .ok()
+        .flatten()
+        .and_then(|p| p.into_path().ok())
+        .map(|p| p.display().to_string())
+}
+
+/// Moves the song cache to `parent` (None: back to the default). The player is rebuilt on the
+/// new folder and the old cache is deleted: songs are fetched again as they play.
+#[tauri::command]
+pub async fn settings_set_cache_folder(app: AppHandle, parent: Option<String>) -> Result<CacheFolder, String> {
+    if let Some(p) = &parent {
+        let p = PathBuf::from(p);
+        tauri::async_runtime::spawn_blocking(move || check_writable(&p)).await.map_err(|e| e.to_string())??;
+    }
+    let store = app.state::<Store>();
+    let before = store.get();
+    if before.cache_parent == parent {
+        return Ok(settings_cache_folder(app));
+    }
+    let old = cache_dir_for(&app, before.cache_parent.as_deref()).and_then(real_dir);
+    store.set(Settings { cache_parent: parent, ..before })?;
+    let _ = app.emit("settings-changed", ());
+    crate::spotify::reconnect(&app).await?;
+    if let Some(old) = old.filter(|o| Some(o) != audio_cache_dir(&app).as_ref()) {
+        let _ = tauri::async_runtime::spawn_blocking(move || {
+            clear_dir(&old);
+            let _ = std::fs::remove_dir(&old);
+        })
+        .await;
+    }
+    Ok(settings_cache_folder(app))
 }
 
 /// The cache directory if it is a real directory: a link put in its place is never walked.
@@ -320,6 +424,17 @@ mod tests {
     }
 
     #[test]
+    fn a_folder_that_is_not_there_is_refused() {
+        let missing = std::env::temp_dir().join("quackify-no-such-folder").join("deeper");
+        assert!(check_writable(&missing).is_err());
+        let ok = std::env::temp_dir().join(format!("quackify-cache-pick-{}", std::process::id()));
+        std::fs::create_dir_all(&ok).unwrap();
+        assert!(check_writable(&ok).is_ok());
+        assert!(ok.join(CACHE_FOLDER_NAME).is_dir());
+        let _ = std::fs::remove_dir_all(&ok);
+    }
+
+    #[test]
     fn new_fields_default_and_device_name_is_never_empty() {
         let s: Settings = serde_json::from_str(r#"{ "quality": "high" }"#).unwrap();
         assert!(s.gapless && s.audio_cache && s.start_minimized && !s.compact_library);
@@ -329,6 +444,8 @@ mod tests {
         assert_eq!(Settings { cache_size_gb: 7, ..s.clone() }.cache_limit_bytes(), 2 * 1024 * 1024 * 1024);
         assert!(s.player_differs(&Settings { device_name: "Sala".into(), ..s.clone() }));
         assert!(!s.player_differs(&Settings { compact_library: true, start_minimized: false, ..s.clone() }));
+        assert!(s.cache_parent.is_none());
+        assert!(s.player_differs(&Settings { cache_parent: Some("E:\\Cache".into()), ..s.clone() }));
     }
 
     #[test]

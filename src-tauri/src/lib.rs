@@ -13,6 +13,7 @@ pub fn run() {
         // First, so a second launch only brings this window back instead of starting a second device.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| desktop::show_window(app)))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(spotify::SpotifyState::default())
         .setup(|app| {
             let hashes = app
@@ -65,6 +66,9 @@ pub fn run() {
             settings::settings_set_start_with_windows,
             settings::settings_cache_size,
             settings::settings_clear_cache,
+            settings::settings_cache_folder,
+            settings::settings_pick_folder,
+            settings::settings_set_cache_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

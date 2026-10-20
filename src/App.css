@@ -2218,3 +2218,17 @@ button.device:hover {
   outline: none;
   border-color: var(--accent);
 }
+
+.settings-buttons {
+  flex: none;
+  display: flex;
+  gap: 8px;
+}
+
+.settings-warning {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--danger);
+}

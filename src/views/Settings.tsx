@@ -20,7 +20,9 @@ type Settings = {
   device_name: string;
   start_minimized: boolean;
   compact_library: boolean;
+  cache_parent: string | null;
 };
+type CacheFolder = { folder: string; custom: boolean; problem: string | null };
 type View = { settings: Settings; start_with_windows: boolean };
 
 const QUALITIES: { value: Quality; label: string }[] = [
@@ -52,7 +54,12 @@ export function SettingsView({ account }: { account: Account }) {
   const [clearing, setClearing] = useState(false);
   const [deviceName, setDeviceName] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState("");
-  const readCache = () => invoke<number>("settings_cache_size").then(setCacheBytes, () => {});
+  const [folder, setFolder] = useState<CacheFolder | null>(null);
+  const [moving, setMoving] = useState(false);
+  const readCache = () => {
+    invoke<number>("settings_cache_size").then(setCacheBytes, () => {});
+    invoke<CacheFolder>("settings_cache_folder").then(setFolder, () => {});
+  };
   useEffect(() => {
     readCache();
     getVersion().then(setAppVersion, () => {});
@@ -113,6 +120,22 @@ export function SettingsView({ account }: { account: Account }) {
       readCache();
     } finally {
       setClearing(false);
+    }
+  };
+  // Moving the cache rebuilds the player on the new folder and deletes the old cache.
+  const moveCache = async (pick: boolean) => {
+    const parent = pick ? await invoke<string | null>("settings_pick_folder") : null;
+    if (pick && !parent) return;
+    setMoving(true);
+    try {
+      setFolder(await invoke<CacheFolder>("settings_set_cache_folder", { parent }));
+      toast(pick ? "Song cache moved" : "Song cache back in its default folder");
+    } catch (e) {
+      toast(e);
+    } finally {
+      setMoving(false);
+      readCache();
+      await load();
     }
   };
   const nameDraft = deviceName ?? s.device_name;
@@ -214,6 +237,28 @@ export function SettingsView({ account }: { account: Account }) {
             ))}
           </select>
         </Row>
+        <Row
+          title="Cache folder"
+          note={
+            folder
+              ? `${folder.folder}${folder.custom ? "" : " (default)"}. Changing it deletes the cache in the old folder.`
+              : "…"
+          }
+        >
+          <div className="settings-buttons">
+            {folder?.custom && (
+              <button className="secondary" disabled={moving || applying} onClick={() => moveCache(false)}>
+                Use default
+              </button>
+            )}
+            <button className="secondary" disabled={moving || applying || !s.audio_cache} onClick={() => moveCache(true)}>
+              {moving ? "Moving…" : "Change folder…"}
+            </button>
+          </div>
+        </Row>
+        {folder?.problem && s.audio_cache && (
+          <p className="settings-warning">Songs are not being cached: {folder.problem}. Pick another folder or use the default.</p>
+        )}
         <Row title="Cache in use" note={cacheBytes === null ? "Measuring…" : formatBytes(cacheBytes)}>
           <button className="secondary" disabled={clearing || applying || !cacheBytes} onClick={clearCache}>
             {clearing ? "Clearing…" : "Clear cache"}

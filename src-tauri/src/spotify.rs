@@ -86,7 +86,8 @@ fn cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
 /// The login and volume cache; with `audio_limit`, songs are cached too, up to that many bytes.
 fn open_cache(app: &AppHandle, audio_limit: Option<u64>) -> Result<Cache, String> {
     let dir = cache_dir(app)?;
-    let audio = audio_limit.and(crate::settings::audio_cache_dir(app));
+    let audio = audio_limit.and_then(|_| crate::settings::prepare_cache_dir(app));
+    let audio_limit = audio.as_ref().and(audio_limit);
     Cache::new(Some(&dir), Some(&dir), audio.as_ref(), audio_limit).map_err(|e| e.to_string())
 }
 
