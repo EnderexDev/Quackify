@@ -89,8 +89,11 @@ function Loaded({ first }: { first: Data }) {
       alive.current = false;
     };
   }, []);
+  // While pages are loading, the list is not edited: an edit moves the server's page offsets.
+  const [bulkLoading, setBulkLoading] = useState(false);
   const loadAll = (): Promise<Track[]> => {
     if (doneRef.current) return Promise.resolve(tracksRef.current);
+    if (!loadingAll.current) setBulkLoading(true);
     loadingAll.current ??= (async () => {
       // Only the pages fetched here are added, onto whatever the list is by then, so an edit
       // made meanwhile is kept.
@@ -107,7 +110,10 @@ function Loaded({ first }: { first: Data }) {
       setTracks((prev) => [...prev, ...fetched]);
       setDone(true);
       return all;
-    })().finally(() => (loadingAll.current = null));
+    })().finally(() => {
+      loadingAll.current = null;
+      if (alive.current) setBulkLoading(false);
+    });
     return loadingAll.current;
   };
   const [loadingForView, setLoadingForView] = useState(false);
@@ -310,10 +316,10 @@ function Loaded({ first }: { first: Data }) {
         showAlbum={first.kind !== "album"}
         showCover={first.kind !== "album"}
         onPlay={(i) => play.context(uri, view.tracks[i].uri).catch(toast)}
-        // While the rest of the list loads, rows are not removed: their places are still moving.
-        onRemove={first.canEditItems && !loadingForView ? (i) => removeAt(view.positions[i]) : undefined}
+        // While the rest of the list loads, rows are not removed or moved: their places are still moving.
+        onRemove={first.canEditItems && !bulkLoading ? (i) => removeAt(view.positions[i]) : undefined}
         // Dragging only means something in the list's own order.
-        onMove={first.canEditItems && !reordered ? move : undefined}
+        onMove={first.canEditItems && !reordered && !bulkLoading ? move : undefined}
         playlistName={title}
       />
       {!done && !reordered && (

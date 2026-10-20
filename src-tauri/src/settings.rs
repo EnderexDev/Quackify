@@ -195,6 +195,11 @@ pub fn audio_cache_dir(app: &AppHandle) -> Option<PathBuf> {
     app.path().app_local_data_dir().ok().map(|d| d.join("audio-cache"))
 }
 
+/// The cache directory if it is a real directory: a link put in its place is never walked.
+fn real_dir(dir: PathBuf) -> Option<PathBuf> {
+    std::fs::symlink_metadata(&dir).ok().filter(|m| m.file_type().is_dir()).map(|_| dir)
+}
+
 // Links (symlinks, junctions) are never followed: only what is really inside the cache counts
 // or gets deleted.
 fn dir_size(dir: &std::path::Path) -> u64 {
@@ -211,7 +216,7 @@ fn dir_size(dir: &std::path::Path) -> u64 {
 
 /// The cache's size, measured off the main thread (it walks every file).
 async fn cache_size(app: &AppHandle) -> u64 {
-    let Some(dir) = audio_cache_dir(app) else { return 0 };
+    let Some(dir) = audio_cache_dir(app).and_then(real_dir) else { return 0 };
     tauri::async_runtime::spawn_blocking(move || dir_size(&dir)).await.unwrap_or(0)
 }
 
@@ -226,7 +231,12 @@ pub async fn settings_cache_size(app: AppHandle) -> u64 {
 #[tauri::command]
 pub async fn settings_clear_cache(app: AppHandle) -> Result<u64, String> {
     if let Some(dir) = audio_cache_dir(&app) {
-        tauri::async_runtime::spawn_blocking(move || clear_dir(&dir)).await.map_err(|e| e.to_string())?;
+        match real_dir(dir.clone()) {
+            Some(dir) => tauri::async_runtime::spawn_blocking(move || clear_dir(&dir)).await.map_err(|e| e.to_string())?,
+            // Something other than the cache's own folder is there: it is not ours to empty.
+            None if dir.exists() => return Err("The cache folder is not a plain folder; it was left alone.".into()),
+            None => {}
+        }
         crate::spotify::reconnect(&app).await?;
     }
     Ok(cache_size(&app).await)
@@ -266,6 +276,17 @@ mod tests {
         assert_eq!(back, s);
     }
 
+    /// A directory junction (no special rights needed, unlike symlinks).
+    #[cfg(windows)]
+    fn junction(target: &std::path::Path, link: &std::path::Path) -> bool {
+        std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .output()
+            .is_ok_and(|o| o.status.success())
+    }
+
     #[test]
     fn clearing_the_cache_does_not_follow_links() {
         let base = std::env::temp_dir().join(format!("quackify-cache-test-{}", std::process::id()));
@@ -276,16 +297,25 @@ mod tests {
         std::fs::write(outside.join("keep"), b"precious").unwrap();
         // A directory link inside the cache pointing out of it (may need rights on Windows).
         #[cfg(windows)]
-        let linked = std::os::windows::fs::symlink_dir(&outside, cache.join("link")).is_ok();
+        let linked = junction(&outside, &cache.join("link"));
         #[cfg(not(windows))]
         let linked = std::os::unix::fs::symlink(&outside, cache.join("link")).is_ok();
         assert_eq!(dir_size(&cache), 1000);
         clear_dir(&cache);
         assert_eq!(dir_size(&cache), 0);
         assert!(outside.join("keep").exists(), "a file outside the cache was deleted");
+        assert!(linked, "could not make a link to test with");
         if linked {
             assert!(!cache.join("link").exists());
+            // A link standing in for the cache folder itself is not walked either.
+            #[cfg(windows)]
+            let root_linked = junction(&outside, &base.join("rootlink"));
+            #[cfg(not(windows))]
+            let root_linked = std::os::unix::fs::symlink(&outside, base.join("rootlink")).is_ok();
+            assert!(root_linked);
+            assert_eq!(real_dir(base.join("rootlink")), None);
         }
+        assert_eq!(real_dir(cache.clone()), Some(cache.clone()));
         let _ = std::fs::remove_dir_all(&base);
     }
 
