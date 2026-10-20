@@ -1,5 +1,5 @@
 // Settings: audio (quality, normalization), playback (autoplay) and the desktop (tray, startup).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { toast } from "../state/toast";
@@ -26,9 +26,15 @@ export function SettingsView() {
   const [view, setView] = useState<View | null>(null);
   // An audio change rebuilds the player; the controls wait for it.
   const [applying, setApplying] = useState(false);
+  // Bumped by every save and read: an answer to an older read is dropped, so a read that was
+  // already on its way cannot put back what a save just changed.
+  const version = useRef(0);
+  const load = () => {
+    const asked = ++version.current;
+    return invoke<View>("settings_get").then((v) => asked === version.current && setView(v), toast);
+  };
 
   useEffect(() => {
-    const load = () => invoke<View>("settings_get").then(setView, toast);
     load();
     // The tray menu changes some of these too.
     const off = listen("settings-changed", load);
@@ -41,16 +47,17 @@ export function SettingsView() {
   const s = view.settings;
 
   const save = async (next: Partial<Settings>) => {
+    version.current++;
     setView({ ...view, settings: { ...s, ...next } });
     setApplying(true);
     try {
       await invoke("settings_set", { settings: { ...s, ...next } });
     } catch (e) {
       toast(e);
-      // The settings may be saved even if applying them failed: show what is saved.
-      await invoke<View>("settings_get").then(setView, () => {});
     } finally {
       setApplying(false);
+      // Show what is saved (also when applying failed after saving).
+      await load();
     }
   };
 
