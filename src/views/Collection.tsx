@@ -81,16 +81,30 @@ function Loaded({ first }: { first: Data }) {
   const doneRef = useRef(done);
   doneRef.current = done;
   const loadingAll = useRef<Promise<Track[]> | null>(null);
+  // Loading every page stops when the page closes.
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   const loadAll = (): Promise<Track[]> => {
     if (doneRef.current) return Promise.resolve(tracksRef.current);
     loadingAll.current ??= (async () => {
-      let all = tracksRef.current;
-      while (all.length < first.total) {
-        const page = await collection(uri, all.length);
+      // Only the pages fetched here are added, onto whatever the list is by then, so an edit
+      // made meanwhile is kept.
+      const fetched: Track[] = [];
+      let at = tracksRef.current.length;
+      while (alive.current && at < first.total) {
+        const page = await collection(uri, at);
         if (page.tracks.length === 0) break;
-        all = [...all, ...page.tracks];
+        fetched.push(...page.tracks);
+        at += page.tracks.length;
       }
-      setTracks(all);
+      if (!alive.current) throw new Error("left the page");
+      const all = [...tracksRef.current, ...fetched];
+      setTracks((prev) => [...prev, ...fetched]);
       setDone(true);
       return all;
     })().finally(() => (loadingAll.current = null));
@@ -101,8 +115,8 @@ function Loaded({ first }: { first: Data }) {
     if (!reordered || done) return;
     setLoadingForView(true);
     loadAll()
-      .catch(toast)
-      .finally(() => setLoadingForView(false));
+      .catch((e) => alive.current && toast(e))
+      .finally(() => alive.current && setLoadingForView(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reordered, done]);
 
@@ -296,7 +310,8 @@ function Loaded({ first }: { first: Data }) {
         showAlbum={first.kind !== "album"}
         showCover={first.kind !== "album"}
         onPlay={(i) => play.context(uri, view.tracks[i].uri).catch(toast)}
-        onRemove={first.canEditItems ? (i) => removeAt(view.positions[i]) : undefined}
+        // While the rest of the list loads, rows are not removed: their places are still moving.
+        onRemove={first.canEditItems && !loadingForView ? (i) => removeAt(view.positions[i]) : undefined}
         // Dragging only means something in the list's own order.
         onMove={first.canEditItems && !reordered ? move : undefined}
         playlistName={title}

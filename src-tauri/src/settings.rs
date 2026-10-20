@@ -195,22 +195,30 @@ pub fn audio_cache_dir(app: &AppHandle) -> Option<PathBuf> {
     app.path().app_local_data_dir().ok().map(|d| d.join("audio-cache"))
 }
 
+// Links (symlinks, junctions) are never followed: only what is really inside the cache counts
+// or gets deleted.
 fn dir_size(dir: &std::path::Path) -> u64 {
     let Ok(entries) = std::fs::read_dir(dir) else { return 0 };
     entries
         .flatten()
-        .map(|e| match e.metadata() {
-            Ok(m) if m.is_dir() => dir_size(&e.path()),
-            Ok(m) => m.len(),
-            Err(_) => 0,
+        .map(|e| match e.file_type() {
+            Ok(t) if t.is_dir() => dir_size(&e.path()),
+            Ok(t) if t.is_file() => e.metadata().map(|m| m.len()).unwrap_or(0),
+            _ => 0,
         })
         .sum()
 }
 
+/// The cache's size, measured off the main thread (it walks every file).
+async fn cache_size(app: &AppHandle) -> u64 {
+    let Some(dir) = audio_cache_dir(app) else { return 0 };
+    tauri::async_runtime::spawn_blocking(move || dir_size(&dir)).await.unwrap_or(0)
+}
+
 /// How many bytes the audio cache takes now.
 #[tauri::command]
-pub fn settings_cache_size(app: AppHandle) -> u64 {
-    audio_cache_dir(&app).map(|d| dir_size(&d)).unwrap_or(0)
+pub async fn settings_cache_size(app: AppHandle) -> u64 {
+    cache_size(&app).await
 }
 
 /// Empties the audio cache. Files the player has open stay; the player is rebuilt afterwards
@@ -218,19 +226,25 @@ pub fn settings_cache_size(app: AppHandle) -> u64 {
 #[tauri::command]
 pub async fn settings_clear_cache(app: AppHandle) -> Result<u64, String> {
     if let Some(dir) = audio_cache_dir(&app) {
-        clear_dir(&dir);
+        tauri::async_runtime::spawn_blocking(move || clear_dir(&dir)).await.map_err(|e| e.to_string())?;
         crate::spotify::reconnect(&app).await?;
     }
-    Ok(settings_cache_size(app))
+    Ok(cache_size(&app).await)
 }
 
 fn clear_dir(dir: &std::path::Path) {
     let Ok(entries) = std::fs::read_dir(dir) else { return };
     for e in entries.flatten() {
         let path = e.path();
-        if path.is_dir() {
+        let Ok(kind) = e.file_type() else { continue };
+        if kind.is_dir() {
             clear_dir(&path);
             let _ = std::fs::remove_dir(&path);
+        } else if kind.is_symlink() {
+            // The link goes, not what it points to (a directory link is removed as a directory).
+            if std::fs::remove_file(&path).is_err() {
+                let _ = std::fs::remove_dir(&path);
+            }
         } else {
             let _ = std::fs::remove_file(&path);
         }
@@ -250,6 +264,29 @@ mod tests {
         assert!(s.normalize && s.autoplay);
         let back: Settings = serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap();
         assert_eq!(back, s);
+    }
+
+    #[test]
+    fn clearing_the_cache_does_not_follow_links() {
+        let base = std::env::temp_dir().join(format!("quackify-cache-test-{}", std::process::id()));
+        let (cache, outside) = (base.join("cache"), base.join("outside"));
+        std::fs::create_dir_all(cache.join("ab")).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(cache.join("ab").join("song"), vec![0u8; 1000]).unwrap();
+        std::fs::write(outside.join("keep"), b"precious").unwrap();
+        // A directory link inside the cache pointing out of it (may need rights on Windows).
+        #[cfg(windows)]
+        let linked = std::os::windows::fs::symlink_dir(&outside, cache.join("link")).is_ok();
+        #[cfg(not(windows))]
+        let linked = std::os::unix::fs::symlink(&outside, cache.join("link")).is_ok();
+        assert_eq!(dir_size(&cache), 1000);
+        clear_dir(&cache);
+        assert_eq!(dir_size(&cache), 0);
+        assert!(outside.join("keep").exists(), "a file outside the cache was deleted");
+        if linked {
+            assert!(!cache.join("link").exists());
+        }
+        let _ = std::fs::remove_dir_all(&base);
     }
 
     #[test]
