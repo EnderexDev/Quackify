@@ -1,6 +1,21 @@
 // Spotify's GraphQL (pathfinder) responses into the app's shapes. Every reader is defensive:
 // the same entity comes back with different fields depending on the operation that sent it.
-import type { Artist, Card, Collection, Home, Kind, LibraryPage, Named, SearchResults, Section, Track, TrackDetails } from "./types";
+import type {
+  Artist,
+  BrowsePage,
+  Card,
+  CardPage,
+  Category,
+  Collection,
+  Home,
+  Kind,
+  LibraryPage,
+  Named,
+  SearchResults,
+  Section,
+  Track,
+  TrackDetails,
+} from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Raw = any;
@@ -55,6 +70,10 @@ export function toCard(x: Raw): Card | null {
   const uri: string = d?.uri ?? x?.item?._uri ?? x?.uri ?? "";
   switch (d?.__typename) {
     case "Playlist": {
+      // Recently played lists Liked Songs as a playlist with a stand-in URI.
+      if (d.format === "liked-songs") {
+        return { uri: "spotify:collection:tracks", kind: "liked", title: d.name ?? "Liked Songs", subtitle: "Playlist", image: imageOf(d) };
+      }
       const owner = d.ownerV2?.data?.name;
       return {
         uri,
@@ -78,6 +97,14 @@ export function toCard(x: Raw): Card | null {
     }
     case "Artist":
       return { uri, kind: "artist", title: d.profile?.name ?? "", subtitle: "Artist", image: imageOf(d) };
+    case "Track":
+      return {
+        uri,
+        kind: "track",
+        title: d.name ?? "",
+        subtitle: ["Song", names(d.artists).map((a) => a.name).join(", ")].filter(Boolean).join(" • "),
+        image: imageOf(d.albumOfTrack),
+      };
     case "PseudoPlaylist":
       return {
         uri: uri || "spotify:collection:tracks",
@@ -119,15 +146,92 @@ function tracks(items: Raw): Track[] {
   return (items ?? []).map(toTrack).filter((t: Track | null): t is Track => t !== null);
 }
 
+/** A row of Home or of a genre page. */
+function toSection(s: Raw): Section {
+  const items = s?.sectionItems;
+  const shown = cards(items?.items);
+  return {
+    title: s?.data?.title?.transformedLabel ?? s?.data?.title?.text ?? "",
+    cards: shown,
+    uri: s?.uri ?? null,
+    more: (items?.totalCount ?? 0) > shown.length || items?.pagingInfo?.nextOffset != null,
+  };
+}
+
 export function toHome(data: Raw): Home {
   const home = data?.home;
   const sections: Section[] = (home?.sectionContainer?.sections?.items ?? [])
-    .map((s: Raw) => ({
-      title: s?.data?.title?.transformedLabel ?? s?.data?.title?.text ?? "",
-      cards: cards(s?.sectionItems?.items),
-    }))
+    .map(toSection)
     .filter((s: Section) => s.cards.length > 0);
   return { greeting: home?.greeting?.transformedLabel ?? "Hello", sections };
+}
+
+/** A page of cards. `items` is the list Spotify sent; `offset` where it starts. */
+function cardPage(title: string, list: Raw, offset: number, toCards: (items: Raw) => Card[] = cards): CardPage {
+  const items = list?.items ?? [];
+  const total = list?.totalCount ?? items.length;
+  const next = list?.pagingInfo ? list.pagingInfo.nextOffset ?? null : offset + items.length < total ? offset + items.length : null;
+  return { title, cards: toCards(items), total, next: items.length ? next : null };
+}
+
+/** Home's "Show all": one page of a home section. */
+export function toHomeSection(data: Raw, offset: number): CardPage {
+  const s = data?.homeSections?.sections?.[0];
+  return cardPage(s?.data?.title?.transformedLabel ?? "", s?.sectionItems, offset);
+}
+
+/** Search's Browse all: the genre and mood tiles (features like Live Events are left out). */
+export function toBrowseAll(data: Raw): Category[] {
+  const out: Category[] = [];
+  for (const section of data?.browseStart?.sections?.items ?? []) {
+    for (const item of section?.sectionItems?.items ?? []) {
+      const card = item?.content?.data?.data?.cardRepresentation;
+      if (!card || !item.uri?.startsWith("spotify:page:")) continue;
+      out.push({
+        uri: item.uri,
+        title: card.title?.transformedLabel ?? "",
+        color: card.backgroundColor?.hex ?? "#535353",
+        image: pickImage(card.artwork?.sources, 300),
+      });
+    }
+  }
+  return out;
+}
+
+export function toBrowsePage(data: Raw): BrowsePage {
+  const p = data?.browse;
+  return {
+    title: p?.header?.title?.transformedLabel ?? "",
+    sections: (p?.sections?.items ?? []).map(toSection).filter((s: Section) => s.cards.length > 0),
+  };
+}
+
+/** A genre page's "Show all". */
+export function toBrowseSection(data: Raw, offset: number): CardPage {
+  const s = data?.browseSection;
+  return cardPage(s?.data?.title?.transformedLabel ?? "", s?.sectionItems, offset);
+}
+
+/** Releases come as groups whose first release is the one shown. */
+function releases(group: Raw): Card[] {
+  return cards((group ?? []).map((i: Raw) => i?.releases?.items?.[0] ?? i).map((r: Raw) => ({ __typename: "Album", ...r })));
+}
+
+export function toDiscography(data: Raw, offset: number): CardPage {
+  const a = data?.artistUnion;
+  return cardPage(a?.profile?.name ?? "", a?.discography?.all, offset, releases);
+}
+
+export function toRelatedArtists(data: Raw): CardPage {
+  const a = data?.artistUnion;
+  return cardPage(a?.profile?.name ?? "", a?.relatedContent?.relatedArtists, 0, (items) =>
+    cards(items.map((x: Raw) => ({ __typename: "Artist", ...x }))),
+  );
+}
+
+/** The account's recent searches, newest first. */
+export function toRecentSearches(data: Raw): Card[] {
+  return cards(data?.recentSearches?.recentSearchesItems?.items);
 }
 
 export function toSearch(data: Raw): SearchResults {
@@ -215,8 +319,8 @@ export function toLiked(data: Raw, title = "Liked Songs"): Collection {
 
 export function toArtist(data: Raw): Artist {
   const a = data?.artistUnion;
-  const releases = (group: Raw) =>
-    cards((group?.items ?? []).map((i: Raw) => i?.releases?.items?.[0] ?? i).map((r: Raw) => ({ __typename: "Album", ...r })));
+  const d = a?.discography;
+  const related = a?.relatedContent?.relatedArtists;
   return {
     uri: a?.uri ?? "",
     name: a?.profile?.name ?? "",
@@ -224,8 +328,12 @@ export function toArtist(data: Raw): Artist {
     header: pickImage(a?.headerImage?.data?.sources, 1500),
     monthlyListeners: a?.stats?.monthlyListeners ?? null,
     topTracks: tracks(a?.discography?.topTracks?.items),
-    albums: releases(a?.discography?.albums),
-    singles: releases(a?.discography?.singles),
+    albums: releases(d?.albums?.items),
+    singles: releases(d?.singles?.items),
+    releaseCount: (d?.albums?.totalCount ?? 0) + (d?.singles?.totalCount ?? 0) + (d?.compilations?.totalCount ?? 0),
+    appearsOn: releases(a?.relatedContent?.appearsOn?.items),
+    related: cards((related?.items ?? []).map((x: Raw) => ({ __typename: "Artist", ...x }))),
+    relatedCount: related?.totalCount ?? 0,
   };
 }
 

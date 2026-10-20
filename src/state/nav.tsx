@@ -6,7 +6,11 @@ export type Route =
   | { page: "search"; term: string }
   | { page: "collection"; uri: string }
   | { page: "artist"; uri: string }
-  | { page: "lyrics" };
+  | { page: "lyrics" }
+  /** A genre or mood page from Browse all. */
+  | { page: "browse"; uri: string }
+  /** "Show all" of a row: a Home section, a genre page's section, a discography or related artists. */
+  | { page: "cards"; source: "home" | "browse" | "discography" | "related"; uri: string; title?: string };
 
 type Nav = {
   route: Route;
@@ -49,6 +53,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
     open: (uri) => {
       if (uri.startsWith("spotify:artist:")) go({ page: "artist", uri });
       else if (/^spotify:(playlist|album|collection)/.test(uri)) go({ page: "collection", uri });
+      else if (uri.startsWith("spotify:page:")) go({ page: "browse", uri });
     },
   };
 

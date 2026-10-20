@@ -2,9 +2,9 @@
 
 export type Named = { uri: string; name: string };
 
-export type Kind = "playlist" | "album" | "artist" | "liked";
+export type Kind = "playlist" | "album" | "artist" | "liked" | "track";
 
-/** Anything shown as a tile: a playlist, album, artist or the Liked Songs entry. */
+/** Anything shown as a tile: a playlist, album, artist, the Liked Songs entry, or a song (recent searches). */
 export type Card = {
   uri: string;
   kind: Kind;
@@ -26,7 +26,17 @@ export type Track = {
   uid: string | null;
 };
 
-export type Section = { title: string; cards: Card[] };
+/** A row of cards. `uri` and `more` say whether "Show all" can open the whole section. */
+export type Section = { title: string; cards: Card[]; uri: string | null; more: boolean };
+
+/** One page of a whole section ("Show all"), a discography or a list of artists. */
+export type CardPage = { title: string; cards: Card[]; total: number; next: number | null };
+
+/** A tile of Browse all: a genre or mood, in Spotify's color. */
+export type Category = { uri: string; title: string; color: string; image: string | null };
+
+/** A genre or mood page: its title and its rows. */
+export type BrowsePage = { title: string; sections: Section[] };
 
 export type Home = { greeting: string; sections: Section[] };
 
@@ -68,6 +78,12 @@ export type Artist = {
   topTracks: Track[];
   albums: Card[];
   singles: Card[];
+  /** Albums plus singles and EPs: the whole discography is one "Show all" away. */
+  releaseCount: number;
+  appearsOn: Card[];
+  /** "Fans also like". */
+  related: Card[];
+  relatedCount: number;
 };
 
 /** A song's lyrics. When `synced`, each line starts at `start_ms`. Colors are `#rrggbb`. */

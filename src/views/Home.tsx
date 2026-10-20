@@ -11,6 +11,7 @@ import { Failed, Loading } from "./common";
 
 /** Spotify's own home for this account: shortcuts on top, then its sections. */
 export function Home() {
+  const nav = useNav();
   const { data, error, loading } = useAsync(getHome, "home");
   if (error) return <Failed error={error} />;
   if (loading || !data) return <Loading />;
@@ -31,7 +32,12 @@ export function Home() {
         </div>
       )}
       {sections.map((s, i) => (
-        <Shelf key={`${s.title}:${i}`} title={s.title} cards={s.cards} />
+        <Shelf
+          key={`${s.title}:${i}`}
+          title={s.title}
+          cards={s.cards}
+          onShowAll={s.more && s.uri ? () => nav.go({ page: "cards", source: "home", uri: s.uri!, title: s.title }) : undefined}
+        />
       ))}
     </div>
   );

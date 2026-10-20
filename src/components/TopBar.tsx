@@ -63,7 +63,8 @@ export function TopBar({ name, image, onLogout }: { name: string; image: string 
             value={term}
             placeholder="What do you want to play?"
             onChange={(e) => onType(e.currentTarget.value)}
-            onFocus={() => route.page !== "search" && term && onType(term)}
+            // Like Spotify, the search box opens search (recent searches and Browse all) at once.
+            onFocus={() => route.page !== "search" && onType(term)}
             spellCheck={false}
           />
           {term && (

@@ -1795,3 +1795,119 @@ button.device:hover {
 .npv-credit a {
   font-weight: 600;
 }
+
+/* ---------- Browse, "Show all", recent searches ---------- */
+
+.shelf-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.shelf-head h2 {
+  margin-bottom: 0;
+}
+
+.show-all {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.show-all:hover {
+  text-decoration: underline;
+}
+
+/* Every card, in as many rows as needed. */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  column-gap: 8px;
+  row-gap: 4px;
+  margin: 0 -10px;
+}
+
+.card-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.7);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.card:hover .card-remove {
+  opacity: 1;
+}
+
+.card-remove:hover {
+  background: #000;
+}
+
+.page-title {
+  font-size: 48px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  margin: 12px 0 20px;
+}
+
+.page-subtitle {
+  margin: -12px 0 20px;
+}
+
+.search-start .recent-searches {
+  margin-bottom: 32px;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 16px;
+}
+
+.category {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  min-height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+  text-align: left;
+  color: #fff;
+  cursor: pointer;
+}
+
+.category-title {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.15;
+  z-index: 1;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* The tilted artwork in the corner, as on Spotify. */
+.category-art {
+  position: absolute;
+  right: -14px;
+  bottom: -4px;
+  width: 42%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  transform: rotate(25deg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.category:hover .category-art {
+  transform: rotate(25deg) scale(1.05);
+}

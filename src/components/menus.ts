@@ -78,10 +78,20 @@ export function trackMenu(
 
 export function cardMenu(card: Card, saved: boolean | undefined, nav: Nav): MenuItem[] {
   const isArtist = card.kind === "artist";
-  const items: MenuItem[] = [{ label: "Open", onClick: () => nav.open(card.uri) }];
+  const isTrack = card.kind === "track";
+  const items: MenuItem[] = [
+    isTrack
+      ? { label: "Play", onClick: () => play.tracks([card.uri], 0).catch(toast) }
+      : { label: "Open", onClick: () => nav.open(card.uri) },
+  ];
+  if (isTrack) items.push({ label: "Add to queue", onClick: () => play.addToQueue(card.uri).catch(toast) });
   if (card.kind !== "liked") {
     items.push({
-      label: isArtist ? (saved ? "Unfollow" : "Follow") : saved ? "Remove from Your Library" : "Save to Your Library",
+      label: isArtist
+        ? saved ? "Unfollow" : "Follow"
+        : isTrack
+          ? saved ? "Remove from Liked Songs" : "Save to Liked Songs"
+          : saved ? "Remove from Your Library" : "Save to Your Library",
       disabled: saved === undefined,
       onClick: () => setSaved(card.uri, !saved),
     });

@@ -2,7 +2,20 @@
 // is instant; a failed read is dropped from the cache so the next visit retries.
 import { invoke } from "@tauri-apps/api/core";
 import * as n from "./normalize";
-import type { Artist, Collection, Home, LibraryFilter, LibraryPage, Lyrics, SearchResults, TrackDetails } from "./types";
+import type {
+  Artist,
+  BrowsePage,
+  Card,
+  CardPage,
+  Category,
+  Collection,
+  Home,
+  LibraryFilter,
+  LibraryPage,
+  Lyrics,
+  SearchResults,
+  TrackDetails,
+} from "./types";
 
 const TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { at: number; value: Promise<unknown> }>();
@@ -28,12 +41,17 @@ function query(op: string, variables: Record<string, unknown>): Promise<unknown>
 
 export const PAGE_SIZE = 100;
 
+const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+const INTEGRATION = "INTEGRATION_WEB_PLAYER";
+/** How many cards one "Show all" page asks for. */
+export const CARD_PAGE_SIZE = 40;
+
 export function getHome(): Promise<Home> {
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const tz = timeZone();
   return cached("home", async () =>
     n.toHome(
       await query("home", {
-        timeZone,
+        timeZone: tz,
         sp_t: "",
         facet: "",
         sectionItemsLimit: 10,
@@ -107,6 +125,99 @@ export function artist(uri: string): Promise<Artist> {
   return cached(`artist:${uri}`, async () =>
     n.toArtist(await query("queryArtistOverview", { uri, locale: "", includePrerelease: false })),
   );
+}
+
+/** One page of a Home section ("Show all"). */
+export function homeSection(uri: string, offset = 0): Promise<CardPage> {
+  return cached(`homeSection:${uri}:${offset}`, async () =>
+    n.toHomeSection(
+      await query("homeSection", {
+        includeHomeChapterVideoCards: false,
+        uri,
+        homeEndUserIntegration: INTEGRATION,
+        timeZone: timeZone(),
+        sp_t: "",
+        sectionItemsOffset: offset,
+        sectionItemsLimit: CARD_PAGE_SIZE,
+        includeEpisodeContentRatingsV2: false,
+      }),
+      offset,
+    ),
+  );
+}
+
+/** Search's Browse all: every genre and mood. */
+export function browseAll(): Promise<Category[]> {
+  return cached("browseAll", async () =>
+    n.toBrowseAll(
+      await query("browseAll", {
+        pagePagination: { offset: 0, limit: 10 },
+        sectionPagination: { offset: 0, limit: 99 },
+        browseEndUserIntegration: INTEGRATION,
+      }),
+    ),
+  );
+}
+
+/** A genre or mood page. */
+export function browsePage(uri: string): Promise<BrowsePage> {
+  return cached(`browse:${uri}`, async () =>
+    n.toBrowsePage(
+      await query("browsePage", {
+        pagePagination: { offset: 0, limit: 20 },
+        sectionPagination: { offset: 0, limit: 10 },
+        uri,
+        browseEndUserIntegration: INTEGRATION,
+        includeEpisodeContentRatingsV2: false,
+      }),
+    ),
+  );
+}
+
+/** One page of a genre page's section ("Show all"). */
+export function browseSection(uri: string, offset = 0): Promise<CardPage> {
+  return cached(`browseSection:${uri}:${offset}`, async () =>
+    n.toBrowseSection(
+      await query("browseSection", {
+        pagination: { offset, limit: CARD_PAGE_SIZE },
+        uri,
+        browseEndUserIntegration: INTEGRATION,
+        includeEpisodeContentRatingsV2: false,
+      }),
+      offset,
+    ),
+  );
+}
+
+/** One page of an artist's whole discography, newest first. */
+export function discography(uri: string, offset = 0): Promise<CardPage> {
+  return cached(`discography:${uri}:${offset}`, async () =>
+    n.toDiscography(
+      await query("queryArtistDiscographyAll", { uri, offset, limit: CARD_PAGE_SIZE, order: "DATE_DESC" }),
+      offset,
+    ),
+  );
+}
+
+/** Every "Fans also like" artist. */
+export function relatedArtists(uri: string): Promise<CardPage> {
+  return cached(`related:${uri}`, async () => n.toRelatedArtists(await query("queryArtistRelated", { uri })));
+}
+
+/** The account's recent searches (shared with the other Spotify apps). */
+export async function recentSearches(): Promise<Card[]> {
+  return n.toRecentSearches(
+    await query("recentSearches", { limit: 50, includeAuthors: false, includeEpisodeContentRatingsV2: false }),
+  );
+}
+
+export async function saveRecentSearch(uri: string): Promise<void> {
+  await query("saveRecentSearches", { uris: [uri] });
+}
+
+/** Removes these from recent searches. */
+export async function removeRecentSearches(uris: string[]): Promise<void> {
+  await query("removeRecentSearches", { uris });
 }
 
 /** The track's lyrics, or null when Spotify has none. */

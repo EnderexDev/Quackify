@@ -37,7 +37,19 @@ const DEFAULT_HASHES: &[(&str, &str)] = &[
     ("removeFromPlaylist", "b907ad6b088d5bf7680fa81198996d58398c2d55dfcdf59fcc959e0be98a418a"),
     ("moveItemsInPlaylist", "b907ad6b088d5bf7680fa81198996d58398c2d55dfcdf59fcc959e0be98a418a"),
     ("queryNpvArtist", "e1ae46a21911a3075c1aa29bf09a6c60f9a45b6a2b1132429f10ad06c299b5d7"),
+    ("homeSection", "5fb7da7a03ee2776c0670856609cb85a189a3cecc36cc160b91cde79063b9cf1"),
+    ("browseAll", "dbd8b55e09a58afc52eab438bc228ba28fd72ac2f2148c6c26354980e4579001"),
+    ("browsePage", "f5c4e6d668f5716464a231c1cc8b22c1cbf6ad68b09929fd7de813a30581298b"),
+    ("browseSection", "b13c1cccbfcb6947753c2613411b3566485c21fd5f36d80a80bb64be61ba2d51"),
+    ("queryArtistDiscographyAll", "5e07d323febb57b4a56a42abbf781490e58764aa45feb6e3dc0591564fc56599"),
+    ("queryArtistRelated", "3d031d6cb22a2aa7c8d203d49b49df731f58b1e2799cc38d9876d58771aa66f3"),
+    ("recentSearches", "ece96d7b82c820fb9938dd1df50dee3e53737d808c3883e3d01c467c423601b0"),
+    ("saveRecentSearches", "ece96d7b82c820fb9938dd1df50dee3e53737d808c3883e3d01c467c423601b0"),
+    ("removeRecentSearches", "ece96d7b82c820fb9938dd1df50dee3e53737d808c3883e3d01c467c423601b0"),
 ];
+
+/// The lazily loaded route chunks that hold operations the app uses (search, genre pages, artist).
+const ROUTE_WORDS: &[&str] = &["search", "browse", "routes-artist"];
 
 pub struct Pathfinder {
     http: reqwest::Client,
@@ -174,8 +186,9 @@ impl Pathfinder {
             .ok_or("web player bundle not found")?;
         let bundle = get(format!("{CDN}{main}")).await?;
         let mut hashes = extract_hashes(&bundle);
-        // Search lives in a lazily loaded route chunk.
-        for chunk in route_chunks(&bundle, "search") {
+        let chunks: std::collections::BTreeSet<String> =
+            ROUTE_WORDS.iter().flat_map(|w| route_chunks(&bundle, w)).collect();
+        for chunk in chunks {
             if let Ok(js) = get(format!("{CDN}{chunk}")).await {
                 hashes.extend(extract_hashes(&js));
             }

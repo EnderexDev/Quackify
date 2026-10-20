@@ -12,6 +12,8 @@ import { NavProvider, useNav } from "./state/nav";
 import { PlayerProvider, usePlayer } from "./state/player";
 import { toast, Toasts } from "./state/toast";
 import { Artist } from "./views/Artist";
+import { BrowseView } from "./views/Browse";
+import { CardsView } from "./views/Cards";
 import { Collection } from "./views/Collection";
 import { Home } from "./views/Home";
 import { LyricsView } from "./views/Lyrics";
@@ -115,6 +117,8 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
         {route.page === "collection" && <Collection uri={route.uri} />}
         {route.page === "artist" && <Artist uri={route.uri} />}
         {route.page === "lyrics" && <LyricsView />}
+        {route.page === "browse" && <BrowseView uri={route.uri} />}
+        {route.page === "cards" && <CardsView source={route.source} uri={route.uri} title={route.title} />}
       </main>
       {panel === "queue" && <QueuePanel onClose={() => setPanel(null)} />}
       {panel === "nowplaying" && <NowPlayingPanel onClose={() => setPanel(null)} onOpenQueue={() => setPanel("queue")} />}
