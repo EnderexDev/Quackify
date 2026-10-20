@@ -14,9 +14,12 @@ import type {
   Kind,
   LibraryPage,
   Named,
+  Profile,
+  SearchPage,
   SearchResults,
   Section,
   Show,
+  TopContent,
   Track,
   TrackDetails,
 } from "./types";
@@ -101,6 +104,14 @@ export function toCard(x: Raw): Card | null {
     }
     case "Artist":
       return { uri, kind: "artist", title: d.profile?.name ?? "", subtitle: "Artist", image: imageOf(d) };
+    case "User":
+      return {
+        uri,
+        kind: "user",
+        title: d.displayName || d.name || d.username || "",
+        subtitle: "Profile",
+        image: imageOf(d),
+      };
     case "Podcast":
     case "Audiobook":
       return {
@@ -465,6 +476,61 @@ export function toCredits(data: Raw): Credits {
     title: tr?.name ?? "",
     groups,
     sources: (tr?.creditsTrait?.sources?.items ?? []).map((s: Raw) => s?.name).filter(Boolean),
+  };
+}
+
+/** Where a search tab's list sits in the answer. */
+const SEARCH_LIST = {
+  tracks: "tracksV2",
+  artists: "artists",
+  albums: "albumsV2",
+  playlists: "playlists",
+  podcasts: "podcasts",
+  episodes: "episodes",
+  users: "users",
+} as const;
+
+export function toSearchPage(tab: keyof typeof SEARCH_LIST, data: Raw, offset: number): SearchPage {
+  const list = data?.searchV2?.[SEARCH_LIST[tab]];
+  const items = list?.items ?? [];
+  const total = list?.totalCount ?? offset + items.length;
+  const next = list?.pagingInfo ? list.pagingInfo.nextOffset ?? null : null;
+  return {
+    tracks: tab === "tracks" ? tracks(items.map((i: Raw) => i?.item ?? i)) : [],
+    cards: tab === "tracks" ? [] : cards(items),
+    total,
+    next: items.length ? next : null,
+  };
+}
+
+/** A profile from the profile service (plain JSON, not GraphQL). */
+export function toProfile(p: Raw): Profile {
+  const card = (x: Raw, kind: "playlist" | "artist", subtitle: string): Card => ({
+    uri: x?.uri ?? "",
+    kind,
+    title: x?.name ?? "",
+    subtitle,
+    image: x?.image_url || null,
+  });
+  return {
+    uri: p?.uri ?? "",
+    username: p?.username ?? "",
+    name: p?.name ?? p?.username ?? "",
+    image: p?.image_url || null,
+    followers: p?.followers_count ?? 0,
+    following: p?.following_count ?? 0,
+    isMe: !!p?.is_me,
+    playlists: (p?.public_playlists ?? []).map((x: Raw) => card(x, "playlist", x?.owner_name ? `By ${x.owner_name}` : "Playlist")),
+    playlistCount: p?.total_public_playlists_count ?? (p?.public_playlists ?? []).length,
+    recentArtists: (p?.recently_played_artists ?? []).map((x: Raw) => card(x, "artist", "Artist")),
+  };
+}
+
+export function toTopContent(data: Raw): TopContent {
+  const pr = data?.me?.profile;
+  return {
+    artists: cards((pr?.topArtists?.items ?? []).map((i: Raw) => ({ __typename: "Artist", ...(i?.data ?? i) }))),
+    tracks: tracks((pr?.topTracks?.items ?? []).map((i: Raw) => i?.data ?? i)),
   };
 }
 

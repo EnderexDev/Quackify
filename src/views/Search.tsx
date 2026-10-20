@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { play, recentSearches, removeRecentSearches, saveRecentSearch, search } from "../api/spotify";
-import type { Card } from "../api/types";
+import { useEffect, useRef, useState } from "react";
+import { play, recentSearches, removeRecentSearches, saveRecentSearch, search, searchTab } from "../api/spotify";
+import type { Card, SearchPage, SearchTab } from "../api/types";
 import { CardGrid, Shelf } from "../components/Card";
 import { Cover } from "../components/Cover";
 import { PlayButton } from "../components/PlayButton";
@@ -14,7 +14,19 @@ import { Failed, Loading } from "./common";
 
 const DEBOUNCE_MS = 250;
 
-export function Search({ term }: { term: string }) {
+const TABS: { id: SearchTab; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "tracks", label: "Songs" },
+  { id: "artists", label: "Artists" },
+  { id: "albums", label: "Albums" },
+  { id: "playlists", label: "Playlists" },
+  { id: "podcasts", label: "Podcasts" },
+  { id: "episodes", label: "Episodes" },
+  { id: "users", label: "Profiles" },
+];
+
+export function Search({ term, tab = "all" }: { term: string; tab?: SearchTab }) {
+  const nav = useNav();
   // Wait for the typing to pause before asking Spotify.
   const [settled, setSettled] = useState(term.trim());
   useEffect(() => {
@@ -30,7 +42,83 @@ export function Search({ term }: { term: string }) {
       </div>
     );
   }
-  return <Results term={settled} />;
+  return (
+    <>
+      <div className="search-tabs">
+        {TABS.map((t) => (
+          <button key={t.id} className={`chip ${tab === t.id ? "on" : ""}`} onClick={() => nav.replace({ page: "search", term, tab: t.id })}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tab === "all" ? <Results term={settled} /> : <TabResults key={`${tab}:${settled}`} tab={tab} term={settled} />}
+    </>
+  );
+}
+
+/** One kind of result, every one of them as you scroll. */
+function TabResults({ tab, term }: { tab: Exclude<SearchTab, "all">; term: string }) {
+  const { data, error, loading } = useAsync(() => searchTab(tab, term, 0), `${tab}:${term}`);
+  if (error) return <Failed error={error} />;
+  if (loading || !data) return <Loading />;
+  return <TabPages tab={tab} term={term} first={data} />;
+}
+
+function TabPages({ tab, term, first }: { tab: Exclude<SearchTab, "all">; term: string; first: SearchPage }) {
+  const [page, setPage] = useState(first);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const loadingMore = useRef(false);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || page.next === null) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0].isIntersecting || loadingMore.current || page.next === null) return;
+        loadingMore.current = true;
+        searchTab(tab, term, page.next)
+          .then((more) =>
+            setPage((p) => ({
+              tracks: [...p.tracks, ...more.tracks],
+              cards: [...p.cards, ...more.cards],
+              total: more.total,
+              next: more.tracks.length + more.cards.length ? more.next : null,
+            })),
+          )
+          .catch((e) => {
+            toast(e);
+            setPage((p) => ({ ...p, next: null }));
+          })
+          .finally(() => (loadingMore.current = false));
+      },
+      { rootMargin: "600px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [page.next, tab, term]);
+
+  const empty = page.tracks.length + page.cards.length === 0;
+  return (
+    <div className="page search">
+      {empty && <p className="muted">No results for “{term}”.</p>}
+      {tab === "tracks" ? (
+        <TrackList
+          tracks={page.tracks}
+          contextUri={null}
+          onPlay={(i) => {
+            remember(page.tracks[i].uri);
+            play.tracks(page.tracks.map((t) => t.uri), i).catch(toast);
+          }}
+        />
+      ) : (
+        <CardGrid cards={page.cards} onPick={(c) => remember(c.uri)} />
+      )}
+      {page.next !== null && (
+        <div ref={sentinel} className="more">
+          <div className="spinner small" />
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Remembers what was opened from the results, like Spotify's recent searches. */

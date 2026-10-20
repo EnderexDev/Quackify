@@ -29,7 +29,7 @@ export function TopBar({ name, image, onLogout }: { name: string; image: string 
 
   const onType = (value: string) => {
     setTerm(value);
-    const next = { page: "search" as const, term: value };
+    const next = { page: "search" as const, term: value, tab: route.page === "search" ? route.tab : undefined };
     if (route.page === "search") nav.replace(next);
     else nav.go(next);
   };
@@ -75,10 +75,10 @@ export function TopBar({ name, image, onLogout }: { name: string; image: string 
         </label>
       </div>
       <div className="user">
-        {image ? <img className="avatar" src={image} alt="" /> : <span className="avatar">{name.slice(0, 1).toUpperCase()}</span>}
-        <span className="user-name" title={name}>
-          {name}
-        </span>
+        <button className="user-link" title="Profile" onClick={() => nav.go({ page: "user", uri: "me" })}>
+          {image ? <img className="avatar" src={image} alt="" /> : <span className="avatar">{name.slice(0, 1).toUpperCase()}</span>}
+          <span className="user-name">{name}</span>
+        </button>
         <button
           className={`icon-btn ${route.page === "settings" ? "on" : ""}`}
           onClick={() => nav.go({ page: "settings" })}

@@ -17,7 +17,7 @@ export function Card({ card, onPick, onRemove }: { card: CardData; onPick?: () =
   const player = usePlayer();
   const isTrack = card.kind === "track" || card.kind === "episode";
   const isCurrent = isTrack ? player.track?.uri === card.uri : player.contextUri === card.uri;
-  const round = card.kind === "artist";
+  const round = card.kind === "artist" || card.kind === "user";
   const openMenu = useContextMenu();
 
   const onPlay = () => {

@@ -462,6 +462,23 @@ pub async fn spotify_tracks(uris: Vec<String>, state: State<'_, SpotifyState>) -
     Ok(hub(&state).await?.tracks(uris).await)
 }
 
+/// A user's profile as Spotify's own profile page reads it: name, picture, followers, public
+/// playlists and recently played artists. No username: the logged-in user.
+#[tauri::command]
+pub async fn spotify_user_profile(username: Option<String>, state: State<'_, SpotifyState>) -> Result<Value, String> {
+    let session = session(&state).await?;
+    let user = username.unwrap_or_else(|| session.username());
+    let bytes = session
+        .spclient()
+        .get_user_profile(&user, Some(50), Some(20))
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut v: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+    v["is_me"] = Value::Bool(user == session.username());
+    v["username"] = Value::String(user);
+    Ok(v)
+}
+
 /// The song radio of a track: the playlist Spotify makes from it ("Go to song radio").
 #[tauri::command]
 pub async fn spotify_song_radio(uri: String, state: State<'_, SpotifyState>) -> Result<String, String> {

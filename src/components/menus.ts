@@ -163,6 +163,7 @@ export function cardMenu(card: Card, saved: boolean | undefined, nav: Nav): Menu
       : { label: "Open", onClick: () => nav.open(card.uri) },
   ];
   if (isTrack) items.push({ label: "Add to queue", onClick: () => play.addToQueue(card.uri).catch(toast) });
+  if (card.kind === "user") return [...items, "separator", { label: "Copy link", onClick: () => copy(webLink(card.uri)) }];
   if (card.kind !== "liked") {
     items.push({
       label: isArtist

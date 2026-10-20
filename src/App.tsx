@@ -20,6 +20,7 @@ import { Home } from "./views/Home";
 import { LyricsView } from "./views/Lyrics";
 import { Search } from "./views/Search";
 import { SettingsView } from "./views/Settings";
+import { ProfileView } from "./views/Profile";
 import { EpisodeView, ShowView } from "./views/Show";
 import "./App.css";
 
@@ -117,11 +118,12 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
       <Sidebar />
       <main className="main panel" key={route.page === "search" ? "search" : key}>
         {route.page === "home" && <Home />}
-        {route.page === "search" && <Search term={route.term} />}
+        {route.page === "search" && <Search term={route.term} tab={route.tab} />}
         {route.page === "collection" && <Collection uri={route.uri} />}
         {route.page === "artist" && <Artist uri={route.uri} />}
         {route.page === "lyrics" && <LyricsView />}
         {route.page === "settings" && <SettingsView account={{ name, image, onLogout }} />}
+        {route.page === "user" && <ProfileView uri={route.uri} />}
         {route.page === "show" && <ShowView uri={route.uri} />}
         {route.page === "episode" && <EpisodeView uri={route.uri} />}
         {route.page === "browse" && <BrowseView uri={route.uri} />}

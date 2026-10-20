@@ -50,11 +50,22 @@ const DEFAULT_HASHES: &[(&str, &str)] = &[
     ("queryPodcastEpisodes", "3539d746cf882f3909660de40b4ef472b3f5893a0761d617c282541de5d412c5"),
     ("getEpisodeOrChapter", "5f77db47e5a2ce6680330bb61317aa09e17ddd1d189513cb218e7cd3e43288be"),
     ("queryTrackCreditsGroupedModal", "f135fb9be58a72d041ab5d214d817021a272405d883860468e2627afb01a3ca9"),
+    ("searchTracks", "b02683192a98dde7966b5e6655a79eeb62713eab703eda9902c932818dd52751"),
+    ("searchArtists", "7bf95d754fdbe32c8b161fbbe54d1ae50974900df4dce4c8f1afcbcad153224d"),
+    ("searchAlbums", "202cb3305e31e5a0767ba7925f28bd728cf8f8b0217e6da43909056071cd70e9"),
+    ("searchPlaylists", "d520014e748f9ea44f7707d8df1819867ac1205e8b7f3e28f22fe5fc858921b1"),
+    ("searchPodcasts", "0195d9f61b43606d490bca64c3456e3593528cea6cc05c7e822c7c42beed0f4e"),
+    ("searchEpisodes", "dbc56e15e7c1254f11d499e8647343bbf28a5594e14a8f5c8b1e7eee67a55740"),
+    ("searchUsers", "8f358dd82e62f61dd4ceaa9f8cd0889e644c9b707f1b724fbfb356a757cb7e5a"),
+    ("userTopContent", "61b7353d3625780022dbc63d459eb64cd609e7e5e2a820f9160d65030efe2e15"),
+    ("isFollowingUsers", "c00e0cb6c7766e7230fc256cf4fe07aec63b53d1160a323940fce7b664e95596"),
+    ("followUsers", "c00e0cb6c7766e7230fc256cf4fe07aec63b53d1160a323940fce7b664e95596"),
+    ("unfollowUsers", "c00e0cb6c7766e7230fc256cf4fe07aec63b53d1160a323940fce7b664e95596"),
 ];
 
-/// The lazily loaded chunks that hold operations the app uses (search, genre pages, artist, and
-/// the dialogs, where song credits are).
-const ROUTE_WORDS: &[&str] = &["search", "browse", "routes-artist", "root-dialogs"];
+/// The lazily loaded chunks that hold operations the app uses (search, genre pages, artist,
+/// profile, and the dialogs, where song credits are).
+const ROUTE_WORDS: &[&str] = &["search", "browse", "routes-artist", "root-dialogs", "routes-profile"];
 
 pub struct Pathfinder {
     http: reqwest::Client,

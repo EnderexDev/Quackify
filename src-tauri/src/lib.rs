@@ -58,6 +58,7 @@ pub fn run() {
             spotify::spotify_skip_to,
             spotify::spotify_edit_queue,
             spotify::spotify_song_radio,
+            spotify::spotify_user_profile,
             spotify::spotify_create_playlist,
             spotify::spotify_edit_playlist,
             spotify::spotify_rootlist_change,

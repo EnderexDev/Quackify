@@ -16,8 +16,12 @@ import type {
   LibraryFilter,
   LibraryPage,
   Lyrics,
+  Profile,
+  SearchPage,
+  SearchTab,
   SearchResults,
   Show,
+  TopContent,
   TrackDetails,
 } from "./types";
 
@@ -129,6 +133,68 @@ export function artist(uri: string): Promise<Artist> {
   return cached(`artist:${uri}`, async () =>
     n.toArtist(await query("queryArtistOverview", { uri, locale: "", includePrerelease: false })),
   );
+}
+
+const SEARCH_OPS = {
+  tracks: "searchTracks",
+  artists: "searchArtists",
+  albums: "searchAlbums",
+  playlists: "searchPlaylists",
+  podcasts: "searchPodcasts",
+  episodes: "searchEpisodes",
+  users: "searchUsers",
+} as const;
+/** How many results one page of a search tab asks for. */
+export const SEARCH_PAGE_SIZE = 40;
+
+/** One page of a search tab. */
+export function searchTab(tab: Exclude<SearchTab, "all">, term: string, offset = 0): Promise<SearchPage> {
+  return cached(`searchTab:${tab}:${term}:${offset}`, async () =>
+    n.toSearchPage(
+      tab,
+      await query(SEARCH_OPS[tab], {
+        searchTerm: term,
+        offset,
+        limit: SEARCH_PAGE_SIZE,
+        numberOfTopResults: 20,
+        includeAudiobooks: false,
+        includePreReleases: false,
+        includeAlbumPreReleases: false,
+        includeAuthors: false,
+        includeEpisodeContentRatingsV2: false,
+      }),
+      offset,
+    ),
+  );
+}
+
+/** A user's profile; no username: yours. */
+export function profile(username: string | null): Promise<Profile> {
+  return cached(`profile:${username ?? "me"}`, async () => n.toProfile(await invoke("spotify_user_profile", { username })));
+}
+
+/** Your top artists and songs of the last four weeks. */
+export function topContent(): Promise<TopContent> {
+  return cached("topContent", async () =>
+    n.toTopContent(
+      await query("userTopContent", {
+        includeTopArtists: true,
+        topArtistsInput: { offset: 0, limit: 10, sortBy: "AFFINITY", timeRange: "SHORT_TERM" },
+        includeTopTracks: true,
+        topTracksInput: { offset: 0, limit: 10, sortBy: "AFFINITY", timeRange: "SHORT_TERM" },
+      }),
+    ),
+  );
+}
+
+export async function isFollowingUser(uri: string): Promise<boolean> {
+  const d = (await query("isFollowingUsers", { uris: [uri] })) as { users?: { following?: boolean }[] };
+  return !!d?.users?.[0]?.following;
+}
+
+export async function followUser(username: string, follow: boolean): Promise<void> {
+  await query(follow ? "followUsers" : "unfollowUsers", { usernames: [username] });
+  clearCache("profile:");
 }
 
 /** One page of a Home section ("Show all"). */

@@ -2,7 +2,7 @@
 
 export type Named = { uri: string; name: string };
 
-export type Kind = "playlist" | "album" | "artist" | "liked" | "track" | "show" | "episode";
+export type Kind = "playlist" | "album" | "artist" | "liked" | "track" | "show" | "episode" | "user";
 
 /** Anything shown as a tile: a playlist, album, artist, the Liked Songs entry, or a song (recent searches). */
 export type Card = {
@@ -147,3 +147,25 @@ export type Credits = {
   groups: { role: string; people: { uri: string | null; name: string; roles: string[] }[] }[];
   sources: string[];
 };
+
+/** The search tabs: everything, or one kind with every result as you scroll. */
+export type SearchTab = "all" | "tracks" | "artists" | "albums" | "playlists" | "podcasts" | "episodes" | "users";
+
+/** One page of a search tab: songs for "tracks", cards for the others. */
+export type SearchPage = { tracks: Track[]; cards: Card[]; total: number; next: number | null };
+
+/** A Spotify user's profile. Top artists and songs only come for the logged-in user. */
+export type Profile = {
+  uri: string;
+  username: string;
+  name: string;
+  image: string | null;
+  followers: number;
+  following: number;
+  isMe: boolean;
+  playlists: Card[];
+  playlistCount: number;
+  recentArtists: Card[];
+};
+
+export type TopContent = { artists: Card[]; tracks: Track[] };

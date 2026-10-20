@@ -3,11 +3,12 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 
 export type Route =
   | { page: "home" }
-  | { page: "search"; term: string }
+  | { page: "search"; term: string; tab?: import("../api/types").SearchTab }
   | { page: "collection"; uri: string }
   | { page: "artist"; uri: string }
   | { page: "lyrics" }
   | { page: "settings" }
+  | { page: "user"; uri: string }
   | { page: "show"; uri: string }
   | { page: "episode"; uri: string }
   /** A genre or mood page from Browse all. */
@@ -59,6 +60,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
       else if (uri.startsWith("spotify:page:")) go({ page: "browse", uri });
       else if (uri.startsWith("spotify:show:")) go({ page: "show", uri });
       else if (uri.startsWith("spotify:episode:")) go({ page: "episode", uri });
+      else if (uri.startsWith("spotify:user:")) go({ page: "user", uri });
     },
   };
 
