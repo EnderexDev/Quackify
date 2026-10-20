@@ -111,6 +111,7 @@ export function toTrack(x: Raw): Track | null {
     durationMs: d.trackDuration?.totalMilliseconds ?? d.duration?.totalMilliseconds ?? 0,
     playable: d.playability?.playable !== false,
     addedAt: x?.addedAt?.isoString ?? null,
+    uid: x?.uid ?? null,
   };
 }
 
@@ -168,6 +169,8 @@ export function toPlaylist(data: Raw): Collection {
     color: colorOf(p),
     total: p?.content?.totalCount ?? 0,
     tracks: tracks(p?.content?.items),
+    canEditItems: p?.currentUserCapabilities?.canEditItems === true,
+    canEditMetadata: p?.currentUserCapabilities?.canEditMetadata === true,
   };
 }
 
@@ -188,6 +191,8 @@ export function toAlbum(data: Raw): Collection {
     total: a?.tracksV2?.totalCount ?? 0,
     // Album rows carry no album or cover of their own: they are this album's.
     tracks: tracks(a?.tracksV2?.items).map((t) => ({ ...t, album: t.album ?? album, image: t.image ?? cover })),
+    canEditItems: false,
+    canEditMetadata: false,
   };
 }
 
@@ -203,6 +208,8 @@ export function toLiked(data: Raw, title = "Liked Songs"): Collection {
     color: "#3d2fb0",
     total: l?.totalCount ?? 0,
     tracks: tracks(l?.items),
+    canEditItems: false,
+    canEditMetadata: false,
   };
 }
 

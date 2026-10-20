@@ -7,7 +7,9 @@ import { onLibraryChanged } from "../state/saved";
 import { useContextMenu } from "./ContextMenu";
 import { Cover } from "./Cover";
 import { cardMenuHandler } from "./menus";
-import { LibraryIcon } from "./icons";
+import { createPlaylist } from "../api/library";
+import { toast } from "../state/toast";
+import { LibraryIcon, PlusIcon } from "./icons";
 
 const FILTERS: { id: LibraryFilter; label: string }[] = [
   { id: "Playlists", label: "Playlists" },
@@ -72,6 +74,20 @@ export function Sidebar() {
       <div className="sidebar-head">
         <LibraryIcon size={22} />
         <span>Your Library</span>
+        <button
+          className="round-btn small create-btn"
+          aria-label="Create playlist"
+          title="Create playlist"
+          onClick={() => {
+            const n = items.filter((c) => /^My Playlist #d+$/.test(c.title)).length + 1;
+            createPlaylist(`My Playlist #${n}`).then((uri) => {
+              setVersion((v) => v + 1);
+              nav.open(uri);
+            }, toast);
+          }}
+        >
+          <PlusIcon size={16} />
+        </button>
       </div>
       <div className="chips">
         {FILTERS.map((f) => (

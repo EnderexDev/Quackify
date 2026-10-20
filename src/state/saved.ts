@@ -15,6 +15,8 @@ const notify = () => listeners.forEach((l) => l());
 
 /** Called when the library changes, so lists of it can reload. */
 const libraryListeners = new Set<() => void>();
+export const notifyLibraryChanged = () => libraryListeners.forEach((l) => l());
+
 export function onLibraryChanged(listener: () => void): () => void {
   libraryListeners.add(listener);
   return () => libraryListeners.delete(listener);

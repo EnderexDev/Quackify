@@ -177,6 +177,11 @@ fn status_of(engine: &Option<Engine>) -> Status {
     }
 }
 
+async fn session(state: &State<'_, SpotifyState>) -> Result<Session, String> {
+    let slot = state.0.lock().await;
+    Ok(slot.as_ref().ok_or("not logged in")?.session.clone())
+}
+
 async fn hub(state: &State<'_, SpotifyState>) -> Result<Arc<Hub>, String> {
     let slot = state.0.lock().await;
     Ok(slot.as_ref().ok_or("not logged in")?.hub.clone())
@@ -383,4 +388,121 @@ pub async fn spotify_tracks(uris: Vec<String>, state: State<'_, SpotifyState>) -
 #[tauri::command]
 pub async fn spotify_skip_to(uri: String, uid: String, state: State<'_, SpotifyState>) -> Result<(), String> {
     hub(&state).await?.skip_to(uri, uid).await
+}
+
+async fn playlist_api(session: &Session, path: &str, body: Value) -> Result<Value, String> {
+    use http::{header, HeaderMap, HeaderValue, Method};
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
+    let bytes = session
+        .spclient()
+        .request(&Method::POST, path, Some(headers), Some(body.to_string().as_bytes()))
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+}
+
+// The playlist service rejects the optional fields the web player's encoder adds (400):
+// these bodies are the minimal ones it accepts.
+
+/// Creates a playlist named `name` at the top of the user's library and returns its URI.
+#[tauri::command]
+pub async fn spotify_create_playlist(name: String, state: State<'_, SpotifyState>) -> Result<String, String> {
+    let session = session(&state).await?;
+    let created = playlist_api(
+        &session,
+        "/playlist/v2/playlist",
+        serde_json::json!({
+            "ops": [{
+                "kind": "UPDATE_LIST_ATTRIBUTES",
+                "updateListAttributes": {
+                    "newAttributes": { "values": { "name": name } }
+                }
+            }],
+        }),
+    )
+    .await?;
+    let uri = created["uri"].as_str().ok_or("Spotify did not return the new playlist")?.to_string();
+    let user = session.username();
+    playlist_api(
+        &session,
+        &format!("/playlist/v2/user/{user}/rootlist/changes"),
+        serde_json::json!({
+            "deltas": [{
+                "ops": [{ "kind": "ADD", "add": { "items": [{ "uri": uri }], "addFirst": true } }],
+            }],
+        }),
+    )
+    .await?;
+    Ok(uri)
+}
+
+/// Renames a playlist and sets its description.
+#[tauri::command]
+pub async fn spotify_edit_playlist(
+    uri: String,
+    name: String,
+    description: String,
+    state: State<'_, SpotifyState>,
+) -> Result<(), String> {
+    let session = session(&state).await?;
+    let id = uri.strip_prefix("spotify:playlist:").ok_or("not a playlist")?;
+    playlist_api(
+        &session,
+        &format!("/playlist/v2/playlist/{id}/changes"),
+        serde_json::json!({
+            "deltas": [{
+                "ops": [{
+                    "kind": "UPDATE_LIST_ATTRIBUTES",
+                    "updateListAttributes": {
+                        "newAttributes": { "values": { "name": name, "description": description } }
+                    }
+                }],
+            }],
+        }),
+    )
+    .await?;
+    Ok(())
+}
+
+/// Adds a playlist to the user's library (the rootlist) or removes it. The GraphQL library
+/// operations refuse playlist URIs, so playlists go through the playlist service.
+#[tauri::command]
+pub async fn spotify_rootlist_change(uri: String, add: bool, state: State<'_, SpotifyState>) -> Result<(), String> {
+    let session = session(&state).await?;
+    let op = if add {
+        serde_json::json!({ "kind": "ADD", "add": { "items": [{ "uri": uri }], "addFirst": true } })
+    } else {
+        serde_json::json!({ "kind": "REM", "rem": { "items": [{ "uri": uri }], "itemsAsKey": true } })
+    };
+    let user = session.username();
+    playlist_api(
+        &session,
+        &format!("/playlist/v2/user/{user}/rootlist/changes"),
+        serde_json::json!({ "deltas": [{ "ops": [op] }] }),
+    )
+    .await?;
+    Ok(())
+}
+
+/// Whether each playlist URI is in the user's library, in order.
+#[tauri::command]
+pub async fn spotify_rootlist_has(uris: Vec<String>, state: State<'_, SpotifyState>) -> Result<Vec<bool>, String> {
+    use librespot_protocol::playlist4_external::SelectedListContent;
+    use protobuf::Message as _;
+    let session = session(&state).await?;
+    let bytes = session
+        .spclient()
+        .get_rootlist(0, Some(10_000))
+        .await
+        .map_err(|e| e.to_string())?;
+    let list = SelectedListContent::parse_from_bytes(&bytes).map_err(|e| e.to_string())?;
+    let saved: std::collections::HashSet<String> = list
+        .contents
+        .items
+        .iter()
+        .map(|i| i.uri().to_string())
+        .collect();
+    Ok(uris.iter().map(|u| saved.contains(u)).collect())
 }

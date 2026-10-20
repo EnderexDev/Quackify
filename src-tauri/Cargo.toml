@@ -33,6 +33,7 @@ librespot-connect = "0.8"
 librespot-protocol = "0.8"
 futures-util = "0.3"
 http = "1"
+protobuf = "3.7"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

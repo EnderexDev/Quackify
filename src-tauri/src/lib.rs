@@ -40,6 +40,10 @@ pub fn run() {
             spotify::spotify_add_to_queue,
             spotify::spotify_tracks,
             spotify::spotify_skip_to,
+            spotify::spotify_create_playlist,
+            spotify::spotify_edit_playlist,
+            spotify::spotify_rootlist_change,
+            spotify::spotify_rootlist_has,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -200,3 +200,9 @@ export const CheckIcon = (p: P) => (
     <path d="m5 12.5 4.5 4.5L19 7.5" />
   </Icon>
 );
+
+export const PlusIcon = (p: P) => (
+  <Icon {...p} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round">
+    <path d="M12 5v14M5 12h14" />
+  </Icon>
+);

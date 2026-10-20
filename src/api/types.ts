@@ -22,6 +22,8 @@ export type Track = {
   durationMs: number;
   playable: boolean;
   addedAt: string | null;
+  /** Which row of a playlist this is (two copies of a song have different uids). */
+  uid: string | null;
 };
 
 export type Section = { title: string; cards: Card[] };
@@ -51,6 +53,10 @@ export type Collection = {
   color: string | null;
   total: number;
   tracks: Track[];
+  /** The user can add, remove and reorder songs. */
+  canEditItems: boolean;
+  /** The user can rename it and change the description. */
+  canEditMetadata: boolean;
 };
 
 export type Artist = {

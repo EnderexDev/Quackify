@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Track } from "../api/types";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
@@ -20,6 +21,9 @@ export function TrackList({
   showAlbum = true,
   showCover = true,
   showHeader = true,
+  onRemove,
+  onMove,
+  playlistName,
 }: {
   tracks: Track[];
   onPlay: (index: number) => void;
@@ -27,8 +31,14 @@ export function TrackList({
   showAlbum?: boolean;
   showCover?: boolean;
   showHeader?: boolean;
+  /** For the user's own playlists: remove a row, or move row `from` to just before row `to`. */
+  onRemove?: (index: number) => void;
+  onMove?: (from: number, to: number) => void;
+  playlistName?: string;
 }) {
   const player = usePlayer();
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dropAt, setDropAt] = useState<number | null>(null);
   const current = player.track;
 
   const isCurrent = (t: Track, i: number) =>
@@ -59,6 +69,23 @@ export function TrackList({
           showAlbum={showAlbum}
           showCover={showCover}
           onPlay={() => onPlay(i)}
+          onRemove={onRemove && t.uid ? () => onRemove(i) : undefined}
+          playlistName={playlistName}
+          drag={
+            onMove && t.uid
+              ? {
+                  start: () => setDragFrom(i),
+                  over: (after) => setDropAt(after ? i + 1 : i),
+                  end: () => {
+                    if (dragFrom !== null && dropAt !== null) onMove(dragFrom, dropAt);
+                    setDragFrom(null);
+                    setDropAt(null);
+                  },
+                  marker: dropAt === i ? "before" : dropAt === i + 1 && i === tracks.length - 1 ? "after" : null,
+                  dragging: dragFrom === i,
+                }
+              : undefined
+          }
         />
       ))}
     </div>
@@ -72,6 +99,9 @@ function TrackRow({
   showAlbum,
   showCover,
   onPlay,
+  onRemove,
+  playlistName,
+  drag,
 }: {
   track: Track;
   index: number;
@@ -79,6 +109,15 @@ function TrackRow({
   showAlbum: boolean;
   showCover: boolean;
   onPlay: () => void;
+  onRemove?: () => void;
+  playlistName?: string;
+  drag?: {
+    start: () => void;
+    over: (after: boolean) => void;
+    end: () => void;
+    marker: "before" | "after" | null;
+    dragging: boolean;
+  };
 }) {
   const nav = useNav();
   const player = usePlayer();
@@ -87,9 +126,27 @@ function TrackRow({
 
   return (
     <div
-      className={`track-row ${current ? "current" : ""} ${t.playable ? "" : "unplayable"} ${saved ? "liked" : ""}`}
+      className={`track-row ${current ? "current" : ""} ${t.playable ? "" : "unplayable"} ${saved ? "liked" : ""} ${drag?.marker ? "drop-" + drag.marker : ""} ${drag?.dragging ? "dragging" : ""}`}
       onDoubleClick={() => t.playable && onPlay()}
-      onContextMenu={(e) => openMenu(e, trackMenu(t, saved, nav))}
+      onContextMenu={(e) =>
+        openMenu(e, [
+          ...trackMenu(t, saved, nav),
+          ...(onRemove ? (["separator", { label: `Remove from ${playlistName ?? "this playlist"}`, onClick: onRemove }] as const) : []),
+        ])
+      }
+      draggable={!!drag}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        drag?.start();
+      }}
+      onDragOver={(e) => {
+        if (!drag) return;
+        e.preventDefault();
+        const r = e.currentTarget.getBoundingClientRect();
+        drag.over(e.clientY > r.top + r.height / 2);
+      }}
+      onDrop={(e) => e.preventDefault()}
+      onDragEnd={() => drag?.end()}
     >
       <span className="track-num">
         <span className="num">{current && player.playing ? <span className="eq" /> : index + 1}</span>

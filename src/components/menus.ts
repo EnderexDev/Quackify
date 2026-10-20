@@ -1,8 +1,8 @@
 // The items of the right-click menus for tracks and for cards (playlists, albums, artists).
-import { addToPlaylist, areSaved, editablePlaylists } from "../api/library";
+import { addToPlaylist, areSaved, createPlaylist, editablePlaylists } from "../api/library";
 import { play } from "../api/spotify";
 import type { Card, Named } from "../api/types";
-import { setSaved } from "../state/saved";
+import { notifyLibraryChanged, setSaved } from "../state/saved";
 import { toast } from "../state/toast";
 import type { MenuItem } from "./ContextMenu";
 
@@ -21,7 +21,7 @@ const copy = (text: string) =>
   );
 
 export function trackMenu(
-  track: { uri: string; artists: Named[]; album: Named | null },
+  track: { uri: string; name?: string; artists: Named[]; album: Named | null },
   saved: boolean | undefined,
   nav: Nav,
 ): MenuItem[] {
@@ -32,12 +32,27 @@ export function trackMenu(
     },
     {
       label: "Add to playlist",
-      submenu: async () =>
-        (await editablePlaylists(track.uri)).map((p) => ({
+      submenuHead: [
+        {
+          label: "New playlist",
+          onClick: () =>
+            createPlaylist((track as { name?: string }).name ?? "New playlist")
+              .then((uri) => addToPlaylist(uri, [track.uri]).then(() => uri))
+              .then((uri) => {
+                notifyLibraryChanged();
+                toast("Added to a new playlist");
+                nav.open(uri);
+              }, toast),
+        },
+        "separator",
+      ],
+      submenu: async () => [
+        ...(await editablePlaylists(track.uri)).map((p) => ({
           label: p.name,
           checked: p.contains,
           onClick: () => addToPlaylist(p.uri, [track.uri]).then(() => toast(`Added to ${p.name}`), toast),
         })),
+      ],
     },
     {
       label: saved ? "Remove from Liked Songs" : "Save to Liked Songs",

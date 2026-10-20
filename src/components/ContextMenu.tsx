@@ -9,6 +9,8 @@ export type MenuItem =
       onClick?: () => void;
       /** Opens a second menu on hover; may load its items. */
       submenu?: () => Promise<MenuItem[]> | MenuItem[];
+      /** Items shown at the top of the submenu at once, before the loaded ones arrive. */
+      submenuHead?: MenuItem[];
       checked?: boolean;
       disabled?: boolean;
     };
@@ -53,7 +55,7 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
 function Menu({ x, y, items, onDone }: { x: number; y: number; items: MenuItem[]; onDone: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: x, top: y });
-  const [sub, setSub] = useState<{ index: number; items: MenuItem[] | null } | null>(null);
+  const [sub, setSub] = useState<{ index: number; items: MenuItem[] | null; head: MenuItem[] } | null>(null);
 
   // Keep the menu inside the window.
   useLayoutEffect(() => {
@@ -65,13 +67,13 @@ function Menu({ x, y, items, onDone }: { x: number; y: number; items: MenuItem[]
     });
   }, [x, y, items]);
 
-  const openSub = async (index: number, load: () => Promise<MenuItem[]> | MenuItem[]) => {
-    setSub({ index, items: null });
+  const openSub = async (index: number, load: () => Promise<MenuItem[]> | MenuItem[], head: MenuItem[] = []) => {
+    setSub({ index, items: null, head });
     try {
       const loaded = await load();
-      setSub((s) => (s?.index === index ? { index, items: loaded } : s));
+      setSub((s) => (s?.index === index ? { ...s, items: loaded } : s));
     } catch {
-      setSub((s) => (s?.index === index ? { index, items: [{ label: "Could not load", disabled: true }] } : s));
+      setSub((s) => (s?.index === index ? { ...s, items: [{ label: "Could not load", disabled: true }] } : s));
     }
   };
 
@@ -84,7 +86,7 @@ function Menu({ x, y, items, onDone }: { x: number; y: number; items: MenuItem[]
           <div
             key={i}
             className={`menu-item ${item.disabled ? "disabled" : ""} ${sub?.index === i ? "open" : ""}`}
-            onMouseEnter={() => (item.submenu ? openSub(i, item.submenu) : setSub(null))}
+            onMouseEnter={() => (item.submenu ? sub?.index !== i && openSub(i, item.submenu, item.submenuHead) : setSub(null))}
             onClick={() => {
               if (item.disabled || item.submenu) return;
               item.onClick?.();
@@ -95,7 +97,7 @@ function Menu({ x, y, items, onDone }: { x: number; y: number; items: MenuItem[]
             <span className="menu-label">{item.label}</span>
             {item.submenu && <ChevronRightIcon size={14} />}
             {sub?.index === i && (
-              <SubMenu items={sub.items} onDone={onDone} />
+              <SubMenu head={sub.head} items={sub.items} onDone={onDone} />
             )}
           </div>
         ),
@@ -104,7 +106,7 @@ function Menu({ x, y, items, onDone }: { x: number; y: number; items: MenuItem[]
   );
 }
 
-function SubMenu({ items, onDone }: { items: MenuItem[] | null; onDone: () => void }) {
+function SubMenu({ head, items, onDone }: { head: MenuItem[]; items: MenuItem[] | null; onDone: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [flip, setFlip] = useState(false);
   useLayoutEffect(() => {
@@ -113,9 +115,9 @@ function SubMenu({ items, onDone }: { items: MenuItem[] | null; onDone: () => vo
   }, [items]);
   return (
     <div className={`menu submenu ${flip ? "flip" : ""}`} ref={ref} onClick={(e) => e.stopPropagation()}>
-      {items === null && <div className="menu-item disabled">Loading…</div>}
-      {items?.length === 0 && <div className="menu-item disabled">Nothing here</div>}
-      {items?.map((item, i) =>
+      {items === null && head.length === 0 && <div className="menu-item disabled">Loading…</div>}
+      {items?.length === 0 && head.length === 0 && <div className="menu-item disabled">Nothing here</div>}
+      {[...head, ...(items ?? [])].map((item, i) =>
         item === "separator" ? (
           <div key={i} className="menu-sep" />
         ) : (
