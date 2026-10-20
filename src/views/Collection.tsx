@@ -41,7 +41,7 @@ const COMPARE: Record<Exclude<Sort, "custom">, (a: Track, b: Track) => number> =
   duration: (a, b) => a.durationMs - b.durationMs,
 };
 
-const KIND_LABEL = { playlist: "Playlist", album: "Album", liked: "Playlist", artist: "Artist", track: "Song", show: "Podcast", episode: "Episode", user: "Profile" } as const;
+const KIND_LABEL = { playlist: "Playlist", album: "Album", liked: "Playlist", artist: "Artist", track: "Song", show: "Podcast", episode: "Episode", user: "Profile", folder: "Folder" } as const;
 
 /** A playlist, album or Liked Songs: header, play button, and every track (paged on scroll). */
 export function Collection({ uri }: { uri: string }) {

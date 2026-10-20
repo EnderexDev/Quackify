@@ -16,7 +16,7 @@ export type Route =
   /** "Show all" of a row: a Home section, a genre page's section, a discography or related artists. */
   | { page: "cards"; source: "home" | "browse" | "discography" | "related"; uri: string; title?: string };
 
-type Nav = {
+export type Nav = {
   route: Route;
   go: (r: Route) => void;
   /** Swaps the current page without a history entry (typing in the search box). */

@@ -15,6 +15,7 @@ import type {
   Home,
   LibraryFilter,
   LibraryPage,
+  LibrarySort,
   Lyrics,
   Profile,
   SearchPage,
@@ -88,23 +89,33 @@ export function search(term: string): Promise<SearchResults> {
   );
 }
 
-export function library(filter: LibraryFilter, offset = 0): Promise<LibraryPage> {
-  return cached(`library:${filter}:${offset}`, async () =>
+export type LibraryQuery = { filter: LibraryFilter; sort?: LibrarySort; text?: string; folder?: string | null };
+
+/** One page of Your Library: filtered, sorted, searched, or inside a folder. */
+export function library(q: LibraryQuery, offset = 0): Promise<LibraryPage> {
+  const { filter, sort = "Recents", text = "", folder = null } = q;
+  return cached(`library:${filter}:${sort}:${text}:${folder}:${offset}`, async () =>
     n.toLibrary(
       await query("libraryV3", {
         filters: filter ? [filter] : [],
-        order: null,
-        textFilter: "",
+        order: sort === "Recents" ? null : sort,
+        textFilter: text,
         features: ["LIKED_SONGS"],
         limit: 50,
         offset,
         flatten: false,
         expandedFolders: [],
-        folderUri: null,
+        folderUri: folder,
         includeFoldersWhenFlattening: true,
       }),
     ),
   );
+}
+
+/** Pins an item to the top of Your Library, or unpins it. */
+export async function pinInLibrary(uri: string, pin: boolean): Promise<void> {
+  await query(pin ? "pinLibraryItem" : "unpinLibraryItem", { pinnableItemUri: uri });
+  clearCache("library:");
 }
 
 /** One page of a playlist, album or Liked Songs, header included. */

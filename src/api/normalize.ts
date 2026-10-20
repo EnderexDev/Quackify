@@ -343,7 +343,23 @@ export function toSingleEpisode(data: Raw): Episode | null {
 
 export function toLibrary(data: Raw): LibraryPage {
   const lib = data?.me?.libraryV3;
-  return { items: cards(lib?.items), total: lib?.totalCount ?? 0 };
+  const items: Card[] = [];
+  for (const it of lib?.items ?? []) {
+    const d = it?.item?.data;
+    const card: Card | null =
+      d?.__typename === "Folder"
+        ? {
+            uri: d.uri ?? it.item._uri ?? "",
+            kind: "folder",
+            title: d.name ?? "Folder",
+            subtitle: d.playlistCount != null ? `${d.playlistCount} playlists` : "Folder",
+            image: null,
+          }
+        : toCard(it);
+    if (!card || !card.uri) continue;
+    items.push({ ...card, pinned: !!it?.pinned, pinnable: !!it?.pinnable });
+  }
+  return { items, total: lib?.totalCount ?? 0 };
 }
 
 function colorOf(d: Raw): string | null {

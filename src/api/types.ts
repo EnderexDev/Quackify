@@ -2,7 +2,7 @@
 
 export type Named = { uri: string; name: string };
 
-export type Kind = "playlist" | "album" | "artist" | "liked" | "track" | "show" | "episode" | "user";
+export type Kind = "playlist" | "album" | "artist" | "liked" | "track" | "show" | "episode" | "user" | "folder";
 
 /** Anything shown as a tile: a playlist, album, artist, the Liked Songs entry, or a song (recent searches). */
 export type Card = {
@@ -11,6 +11,9 @@ export type Card = {
   title: string;
   subtitle: string;
   image: string | null;
+  /** In Your Library: pinned to the top, and whether it can be. */
+  pinned?: boolean;
+  pinnable?: boolean;
 };
 
 export type Track = {
@@ -53,6 +56,9 @@ export type SearchResults = {
 export type LibraryFilter = "Playlists" | "Artists" | "Albums" | "Podcasts & Shows" | null;
 
 export type LibraryPage = { items: Card[]; total: number };
+
+/** How Your Library is sorted; Spotify's own orders. */
+export type LibrarySort = "Recents" | "Recently Added" | "Alphabetical" | "Creator";
 
 /** A playlist, album or Liked Songs: the header plus one page of its tracks. */
 export type Collection = {

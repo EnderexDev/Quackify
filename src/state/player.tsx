@@ -55,7 +55,7 @@ type LocalEvent =
   | { kind: "stopped" }
   | { kind: "unavailable"; uri: string };
 
-type Player = {
+export type Player = {
   track: NowPlaying | null;
   /** Context the current track plays from, as the pages name it. */
   contextUri: string | null;

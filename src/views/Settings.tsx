@@ -19,7 +19,6 @@ type Settings = {
   cache_size_gb: number;
   device_name: string;
   start_minimized: boolean;
-  compact_library: boolean;
   cache_parent: string | null;
 };
 type CacheFolder = { folder: string; custom: boolean; problem: string | null };
@@ -165,12 +164,6 @@ export function SettingsView({ account }: { account: Account }) {
         </div>
       </section>
 
-      <section className="settings-group">
-        <h2>Your Library</h2>
-        <Row title="Compact layout" note="Show Your Library as a list, without covers.">
-          <Toggle on={s.compact_library} disabled={applying} onChange={(on) => save({ compact_library: on })} />
-        </Row>
-      </section>
 
       <section className="settings-group">
         <h2>Audio quality</h2>

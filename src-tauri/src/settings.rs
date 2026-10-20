@@ -60,8 +60,6 @@ pub struct Settings {
     pub device_name: String,
     /// Starting with Windows opens Quackify in the tray rather than in a window.
     pub start_minimized: bool,
-    /// Your Library as a compact list, without covers.
-    pub compact_library: bool,
     /// The folder the song cache goes in (its own subfolder is made there); none: the app's
     /// local data folder.
     pub cache_parent: Option<String>,
@@ -87,7 +85,6 @@ impl Default for Settings {
             cache_size_gb: 2,
             device_name: DEFAULT_DEVICE_NAME.to_string(),
             start_minimized: true,
-            compact_library: false,
             cache_parent: None,
         }
     }
@@ -524,13 +521,13 @@ mod tests {
     #[test]
     fn new_fields_default_and_device_name_is_never_empty() {
         let s: Settings = serde_json::from_str(r#"{ "quality": "high" }"#).unwrap();
-        assert!(s.gapless && s.audio_cache && s.start_minimized && !s.compact_library);
+        assert!(s.gapless && s.audio_cache && s.start_minimized);
         assert_eq!(s.cache_size_gb, 2);
         assert_eq!(Settings { device_name: "   ".into(), ..s.clone() }.device_name(), "Quackify");
         assert_eq!(Settings { device_name: " Sala ".into(), ..s.clone() }.device_name(), "Sala");
         assert_eq!(Settings { cache_size_gb: 7, ..s.clone() }.cache_limit_bytes(), 2 * 1024 * 1024 * 1024);
         assert!(s.player_differs(&Settings { device_name: "Sala".into(), ..s.clone() }));
-        assert!(!s.player_differs(&Settings { compact_library: true, start_minimized: false, ..s.clone() }));
+        assert!(!s.player_differs(&Settings { start_minimized: false, close_to_tray: false, ..s.clone() }));
         assert!(s.cache_parent.is_none());
         assert!(s.player_differs(&Settings { cache_parent: Some("E:\\Cache".into()), ..s.clone() }));
     }

@@ -61,6 +61,8 @@ const DEFAULT_HASHES: &[(&str, &str)] = &[
     ("isFollowingUsers", "c00e0cb6c7766e7230fc256cf4fe07aec63b53d1160a323940fce7b664e95596"),
     ("followUsers", "c00e0cb6c7766e7230fc256cf4fe07aec63b53d1160a323940fce7b664e95596"),
     ("unfollowUsers", "c00e0cb6c7766e7230fc256cf4fe07aec63b53d1160a323940fce7b664e95596"),
+    ("pinLibraryItem", "896ebcb47815681340860d121cb5d494e157e2a78d3950385cd54e0393c67148"),
+    ("unpinLibraryItem", "896ebcb47815681340860d121cb5d494e157e2a78d3950385cd54e0393c67148"),
 ];
 
 /// The lazily loaded chunks that hold operations the app uses (search, genre pages, artist,

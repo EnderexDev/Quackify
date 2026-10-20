@@ -7,7 +7,8 @@ import { CreditsHost } from "./components/Credits";
 import { PlayerBar } from "./components/PlayerBar";
 import { NowPlayingPanel } from "./components/NowPlaying";
 import { QueuePanel } from "./components/Queue";
-import { Sidebar } from "./components/Sidebar";
+import { Sidebar, useNewPlaylist } from "./components/Sidebar";
+import { ShortcutsDialog, useShortcuts } from "./components/Shortcuts";
 import { TopBar } from "./components/TopBar";
 import { NavProvider, useNav } from "./state/nav";
 import { PlayerProvider, usePlayer } from "./state/player";
@@ -97,19 +98,8 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
     else localStorage.removeItem("panel");
   };
 
-  // Space plays/pauses, Alt+arrows go back/forward, unless the user is typing.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const typing = (e.target as HTMLElement)?.closest?.("input, textarea");
-      if (e.code === "Space" && !typing) {
-        e.preventDefault();
-        player.toggle();
-      } else if (e.altKey && e.key === "ArrowLeft") nav.back();
-      else if (e.altKey && e.key === "ArrowRight") nav.forward();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [player, nav]);
+  const shortcuts = useShortcuts(player, nav, panel, (p) => setPanel(panel === p ? null : p));
+  useNewPlaylist();
 
   const key = JSON.stringify(route);
   return (
@@ -132,6 +122,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
       {panel === "queue" && <QueuePanel onClose={() => setPanel(null)} />}
       {panel === "nowplaying" && <NowPlayingPanel onClose={() => setPanel(null)} onOpenQueue={() => setPanel("queue")} />}
       <PlayerBar panel={panel} onPanel={(p) => setPanel(panel === p ? null : p)} />
+      {shortcuts.listOpen && <ShortcutsDialog onClose={shortcuts.closeList} />}
     </div>
   );
 }
