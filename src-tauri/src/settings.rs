@@ -218,8 +218,9 @@ fn cache_dir_for(app: &AppHandle, parent: Option<&str>) -> Option<PathBuf> {
 pub fn prepare_cache_dir(app: &AppHandle) -> Option<PathBuf> {
     let dir = audio_cache_dir(app)?;
     let problem = match std::fs::create_dir_all(&dir) {
-        Ok(()) if real_dir(dir.clone()).is_some() => None,
-        Ok(()) => Some(format!("{} is not a plain folder", dir.display())),
+        Ok(()) if real_dir(dir.clone()).is_none() => Some(format!("{} is not a plain folder", dir.display())),
+        // A folder that exists may still refuse writes.
+        Ok(()) => probe_write(&dir).err().map(|e| format!("{} cannot be written to: {e}", dir.display())),
         Err(e) => Some(format!("{} cannot be used: {e}", dir.display())),
     };
     let ok = problem.is_none();
@@ -229,17 +230,40 @@ pub fn prepare_cache_dir(app: &AppHandle) -> Option<PathBuf> {
     ok.then_some(dir)
 }
 
-/// Checks that songs can be written in `parent`, by writing and deleting a small file.
+/// Writes and deletes a new file in `dir`. The name is new each time and the file must not
+/// exist yet, so nothing already there (or a link) is ever written over or removed.
+fn probe_write(dir: &std::path::Path) -> std::io::Result<()> {
+    use std::io::Write;
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    let probe = dir.join(format!(".quackify-write-test-{}-{nanos}", std::process::id()));
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&probe)?;
+    let written = file.write_all(b"ok");
+    drop(file);
+    let removed = std::fs::remove_file(&probe);
+    written.and(removed)
+}
+
+/// Checks that songs can be written in `parent`'s cache subfolder.
 fn check_writable(parent: &std::path::Path) -> Result<(), String> {
     if !parent.is_dir() {
         return Err(format!("{} is not a folder that exists.", parent.display()));
     }
     let dir = parent.join(CACHE_FOLDER_NAME);
     std::fs::create_dir_all(&dir).map_err(|e| format!("Cannot make a folder in {}: {e}", parent.display()))?;
-    let probe = dir.join(".quackify-write-test");
-    std::fs::write(&probe, b"ok").map_err(|e| format!("Cannot write in {}: {e}", dir.display()))?;
-    let _ = std::fs::remove_file(probe);
-    Ok(())
+    if real_dir(dir.clone()).is_none() {
+        return Err(format!("{} is not a plain folder.", dir.display()));
+    }
+    probe_write(&dir).map_err(|e| format!("Cannot write in {}: {e}", dir.display()))
+}
+
+/// Whether one folder is the other or inside it (after following them to their real place).
+fn nested(a: &std::path::Path, b: &std::path::Path) -> bool {
+    let real = |p: &std::path::Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let (a, b) = (real(a), real(b));
+    a.starts_with(&b) || b.starts_with(&a)
 }
 
 #[derive(Serialize)]
@@ -286,9 +310,23 @@ pub async fn settings_set_cache_folder(app: AppHandle, parent: Option<String>) -
         return Ok(settings_cache_folder(app));
     }
     let old = cache_dir_for(&app, before.cache_parent.as_deref()).and_then(real_dir);
-    store.set(Settings { cache_parent: parent, ..before })?;
+    // The old cache is deleted after the move: the new one must not be inside it, or the other
+    // way round.
+    let new = cache_dir_for(&app, parent.as_deref());
+    if let (Some(old), Some(new)) = (&old, &new) {
+        if nested(old, new) {
+            return Err("Pick a folder outside the current song cache.".into());
+        }
+    }
+    store.set(Settings { cache_parent: parent, ..before.clone() })?;
     let _ = app.emit("settings-changed", ());
-    crate::spotify::reconnect(&app).await?;
+    if let Err(e) = crate::spotify::reconnect(&app).await {
+        // Back to the folder that was working, which still has its songs.
+        store.set(before)?;
+        let _ = app.emit("settings-changed", ());
+        let _ = crate::spotify::reconnect(&app).await;
+        return Err(e);
+    }
     if let Some(old) = old.filter(|o| Some(o) != audio_cache_dir(&app).as_ref()) {
         let _ = tauri::async_runtime::spawn_blocking(move || {
             clear_dir(&old);
@@ -420,6 +458,20 @@ mod tests {
             assert_eq!(real_dir(base.join("rootlink")), None);
         }
         assert_eq!(real_dir(cache.clone()), Some(cache.clone()));
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn the_write_check_never_touches_existing_files_and_nesting_is_seen() {
+        let base = std::env::temp_dir().join(format!("quackify-probe-{}", std::process::id()));
+        std::fs::create_dir_all(base.join("a").join("b")).unwrap();
+        std::fs::write(base.join("keep"), b"precious").unwrap();
+        probe_write(&base).unwrap();
+        assert_eq!(std::fs::read(base.join("keep")).unwrap(), b"precious");
+        assert_eq!(std::fs::read_dir(&base).unwrap().count(), 2, "the probe file was left behind");
+        assert!(nested(&base.join("a"), &base.join("a").join("b")));
+        assert!(nested(&base.join("a").join("b"), &base.join("a")));
+        assert!(!nested(&base.join("a"), &base.join("keep")));
         let _ = std::fs::remove_dir_all(&base);
     }
 
