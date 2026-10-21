@@ -10,7 +10,7 @@ use librespot_core::{
 use librespot_oauth::OAuthClientBuilder;
 use librespot_playback::{
     audio_backend,
-    config::{AudioFormat, Bitrate, PlayerConfig, VolumeCtrl},
+    config::{AudioFormat, Bitrate, PlayerConfig},
     mixer::{self, MixerConfig},
     player::{Player, PlayerEvent},
 };
@@ -98,10 +98,8 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     let initial_volume = cache.volume().unwrap_or(u16::MAX / 2);
     let session = Session::new(SessionConfig { autoplay: Some(settings.autoplay), ..Default::default() }, Some(cache));
 
-    // Linear: the slider's 50% is half the level. librespot's default curve (log, 60 dB) makes the
-    // lower half of the slider nearly silent.
-    let mixer_config = MixerConfig { volume_ctrl: VolumeCtrl::Linear, ..Default::default() };
-    let mixer = mixer::find(None).ok_or("no mixer")?(mixer_config)
+    // librespot's default volume curve (log, 60 dB), the one Spotify's own apps use.
+    let mixer = mixer::find(None).ok_or("no mixer")?(MixerConfig::default())
         .map_err(|e| e.to_string())?;
     let backend = audio_backend::find(None).ok_or("no audio backend")?;
     let player_config = PlayerConfig {

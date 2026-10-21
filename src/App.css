@@ -1045,6 +1045,37 @@ h2 {
   flex: 0 0 110px;
 }
 
+.volume-pct {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: text;
+}
+
+.volume-pct input {
+  width: 3ch;
+  padding: 2px 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+  outline: none;
+}
+
+.volume-pct:hover,
+.volume-pct:focus-within {
+  color: var(--text);
+}
+
+.volume-pct input:focus {
+  border-color: var(--line);
+  background: var(--panel-2);
+}
+
 .slider-track {
   width: 100%;
   height: 4px;

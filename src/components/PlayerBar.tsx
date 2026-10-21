@@ -139,7 +139,58 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
           <VolumeIcon size={20} level={p.volume} />
         </button>
         <Slider value={p.volume} onCommit={p.setVolume} live className="volume" onWheel={onVolumeWheel} />
+        <VolumePercent value={p.volume} onCommit={p.setVolume} onWheel={onVolumeWheel} />
       </div>
     </footer>
+  );
+}
+
+/** The volume as a percentage; click it to type one. Enter or leaving sets it, Escape cancels. */
+function VolumePercent({
+  value,
+  onCommit,
+  onWheel,
+}: {
+  value: number;
+  onCommit: (v: number) => void;
+  onWheel: (e: React.WheelEvent) => void;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const shown = String(Math.round(value * 100));
+
+  const commit = () => {
+    if (text === null) return;
+    const n = Number(text.replace("%", "").replace(",", ".").trim());
+    setText(null);
+    if (text.trim() !== "" && Number.isFinite(n)) onCommit(Math.min(100, Math.max(0, n)) / 100);
+  };
+
+  return (
+    <label className="volume-pct" onWheel={text === null ? onWheel : undefined} title="Volume">
+      <input
+        value={text ?? shown}
+        inputMode="numeric"
+        maxLength={4}
+        aria-label="Volume percent"
+        onFocus={(e) => {
+          setText(shown);
+          e.currentTarget.select();
+        }}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          // Keep keys here from reaching the app's shortcuts.
+          e.stopPropagation();
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            const input = e.currentTarget;
+            setText(null);
+            // Cancelled: blur without committing, once the cleared text has rendered.
+            setTimeout(() => input.blur());
+          }
+        }}
+      />
+      %
+    </label>
   );
 }
