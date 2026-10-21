@@ -95,6 +95,7 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
   const [at, setAt] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const menuAsk = useRef(0);
   const isCommand = term.trimStart().startsWith(">");
 
   // Focus goes back where it was when the palette closes.
@@ -102,7 +103,10 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
     const before = document.activeElement as HTMLElement | null;
     input.current?.focus();
     input.current?.select();
-    return () => before?.focus?.();
+    return () => {
+      menuAsk.current++;
+      before?.focus?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -140,24 +144,30 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
     close();
     // A song has no page of its own yet: it plays, with the other songs found after it.
     if (card.kind === "track" || card.kind === "episode") {
-      const uris = tracks?.map((t) => t.uri) ?? [card.uri];
-      const i = Math.max(0, uris.indexOf(card.uri));
-      (tracks ? play.tracks(uris, i) : play.tracks([card.uri], 0)).catch(toast);
+      // The top result can be a song missing from the song list: then it plays alone.
+      const uris = tracks?.map((t) => t.uri) ?? [];
+      const i = uris.indexOf(card.uri);
+      (i >= 0 ? play.tracks(uris, i) : play.tracks([card.uri], 0)).catch(toast);
     } else nav.open(card.uri);
   };
   const playCard = (card: Card, tracks?: Track[]) => {
-    remember(card.uri);
     if (card.kind === "track" || card.kind === "episode") return open(card, tracks);
+    remember(card.uri);
     close();
     play.context(card.uri).catch(toast);
   };
 
   const removeRecent = (uris: string[]) => {
-    const before = recent;
+    // Optimistic; a failure puts back only these, so other removals made meanwhile stay done.
+    const removed = (recent ?? []).filter((c) => uris.includes(c.uri));
     setRecent((r) => (r ?? []).filter((c) => !uris.includes(c.uri)));
     removeRecentSearches(uris).catch((e) => {
       toast(e);
-      setRecent(before);
+      setRecent((r) => {
+        const now = r ?? [];
+        const back = removed.filter((c) => !now.some((x) => x.uri === c.uri));
+        return (recent ?? []).filter((c) => now.includes(c) || back.includes(c));
+      });
     });
   };
 
@@ -218,6 +228,8 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
       e.preventDefault();
       setAt((i) => (items.length ? (i - 1 + items.length) % items.length : 0));
     } else if (e.key === "Enter") {
+      // Enter on a focused button presses that button; only the search box opens the result.
+      if (e.target !== input.current) return;
       e.preventDefault();
       if (e.ctrlKey) return seeAll();
       items[at]?.run();
@@ -233,9 +245,13 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
     const track = item.tracks?.find((t) => t.uri === card.uri);
     const navAndClose = { open: (uri: string) => (close(), nav.open(uri)) };
     if (card.kind === "liked") return openMenu(where, cardMenu(card, undefined, navAndClose));
+    // An answer that comes after the palette closed, or after another ••• was clicked, is dropped.
+    const asked = ++menuAsk.current;
+    const show = (saved: boolean | undefined) =>
+      asked === menuAsk.current && openMenu(where, track ? trackMenu(track, saved, navAndClose) : cardMenu(card, saved, navAndClose));
     areSaved([card.uri]).then(
-      ([saved]) => openMenu(where, track ? trackMenu(track, saved, navAndClose) : cardMenu(card, saved, navAndClose)),
-      () => openMenu(where, track ? trackMenu(track, undefined, navAndClose) : cardMenu(card, undefined, navAndClose)),
+      ([saved]) => show(saved),
+      () => show(undefined),
     );
   };
 

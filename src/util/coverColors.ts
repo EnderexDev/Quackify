@@ -7,6 +7,8 @@ const SIZE = 32;
 /** A cover with no usable colour (grey, or unreadable): graphite. */
 export const GRAPHITE: CoverColors = { base: "hsl(240 6% 18%)", glow: "hsl(240 5% 30%)" };
 
+/** The last covers read; the oldest goes first past this many. */
+const CACHE_MAX = 200;
 const cache = new Map<string, Promise<CoverColors>>();
 
 /** Cached by image URL; never rejects (an unreadable image gives graphite). */
@@ -18,6 +20,7 @@ export function coverColors(url: string): Promise<CoverColors> {
       return GRAPHITE;
     });
     cache.set(url, hit);
+    if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value!);
   }
   return hit;
 }

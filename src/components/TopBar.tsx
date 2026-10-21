@@ -111,6 +111,8 @@ function AvatarMenu({
       if (e.key === "Escape") {
         e.preventDefault();
         onClose();
+        // Focus goes back to the avatar, not to the page.
+        document.querySelector<HTMLElement>(".avatar-btn")?.focus();
       } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         const items = [...(box.current?.querySelectorAll<HTMLElement>("button") ?? [])];
