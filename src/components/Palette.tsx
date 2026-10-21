@@ -159,14 +159,19 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
 
   const removeRecent = (uris: string[]) => {
     // Optimistic; a failure puts back only these, so other removals made meanwhile stay done.
-    const removed = (recent ?? []).filter((c) => uris.includes(c.uri));
+    const before = recent ?? [];
+    const removed = before.filter((c) => uris.includes(c.uri));
     setRecent((r) => (r ?? []).filter((c) => !uris.includes(c.uri)));
     removeRecentSearches(uris).catch((e) => {
       toast(e);
+      // Merged into what is shown now, each back near where it was.
       setRecent((r) => {
-        const now = r ?? [];
-        const back = removed.filter((c) => !now.some((x) => x.uri === c.uri));
-        return (recent ?? []).filter((c) => now.includes(c) || back.includes(c));
+        const next = [...(r ?? [])];
+        for (const c of removed) {
+          if (next.some((x) => x.uri === c.uri)) continue;
+          next.splice(Math.min(before.indexOf(c), next.length), 0, c);
+        }
+        return next;
       });
     });
   };
@@ -221,7 +226,11 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
       e.preventDefault();
       e.stopPropagation();
       close();
-    } else if (e.key === "ArrowDown") {
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      // The focused action button goes away with the selection: keys go back to the search box.
+      input.current?.focus();
+    }
+    if (e.key === "ArrowDown") {
       e.preventDefault();
       setAt((i) => (items.length ? (i + 1) % items.length : 0));
     } else if (e.key === "ArrowUp") {
