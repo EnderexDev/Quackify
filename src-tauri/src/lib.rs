@@ -5,6 +5,8 @@ mod media;
 mod pathfinder;
 mod settings;
 mod spotify;
+mod variant;
+mod webplayer;
 
 use tauri::Manager;
 
@@ -29,6 +31,9 @@ pub fn run() {
             app.manage(pathfinder::Pathfinder::new(hashes));
             // Before the tray and the player, which read it.
             app.manage(settings::Store::load(app.handle()));
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_title(&variant::name(app.handle()));
+            }
             desktop::setup(app)?;
             links::setup(app);
             match media::Media::start(app.handle()) {
@@ -81,6 +86,7 @@ pub fn run() {
             links::links_take,
             links::links_status,
             links::links_choose,
+            webplayer::web_player_open,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

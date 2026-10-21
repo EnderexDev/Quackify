@@ -30,11 +30,11 @@ pub fn sync_tray(app: &AppHandle) {
 }
 
 /// The Windows startup entry (the user's Run key), with or without `--minimized`.
-fn launcher(minimized: bool) -> Result<AutoLaunch, String> {
+fn launcher(app: &AppHandle, minimized: bool) -> Result<AutoLaunch, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let args: &[&str] = if minimized { &[MINIMIZED_ARG] } else { &[] };
     AutoLaunchBuilder::new()
-        .set_app_name("Quackify")
+        .set_app_name(&crate::variant::name(app))
         .set_app_path(&exe.display().to_string())
         .set_args(args)
         .set_windows_enable_mode(WindowsEnableMode::CurrentUser)
@@ -42,14 +42,14 @@ fn launcher(minimized: bool) -> Result<AutoLaunch, String> {
         .map_err(|e| e.to_string())
 }
 
-pub fn start_with_windows(_app: &AppHandle) -> bool {
-    launcher(false).and_then(|l| l.is_enabled().map_err(|e| e.to_string())).unwrap_or(false)
+pub fn start_with_windows(app: &AppHandle) -> bool {
+    launcher(app, false).and_then(|l| l.is_enabled().map_err(|e| e.to_string())).unwrap_or(false)
 }
 
 /// Turns the Windows startup entry on (minimized or not, per the settings) or off; says what
 /// Windows has afterwards.
 pub fn set_start_with_windows(app: &AppHandle, on: bool) -> Result<bool, String> {
-    let launch = launcher(settings::current(app).start_minimized)?;
+    let launch = launcher(app, settings::current(app).start_minimized)?;
     let result = if on { launch.enable() } else { launch.disable() };
     sync_tray(app);
     result.map_err(|e| e.to_string())?;
@@ -58,8 +58,9 @@ pub fn set_start_with_windows(app: &AppHandle, on: bool) -> Result<bool, String>
 
 pub fn setup(app: &mut App) -> tauri::Result<()> {
     let settings = settings::current(app.handle());
+    let name = crate::variant::name(app.handle());
 
-    let show = MenuItem::with_id(app, "show", "Show Quackify", true, None::<&str>)?;
+    let show = MenuItem::with_id(app, "show", format!("Show {name}"), true, None::<&str>)?;
     let toggle = MenuItem::with_id(app, "toggle", "Play / Pause", true, None::<&str>)?;
     let next = MenuItem::with_id(app, "next", "Next", true, None::<&str>)?;
     let previous = MenuItem::with_id(app, "previous", "Previous", true, None::<&str>)?;
@@ -67,7 +68,7 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
         CheckMenuItem::with_id(app, "close_to_tray", "Close to tray", true, settings.close_to_tray, None::<&str>)?;
     let autostart_on = start_with_windows(app.handle());
     let autostart = CheckMenuItem::with_id(app, "autostart", "Start with Windows", true, autostart_on, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit Quackify", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", format!("Quit {name}"), true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
         &[
@@ -92,7 +93,7 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().cloned().expect("the bundle has an icon"))
-        .tooltip("Quackify")
+        .tooltip(&name)
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(move |app, event| match event.id().as_ref() {

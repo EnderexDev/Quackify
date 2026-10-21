@@ -78,10 +78,10 @@ pub fn links_take(app: AppHandle) -> Option<String> {
 
 /// Whether spotify: links open in Quackify.
 #[tauri::command]
-pub fn links_status() -> bool {
+pub fn links_status(app: AppHandle) -> bool {
     #[cfg(windows)]
     {
-        registry::is_default()
+        !crate::variant::is_dev(&app) && registry::is_default()
     }
     #[cfg(not(windows))]
     false
@@ -91,6 +91,9 @@ pub fn links_status() -> bool {
 #[tauri::command]
 pub fn links_choose(app: AppHandle) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
+    if crate::variant::is_dev(&app) {
+        return Err("Spotify links open in the official Quackify; the dev build leaves them alone.".into());
+    }
     #[cfg(windows)]
     registry::register()?;
     let opener = app.opener();
@@ -101,11 +104,14 @@ pub fn links_choose(app: AppHandle) -> Result<(), String> {
 }
 
 /// Offers Quackify for spotify: links, at every start: the program's path follows where it runs
-/// from. Picking it stays the user's call.
+/// from. Picking it stays the user's call. The dev build does not: the keys would point the
+/// official app's links at it.
 pub fn setup(app: &tauri::App) {
     app.manage(Pending::default());
     #[cfg(windows)]
-    if let Err(e) = registry::register() {
+    if !crate::variant::is_dev(app.handle())
+        && let Err(e) = registry::register()
+    {
         eprintln!("links: not offered to Windows: {e}");
     }
     handle_args(app.handle(), &std::env::args().collect::<Vec<_>>());

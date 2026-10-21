@@ -153,6 +153,10 @@ function useOpenLinks(nav: Nav) {
   }, []);
 }
 
+// Spotify turns a Free account away at librespot's login, with "Travel restriction" (measured
+// 21/10/26 on an account that plays in the browser) or "Premium account required".
+const notPremium = (e: string) => /travel restriction|premium/i.test(e);
+
 function Login({ onLoggedIn }: { onLoggedIn: (s: Status) => void }) {
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState("");
@@ -163,11 +167,17 @@ function Login({ onLoggedIn }: { onLoggedIn: (s: Status) => void }) {
     try {
       onLoggedIn(await invoke<Status>("spotify_login"));
     } catch (e) {
-      setError(String(e));
+      const message = String(e);
+      setError(
+        notPremium(message)
+          ? "Spotify didn't let this account in: Quackify's player needs Spotify Premium. With a Free account, use the web player below."
+          : message,
+      );
     } finally {
       setWaiting(false);
     }
   };
+  const openWebPlayer = () => invoke("web_player_open").catch((e) => setError(String(e)));
 
   return (
     <div className="login">
@@ -184,7 +194,17 @@ function Login({ onLoggedIn }: { onLoggedIn: (s: Status) => void }) {
           </button>
         )}
       </div>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error login-error">{error}</p>}
+      <div className="login-free">
+        <strong>Spotify Free?</strong>
+        <p className="muted">
+          Spotify only lets Premium accounts into apps like Quackify. With Free you can still listen here, in
+          Spotify's own web player. Quackify's player, queue, lyrics, media keys and the rest need Spotify Premium.
+        </p>
+        <button className="secondary" onClick={openWebPlayer}>
+          Open the web player
+        </button>
+      </div>
     </div>
   );
 }

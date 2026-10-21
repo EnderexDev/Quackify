@@ -135,7 +135,7 @@ impl Store {
             .as_ref()
             .and_then(|f| std::fs::read_to_string(f).ok())
             .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default();
+            .unwrap_or_else(|| Settings { device_name: crate::variant::name(app), ..Default::default() });
         Self { file, current: Mutex::new(current), cache_problem: Mutex::new(None), cache_move: tokio::sync::Mutex::new(()) }
     }
 

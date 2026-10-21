@@ -1141,6 +1141,25 @@ h2 {
   margin-top: 16px;
 }
 
+.login-error {
+  max-width: 440px;
+  text-align: center;
+}
+
+.login-free {
+  max-width: 440px;
+  margin-top: 24px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(21, 21, 21, 0.7);
+}
+
 .primary,
 .secondary {
   height: 48px;
