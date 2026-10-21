@@ -672,22 +672,34 @@ pub enum QueueEdit {
 /// The next tracks after `edit`, from the cluster's own list (so tracks keep every field
 /// Spotify gave them, and the ones not shown are kept too).
 pub fn edit_next_tracks(next: &[Value], edit: &QueueEdit) -> Vec<Value> {
-    let uid = |t: &Value| t["uid"].as_str().unwrap_or_default().to_string();
+    // Tracks are named by uid; one without a uid cannot be told apart, so no edit touches it.
+    let uid = |t: &Value| t["uid"].as_str().filter(|u| !u.is_empty()).map(str::to_string);
+    let named = |t: &Value, uids: &[String]| uid(t).is_some_and(|u| uids.contains(&u));
     let added = |t: &Value| t["provider"].as_str() == Some("queue");
     match edit {
-        QueueEdit::Remove { uids } => next.iter().filter(|t| !uids.contains(&uid(t))).cloned().collect(),
+        QueueEdit::Remove { uids } => next.iter().filter(|t| !named(t, uids)).cloned().collect(),
         QueueEdit::Clear => next.iter().filter(|t| !added(t)).cloned().collect(),
         QueueEdit::Move { uids, before } => {
-            let moving: Vec<Value> = uids
+            let mut moving: Vec<Value> = uids
                 .iter()
-                .filter_map(|u| next.iter().find(|t| &uid(t) == u).cloned())
+                .filter(|u| !u.is_empty())
+                .filter_map(|u| next.iter().find(|t| uid(t).as_ref() == Some(u)).cloned())
                 .collect();
-            let mut rest: Vec<Value> = next.iter().filter(|t| !uids.contains(&uid(t))).cloned().collect();
+            let mut rest: Vec<Value> = next.iter().filter(|t| !named(t, uids)).cloned().collect();
             let at = match before {
-                Some(b) => rest.iter().position(|t| &uid(t) == b).unwrap_or(rest.len()),
+                Some(b) => rest.iter().position(|t| uid(t).as_ref() == Some(b)).unwrap_or(rest.len()),
                 // The end of the songs you added: right after the last one.
                 None => rest.iter().rposition(added).map_or(0, |i| i + 1),
             };
+            // Dropped among the songs you added (or at their end), a song becomes one of them:
+            // it stays there and goes with Clear queue.
+            let into_added = before.is_none() || rest.get(at).is_some_and(added) || (at > 0 && added(&rest[at - 1]));
+            if into_added {
+                for t in &mut moving {
+                    t["provider"] = Value::from("queue");
+                    t["metadata"]["is_queued"] = Value::from("true");
+                }
+            }
             rest.splice(at..at, moving);
             rest
         }
@@ -862,9 +874,16 @@ mod tests {
         assert_eq!(uids(&clear), ["c1", "c2"]);
         let up = edit_next_tracks(&next, &QueueEdit::Move { uids: vec!["q2".into()], before: Some("q1".into()) });
         assert_eq!(uids(&up), ["q2", "q1", "c1", "c2"]);
-        // A context song moved into the queue goes after the added ones.
+        // A context song moved into the queue goes after the added ones, as one of them.
         let into = edit_next_tracks(&next, &QueueEdit::Move { uids: vec!["c2".into()], before: None });
         assert_eq!(uids(&into), ["q1", "q2", "c2", "c1"]);
+        assert_eq!(into[2]["provider"], "queue");
+        assert_eq!(uids(&edit_next_tracks(&into, &QueueEdit::Clear)), ["c1"]);
+        // A track without a uid is never removed by a remove meant for another.
+        let mut odd = next.clone();
+        odd.push(json!({ "uri": "spotify:track:x", "provider": "context" }));
+        odd.push(json!({ "uri": "spotify:track:y", "uid": "", "provider": "context" }));
+        assert_eq!(edit_next_tracks(&odd, &QueueEdit::Remove { uids: vec!["".into()] }).len(), 6);
         let down = edit_next_tracks(&next, &QueueEdit::Move { uids: vec!["q1".into()], before: Some("c2".into()) });
         assert_eq!(uids(&down), ["q2", "c1", "q1", "c2"]);
         // Fields Spotify sent come back untouched.

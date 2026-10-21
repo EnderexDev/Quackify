@@ -21,8 +21,15 @@ function useTrackInfo(list: QueuedTrack[]) {
     const uris = [...new Set(list.map((q) => q.uri))].filter((u) => !info.has(u));
     if (uris.length === 0) return;
     let alive = true;
+    // Only the tracks shown now are kept, so an open queue does not pile them up.
+    const wanted = new Set(list.map((q) => q.uri));
     invoke<NowPlaying[]>("spotify_tracks", { uris }).then(
-      (got) => alive && setInfo((m) => new Map([...m, ...got.map((t) => [t.uri, t] as const)])),
+      (got) =>
+        alive &&
+        setInfo(
+          (m) =>
+            new Map([...[...m].filter(([u]) => wanted.has(u)), ...got.map((t) => [t.uri, t] as const)]),
+        ),
       () => {},
     );
     return () => {
@@ -68,29 +75,40 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
     const rest = list.filter((x) => x.uid !== uid);
     let at = before === null ? rest.map((x) => x.provider).lastIndexOf("queue") + 1 : rest.findIndex((x) => x.uid === before);
     if (at < 0) at = rest.length;
-    // A song dragged among the added ones becomes one of them.
-    const moved = before === null || rest[at]?.provider === "queue" ? { ...moving, provider: "queue" } : moving;
+    // A song dragged among the added ones (or right after them) becomes one of them.
+    const intoAdded = before === null || rest[at]?.provider === "queue" || (at > 0 && rest[at - 1]?.provider === "queue");
+    const moved = intoAdded ? { ...moving, provider: "queue" } : moving;
     rest.splice(at, 0, moved);
     edit({ kind: "move", uids: [uid], before }, rest);
   };
 
   const queued = upcoming.filter((q) => q.provider === "queue");
   const rest = upcoming.filter((q) => q.provider !== "queue");
+  // The move happens on the drop itself; a drag let go elsewhere or cancelled with Escape
+  // changes nothing.
+  const endDrag = () => {
+    setDragging(null);
+    setDropBefore(undefined);
+  };
+  const dropOn = (before: string | null) => {
+    if (dragging) drop(dragging, before);
+    endDrag();
+  };
+  // A track without a uid cannot be told apart from another copy: it is shown but not edited.
   const rowProps = (q: QueuedTrack) => ({
     track: info.get(q.uri),
     item: q,
-    onRemove: () => remove(q),
-    drag: {
-      start: () => setDragging(q.uid),
-      over: () => setDropBefore(q.uid),
-      end: () => {
-        if (dragging && dropBefore !== undefined) drop(dragging, dropBefore);
-        setDragging(null);
-        setDropBefore(undefined);
-      },
-      marker: dragging !== null && dropBefore === q.uid,
-      dragging: dragging === q.uid,
-    },
+    onRemove: q.uid ? () => remove(q) : undefined,
+    drag: q.uid
+      ? {
+          start: () => setDragging(q.uid),
+          over: () => setDropBefore(q.uid),
+          drop: () => dropOn(q.uid),
+          end: endDrag,
+          marker: dragging !== null && dropBefore === q.uid,
+          dragging: dragging === q.uid,
+        }
+      : undefined,
   });
 
   return (
@@ -133,6 +151,10 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
                   e.preventDefault();
                   setDropBefore(null);
                 }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  dropOn(null);
+                }}
               >
                 Drop here to add to the queue
               </div>
@@ -170,7 +192,7 @@ export function QueueRow({
   current?: boolean;
   onRemove?: () => void;
   onPlay?: () => void;
-  drag?: { start: () => void; over: () => void; end: () => void; marker: boolean; dragging: boolean };
+  drag?: { start: () => void; over: () => void; drop: () => void; end: () => void; marker: boolean; dragging: boolean };
 }) {
   const nav = useNav();
   const openMenu = useContextMenu();
@@ -191,7 +213,11 @@ export function QueueRow({
         e.preventDefault();
         drag.over();
       }}
-      onDrop={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        if (!drag) return;
+        e.preventDefault();
+        drag.drop();
+      }}
       onDragEnd={() => drag?.end()}
       onContextMenu={(e) => {
         if (!track) return;

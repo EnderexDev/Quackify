@@ -116,12 +116,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const lastTrack = useRef<{ uri: string; since: number } | null>(null);
   useEffect(() => {
     const uri = track?.uri ?? null;
+    // Nothing playing for a while (stopped, between devices) keeps the last song in mind, so it
+    // still goes on the list when the next one starts.
+    if (!uri) return;
     const prev = lastTrack.current;
     if (prev?.uri === uri) return;
-    lastTrack.current = uri ? { uri, since: Date.now() } : null;
+    lastTrack.current = { uri, since: Date.now() };
     // A song swapped within seconds was not really played: Spotify relinks a song to another
     // version of it right as it starts, and a skip that fast is not a listen either.
-    if (!prev || !uri || Date.now() - prev.since < MIN_PLAYED_MS) return;
+    if (!prev || Date.now() - prev.since < MIN_PLAYED_MS) return;
     setHistory((h) => {
       const next = [{ uri: prev.uri, uid: `h${Date.now()}`, provider: "history" }, ...h.filter((x) => x.uri !== prev.uri)].slice(
         0,

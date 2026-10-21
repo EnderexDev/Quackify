@@ -101,15 +101,18 @@ export const TRACKS_MIME = "application/x-quackify-tracks";
 
 /** The menu for several selected songs at once. `allSaved`: whether every one is liked. */
 export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSaved: boolean | undefined, nav: Nav): MenuItem[] {
-  const uris = tracks.filter((t) => t.playable !== false).map((t) => t.uri);
+  // Every selected song goes to a playlist or Liked Songs; the queue only takes ones that play.
+  const uris = tracks.map((t) => t.uri);
+  const playable = tracks.filter((t) => t.playable !== false).map((t) => t.uri);
   const n = `${tracks.length} songs`;
   return [
     {
       label: "Add to queue",
       onClick: async () => {
         try {
-          for (const u of uris.slice(0, QUEUE_LIMIT)) await play.addToQueue(u);
-          toast(`Added ${Math.min(uris.length, QUEUE_LIMIT)} songs to the queue`);
+          const queued = playable.slice(0, QUEUE_LIMIT);
+          for (const u of queued) await play.addToQueue(u);
+          toast(`Added ${queued.length} ${queued.length === 1 ? "song" : "songs"} to the queue`);
         } catch (e) {
           toast(e);
         }

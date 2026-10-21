@@ -12,6 +12,9 @@ import { BackIcon, LibraryIcon, PlusIcon, SearchIcon } from "./icons";
 import { addAll, cardMenu, TRACKS_MIME } from "./menus";
 import { areSaved } from "../api/library";
 
+/** How many items a page of Your Library has. */
+const PAGE = 50;
+
 const FILTERS: { id: LibraryFilter; label: string }[] = [
   { id: "Playlists", label: "Playlists" },
   { id: "Artists", label: "Artists" },
@@ -67,6 +70,10 @@ export function Sidebar() {
   const folder = folders[folders.length - 1] ?? null;
   const [items, setItems] = useState<Card[]>([]);
   const [total, setTotal] = useState(0);
+  // Where the next page starts on Spotify's side (items shown can be fewer: duplicates are
+  // dropped), and which query the pages belong to: an answer for an older query is ignored.
+  const nextOffset = useRef(0);
+  const generation = useRef(0);
   const [error, setError] = useState("");
   // Bumped when something is saved or removed, to reload the list.
   const [version, setVersion] = useState(0);
@@ -78,12 +85,15 @@ export function Sidebar() {
   const [dropOn, setDropOn] = useState<string | null>(null);
   const takesSongs = (c: Card) => c.kind === "playlist" || c.kind === "liked";
   const dropSongs = (c: Card, data: string) => {
-    let uris: string[];
+    let parsed: unknown;
     try {
-      uris = JSON.parse(data);
+      parsed = JSON.parse(data);
     } catch {
       return;
     }
+    // Only a list of song or episode URIs is taken.
+    if (!Array.isArray(parsed)) return;
+    const uris = parsed.filter((u): u is string => typeof u === "string" && /^spotify:(track|episode):\w+$/.test(u));
     if (!uris.length) return;
     const n = uris.length === 1 ? "1 song" : `${uris.length} songs`;
     if (c.kind === "liked") {
@@ -101,25 +111,24 @@ export function Sidebar() {
   const sentinel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let alive = true;
+    const gen = ++generation.current;
+    loadingMore.current = false;
     setError("");
     // Typing waits for a pause.
     const id = setTimeout(
       () =>
         library(query, 0).then(
           (page) => {
-            if (!alive) return;
+            if (gen !== generation.current) return;
+            nextOffset.current = PAGE;
             setItems(page.items);
             setTotal(page.total);
           },
-          (e) => alive && setError(String(e)),
+          (e) => gen === generation.current && setError(String(e)),
         ),
       query.text ? 250 : 0,
     );
-    return () => {
-      alive = false;
-      clearTimeout(id);
-    };
+    return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryKey, version]);
 
@@ -128,12 +137,22 @@ export function Sidebar() {
     const el = sentinel.current;
     if (!el) return;
     const io = new IntersectionObserver((entries) => {
-      if (!entries[0].isIntersecting || loadingMore.current || items.length === 0 || items.length >= total) return;
+      if (!entries[0].isIntersecting || loadingMore.current || items.length === 0 || nextOffset.current >= total) return;
+      const gen = generation.current;
+      const offset = nextOffset.current;
       loadingMore.current = true;
-      library(query, items.length)
-        .then((page) => setItems((prev) => [...prev, ...page.items.filter((c) => !prev.some((p) => p.uri === c.uri))]))
-        .catch((e) => setError(String(e)))
-        .finally(() => (loadingMore.current = false));
+      library(query, offset)
+        .then((page) => {
+          if (gen !== generation.current) return;
+          // Moves on even when the page added nothing new, so the same page is not asked again;
+          // an empty page ends the list.
+          nextOffset.current = page.items.length ? offset + PAGE : total;
+          setItems((prev) => [...prev, ...page.items.filter((c) => !prev.some((p) => p.uri === c.uri))]);
+        })
+        .catch((e) => gen === generation.current && setError(String(e)))
+        .finally(() => {
+          if (gen === generation.current) loadingMore.current = false;
+        });
     });
     io.observe(el);
     return () => io.disconnect();
@@ -314,8 +333,16 @@ export function useNewPlaylist() {
   useEffect(() => {
     const make = async () => {
       try {
-        const own = await library({ filter: "Playlists", text: "My Playlist #" }, 0);
-        const taken = new Set(own.items.map((c) => /^My Playlist #(\d+)$/.exec(c.title)?.[1]).filter(Boolean).map(Number));
+        // Every page of the matching playlists, so a number further down is not reused.
+        const taken = new Set<number>();
+        for (let offset = 0; ; offset += PAGE) {
+          const page = await library({ filter: "Playlists", text: "My Playlist #" }, offset);
+          for (const c of page.items) {
+            const n = /^My Playlist #(\d+)$/.exec(c.title)?.[1];
+            if (n) taken.add(Number(n));
+          }
+          if (!page.items.length || offset + PAGE >= page.total) break;
+        }
         let n = 1;
         while (taken.has(n)) n++;
         const uri = await createPlaylist(`My Playlist #${n}`);

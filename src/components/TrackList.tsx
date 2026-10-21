@@ -164,9 +164,15 @@ export function TrackList({
               if (!selected.has(i)) setSelected(new Set([i]));
               setDragFrom(selected.has(i) ? sorted(selected) : [i]);
             },
-            over: onMove && t.uid ? (after) => setDropAt(after ? i + 1 : i) : undefined,
-            end: () => {
+            over: onMove && t.uid && dragFrom ? (after) => setDropAt(after ? i + 1 : i) : undefined,
+            // The move happens on the drop itself; a drag let go elsewhere (on a playlist in Your
+            // Library, outside) or cancelled with Escape does not reorder anything.
+            drop: () => {
               if (onMove && dragFrom && dropAt !== null && dragFrom.every((k) => tracks[k]?.uid)) onMove(dragFrom, dropAt);
+              setDragFrom(null);
+              setDropAt(null);
+            },
+            end: () => {
               setDragFrom(null);
               setDropAt(null);
             },
@@ -208,6 +214,7 @@ function TrackRow({
     rows: () => Track[];
     start: () => void;
     over?: (after: boolean) => void;
+    drop: () => void;
     end: () => void;
     marker: "before" | "after" | null;
     dragging: boolean;
@@ -248,7 +255,11 @@ function TrackRow({
         const r = e.currentTarget.getBoundingClientRect();
         drag.over(e.clientY > r.top + r.height / 2);
       }}
-      onDrop={(e) => drag.over && e.preventDefault()}
+      onDrop={(e) => {
+        if (!drag.over) return;
+        e.preventDefault();
+        drag.drop();
+      }}
       onDragEnd={() => drag.end()}
     >
       <span className="track-num">
