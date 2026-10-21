@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPlaylist, save } from "../api/library";
-import { library, pinInLibrary } from "../api/spotify";
+import { clearCache, library, pinInLibrary } from "../api/spotify";
 import type { Card, LibraryFilter, LibrarySort } from "../api/types";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
@@ -112,7 +112,11 @@ export function Sidebar() {
 
   useEffect(() => {
     const gen = ++generation.current;
+    // A new query starts empty, and no next page is asked before its first page is in.
+    nextOffset.current = Number.POSITIVE_INFINITY;
     loadingMore.current = false;
+    setItems([]);
+    setTotal(0);
     setError("");
     // Typing waits for a pause.
     const id = setTimeout(
@@ -327,11 +331,15 @@ export function Sidebar() {
 /** Ctrl+N and the + button make a playlist through this, so both count names the same way. */
 export const NEW_PLAYLIST_EVENT = "quackify:new-playlist";
 
+/** One new playlist at a time, so two quick ones get different numbers. */
+let creating: Promise<unknown> = Promise.resolve();
+
 /** Makes "My Playlist #N" (the next free N among your playlists) and opens it. */
 export function useNewPlaylist() {
   const nav = useNav();
   useEffect(() => {
-    const make = async () => {
+    const make = () => (creating = creating.then(makeOne, makeOne));
+    const makeOne = async () => {
       try {
         // Every page of the matching playlists, so a number further down is not reused.
         const taken = new Set<number>();
@@ -346,6 +354,8 @@ export function useNewPlaylist() {
         let n = 1;
         while (taken.has(n)) n++;
         const uri = await createPlaylist(`My Playlist #${n}`);
+        // The next one must see this one: Your Library's cached pages are stale now.
+        clearCache("library:");
         notifyLibraryChanged();
         nav.open(uri);
       } catch (e) {

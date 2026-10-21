@@ -113,26 +113,27 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       return [];
     }
   });
-  const lastTrack = useRef<{ uri: string; since: number } | null>(null);
+  const lastTrack = useRef<{ uri: string; since: number; recorded: boolean } | null>(null);
   useEffect(() => {
     const uri = track?.uri ?? null;
-    // Nothing playing for a while (stopped, between devices) keeps the last song in mind, so it
-    // still goes on the list when the next one starts.
-    if (!uri) return;
     const prev = lastTrack.current;
-    if (prev?.uri === uri) return;
-    lastTrack.current = { uri, since: Date.now() };
-    // A song swapped within seconds was not really played: Spotify relinks a song to another
-    // version of it right as it starts, and a skip that fast is not a listen either.
-    if (!prev || Date.now() - prev.since < MIN_PLAYED_MS) return;
-    setHistory((h) => {
-      const next = [{ uri: prev.uri, uid: `h${Date.now()}`, provider: "history" }, ...h.filter((x) => x.uri !== prev.uri)].slice(
-        0,
-        HISTORY_SIZE,
-      );
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-      return next;
-    });
+    if (prev && prev.uri === uri) return;
+    // A song goes on the list when it gives way: to another song, or to nothing playing (a
+    // stop, the app closing). One swapped within seconds was not really played: Spotify relinks
+    // a song to another version of it right as it starts, and a skip that fast is not a listen.
+    if (prev && !prev.recorded && Date.now() - prev.since >= MIN_PLAYED_MS) {
+      prev.recorded = true;
+      setHistory((h) => {
+        const next = [{ uri: prev.uri, uid: `h${Date.now()}`, provider: "history" }, ...h.filter((x) => x.uri !== prev.uri)].slice(
+          0,
+          HISTORY_SIZE,
+        );
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+        return next;
+      });
+    }
+    // Nothing playing keeps the last song in mind (already listed), so it is not listed twice.
+    if (uri) lastTrack.current = { uri, since: Date.now(), recorded: false };
   }, [track?.uri]);
   const [view, setView] = useState<ConnectView | null>(null);
   const [playing, setPlaying] = useState(false);

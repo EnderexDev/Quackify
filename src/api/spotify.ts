@@ -362,10 +362,13 @@ export function trackDetails(trackUri: string, artistUri: string): Promise<Track
 // Playback.
 export type Repeat = "off" | "all" | "one";
 
-/** A change to what plays next; tracks are named by their uid. */
+/** A queue track as the panel saw it; its song is used if the uid has changed since. */
+export type QueueRef = { uid: string; uri: string };
+
+/** A change to what plays next. */
 export type QueueEdit =
-  | { kind: "remove"; uids: string[] }
-  | { kind: "move"; uids: string[]; before: string | null }
+  | { kind: "remove"; tracks: QueueRef[] }
+  | { kind: "move"; tracks: QueueRef[]; before: QueueRef | null }
   | { kind: "clear" };
 
 export const play = {

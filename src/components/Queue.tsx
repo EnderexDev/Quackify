@@ -64,8 +64,9 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
       toast(err);
     });
   };
+  const ref = (q: QueuedTrack) => ({ uid: q.uid, uri: q.uri });
   const remove = (q: QueuedTrack) =>
-    edit({ kind: "remove", uids: [q.uid] }, (shown ?? player.queue).filter((x) => x.uid !== q.uid));
+    edit({ kind: "remove", tracks: [ref(q)] }, (shown ?? player.queue).filter((x) => x.uid !== q.uid));
   const clear = () => edit({ kind: "clear" }, (shown ?? player.queue).filter((x) => x.provider !== "queue"));
   // Dropped before \`before\` (a uid), or at the end of the added songs (null).
   const drop = (uid: string, before: string | null) => {
@@ -75,11 +76,13 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
     const rest = list.filter((x) => x.uid !== uid);
     let at = before === null ? rest.map((x) => x.provider).lastIndexOf("queue") + 1 : rest.findIndex((x) => x.uid === before);
     if (at < 0) at = rest.length;
-    // A song dragged among the added ones (or right after them) becomes one of them.
+    // A song dragged among the added ones (or right after them) becomes one of them; one
+    // dragged further down becomes part of the rest of the list, in that place.
     const intoAdded = before === null || rest[at]?.provider === "queue" || (at > 0 && rest[at - 1]?.provider === "queue");
-    const moved = intoAdded ? { ...moving, provider: "queue" } : moving;
+    const moved = { ...moving, provider: intoAdded ? "queue" : moving.provider === "queue" ? "context" : moving.provider };
     rest.splice(at, 0, moved);
-    edit({ kind: "move", uids: [uid], before }, rest);
+    const anchor = before === null ? null : list.find((x) => x.uid === before);
+    edit({ kind: "move", tracks: [ref(moving)], before: anchor ? ref(anchor) : null }, rest);
   };
 
   const queued = upcoming.filter((q) => q.provider === "queue");

@@ -23,6 +23,9 @@ const REFRESH_DEBOUNCE: Duration = Duration::from_millis(250);
 // The device registers itself shortly after start, and the server does not tell the device
 // about its own registration: read the cluster again after this long.
 const SETTLE_REREAD: Duration = Duration::from_secs(3);
+/// How long a queue edit waits, at most, for Spotify to show it (tries x step).
+const QUEUE_SETTLE_TRIES: u32 = 12;
+const QUEUE_SETTLE_STEP: Duration = Duration::from_millis(250);
 /// How this device shows up in the other Spotify apps.
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -114,6 +117,8 @@ pub struct Hub {
     refresh_pending: AtomicBool,
     // One cluster read at a time, in order, so an older answer never overwrites a newer one.
     refreshing: tokio::sync::Mutex<()>,
+    // Queue edits one at a time, each on the queue the previous one left.
+    editing_queue: tokio::sync::Mutex<()>,
     // Track metadata already fetched, for the queue and lists that only carry URIs.
     track_cache: StdMutex<std::collections::HashMap<String, NowPlaying>>,
 }
@@ -139,6 +144,7 @@ impl Hub {
             wanted_track: StdMutex::new(None),
             refresh_pending: AtomicBool::new(false),
             refreshing: tokio::sync::Mutex::new(()),
+            editing_queue: tokio::sync::Mutex::new(()),
             track_cache: StdMutex::new(Default::default()),
         });
         match hub
@@ -532,29 +538,49 @@ impl Hub {
     /// Changes what plays next on the device playing: the cluster is read fresh, edited and sent
     /// back whole, as Spotify's own apps do.
     pub async fn edit_queue(self: &Arc<Self>, edit: QueueEdit) -> Result<(), String> {
+        // Each edit reads the queue, changes it and sends it whole: two at once would undo each
+        // other, so they run in turn, and the next one waits for Spotify to show this one.
+        let _turn = self.editing_queue.lock().await;
         let to = {
             let v = self.view.lock().unwrap();
             v.active_device_id.clone().ok_or("Nothing is playing right now")?
         };
+        let cluster = self.read_cluster().await?;
+        let ps = &cluster["player_state"];
+        let next = ps["next_tracks"].as_array().cloned().unwrap_or_default();
+        let edited = edit_next_tracks(&next, &edit);
+        self.remote_command(
+            &to,
+            json!({
+                "endpoint": "set_queue",
+                "next_tracks": edited,
+                "prev_tracks": ps["prev_tracks"].as_array().cloned().unwrap_or_default(),
+                "queue_revision": ps["queue_revision"].as_str().unwrap_or_default(),
+            }),
+        )
+        .await?;
+        // Done when Spotify's queue starts the way the one sent does.
+        let wanted = queue_head(&edited);
+        for _ in 0..QUEUE_SETTLE_TRIES {
+            tokio::time::sleep(QUEUE_SETTLE_STEP).await;
+            if let Ok(c) = self.read_cluster().await {
+                let now = c["player_state"]["next_tracks"].as_array().cloned().unwrap_or_default();
+                if queue_head(&now) == wanted {
+                    break;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn read_cluster(&self) -> Result<Value, String> {
         let bytes = self
             .session
             .spclient()
             .request(&Method::GET, "/connect-state/v1/cluster", None, None)
             .await
             .map_err(|e| e.to_string())?;
-        let cluster: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-        let ps = &cluster["player_state"];
-        let next = ps["next_tracks"].as_array().cloned().unwrap_or_default();
-        self.remote_command(
-            &to,
-            json!({
-                "endpoint": "set_queue",
-                "next_tracks": edit_next_tracks(&next, &edit),
-                "prev_tracks": ps["prev_tracks"].as_array().cloned().unwrap_or_default(),
-                "queue_revision": ps["queue_revision"].as_str().unwrap_or_default(),
-            }),
-        )
-        .await
+        serde_json::from_slice(&bytes).map_err(|e| e.to_string())
     }
 
     /// Jumps to a track further down the queue, dropping the ones before it.
@@ -657,47 +683,93 @@ fn queued<'a>(list: impl Iterator<Item = &'a Value>) -> Vec<QueuedTrack> {
     .collect()
 }
 
+/// The first tracks of a queue, by uri and provider, to tell whether an edit has landed.
+fn queue_head(list: &[Value]) -> Vec<(String, String)> {
+    list.iter()
+        .filter(|t| t["uri"].as_str().is_some_and(|u| u.starts_with("spotify:track:") || u.starts_with("spotify:episode:")))
+        .take(10)
+        .map(|t| (t["uri"].as_str().unwrap_or_default().to_string(), t["provider"].as_str().unwrap_or_default().to_string()))
+        .collect()
+}
+
+/// A track of the queue as the panel saw it. librespot gives queued songs new uids on every
+/// change, so a uid seen a moment ago may be gone: then the song is found by its URI.
+#[derive(serde::Deserialize, Debug, Clone, PartialEq)]
+pub struct QueueRef {
+    pub uid: String,
+    pub uri: String,
+}
+
 /// A change to what plays next.
 #[derive(serde::Deserialize, Debug, Clone)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum QueueEdit {
-    /// Takes these tracks (by uid) out.
-    Remove { uids: Vec<String> },
-    /// Moves these tracks (by uid) to just before `before`, or to the end of the songs you added.
-    Move { uids: Vec<String>, before: Option<String> },
+    /// Takes these tracks out.
+    Remove { tracks: Vec<QueueRef> },
+    /// Moves these tracks to just before `before`, or to the end of the songs you added.
+    Move { tracks: Vec<QueueRef>, before: Option<QueueRef> },
     /// Takes out every song you added, leaving the rest of the context.
     Clear,
+}
+
+/// Where each ref is in `list`: by uid, else the first not yet taken copy of its URI (the songs
+/// you added first). Refs not found are left out.
+fn find_refs(list: &[Value], refs: &[QueueRef]) -> Vec<usize> {
+    let uid = |t: &Value| t["uid"].as_str().unwrap_or_default().to_string();
+    let uri = |t: &Value| t["uri"].as_str().unwrap_or_default().to_string();
+    let mut taken: Vec<usize> = vec![];
+    for r in refs {
+        let by_uid = (!r.uid.is_empty())
+            .then(|| list.iter().position(|t| uid(t) == r.uid))
+            .flatten()
+            .filter(|i| !taken.contains(i));
+        let by_uri = || {
+            let free = |i: &usize| !taken.contains(i) && uri(&list[*i]) == r.uri;
+            // A song you added before one from the rest of the list.
+            (0..list.len())
+                .filter(free)
+                .find(|i| list[*i]["provider"].as_str() == Some("queue"))
+                .or_else(|| (0..list.len()).find(free))
+        };
+        if let Some(i) = by_uid.or_else(by_uri) {
+            taken.push(i);
+        }
+    }
+    taken
 }
 
 /// The next tracks after `edit`, from the cluster's own list (so tracks keep every field
 /// Spotify gave them, and the ones not shown are kept too).
 pub fn edit_next_tracks(next: &[Value], edit: &QueueEdit) -> Vec<Value> {
-    // Tracks are named by uid; one without a uid cannot be told apart, so no edit touches it.
-    let uid = |t: &Value| t["uid"].as_str().filter(|u| !u.is_empty()).map(str::to_string);
-    let named = |t: &Value, uids: &[String]| uid(t).is_some_and(|u| uids.contains(&u));
     let added = |t: &Value| t["provider"].as_str() == Some("queue");
     match edit {
-        QueueEdit::Remove { uids } => next.iter().filter(|t| !named(t, uids)).cloned().collect(),
+        QueueEdit::Remove { tracks } => {
+            let gone = find_refs(next, tracks);
+            next.iter().enumerate().filter(|(i, _)| !gone.contains(i)).map(|(_, t)| t.clone()).collect()
+        }
         QueueEdit::Clear => next.iter().filter(|t| !added(t)).cloned().collect(),
-        QueueEdit::Move { uids, before } => {
-            let mut moving: Vec<Value> = uids
-                .iter()
-                .filter(|u| !u.is_empty())
-                .filter_map(|u| next.iter().find(|t| uid(t).as_ref() == Some(u)).cloned())
-                .collect();
-            let mut rest: Vec<Value> = next.iter().filter(|t| !named(t, uids)).cloned().collect();
+        QueueEdit::Move { tracks, before } => {
+            let picked = find_refs(next, tracks);
+            let mut moving: Vec<Value> = picked.iter().map(|i| next[*i].clone()).collect();
+            let mut rest: Vec<Value> = next.iter().enumerate().filter(|(i, _)| !picked.contains(i)).map(|(_, t)| t.clone()).collect();
             let at = match before {
-                Some(b) => rest.iter().position(|t| uid(t).as_ref() == Some(b)).unwrap_or(rest.len()),
+                Some(b) => find_refs(&rest, std::slice::from_ref(b)).first().copied().unwrap_or(rest.len()),
                 // The end of the songs you added: right after the last one.
                 None => rest.iter().rposition(added).map_or(0, |i| i + 1),
             };
             // Dropped among the songs you added (or at their end), a song becomes one of them:
-            // it stays there and goes with Clear queue.
+            // it stays there and goes with Clear queue. Dropped further down, among the rest of
+            // the list, it becomes part of that and plays in that place.
             let into_added = before.is_none() || rest.get(at).is_some_and(added) || (at > 0 && added(&rest[at - 1]));
-            if into_added {
-                for t in &mut moving {
+            for t in &mut moving {
+                if into_added {
                     t["provider"] = Value::from("queue");
                     t["metadata"]["is_queued"] = Value::from("true");
+                } else if added(t) {
+                    t["provider"] = Value::from("context");
+                    if let Some(m) = t["metadata"].as_object_mut() {
+                        m.remove("is_queued");
+                    }
                 }
             }
             rest.splice(at..at, moving);
@@ -864,18 +936,24 @@ mod tests {
     fn uids(list: &[Value]) -> Vec<&str> {
         list.iter().map(|t| t["uid"].as_str().unwrap()).collect()
     }
+    fn r(uid: &str) -> QueueRef {
+        QueueRef { uid: uid.into(), uri: format!("spotify:track:{uid}") }
+    }
+    fn rs(list: &[&str]) -> Vec<QueueRef> {
+        list.iter().map(|u| r(u)).collect()
+    }
 
     #[test]
     fn queue_edits() {
         let next = vec![t("q1", "queue"), t("q2", "queue"), t("c1", "context"), t("c2", "context")];
-        let rm = edit_next_tracks(&next, &QueueEdit::Remove { uids: vec!["q2".into()] });
+        let rm = edit_next_tracks(&next, &QueueEdit::Remove { tracks: rs(&["q2"]) });
         assert_eq!(uids(&rm), ["q1", "c1", "c2"]);
         let clear = edit_next_tracks(&next, &QueueEdit::Clear);
         assert_eq!(uids(&clear), ["c1", "c2"]);
-        let up = edit_next_tracks(&next, &QueueEdit::Move { uids: vec!["q2".into()], before: Some("q1".into()) });
+        let up = edit_next_tracks(&next, &QueueEdit::Move { tracks: rs(&["q2"]), before: Some(r("q1")) });
         assert_eq!(uids(&up), ["q2", "q1", "c1", "c2"]);
         // A context song moved into the queue goes after the added ones, as one of them.
-        let into = edit_next_tracks(&next, &QueueEdit::Move { uids: vec!["c2".into()], before: None });
+        let into = edit_next_tracks(&next, &QueueEdit::Move { tracks: rs(&["c2"]), before: None });
         assert_eq!(uids(&into), ["q1", "q2", "c2", "c1"]);
         assert_eq!(into[2]["provider"], "queue");
         assert_eq!(uids(&edit_next_tracks(&into, &QueueEdit::Clear)), ["c1"]);
@@ -883,9 +961,17 @@ mod tests {
         let mut odd = next.clone();
         odd.push(json!({ "uri": "spotify:track:x", "provider": "context" }));
         odd.push(json!({ "uri": "spotify:track:y", "uid": "", "provider": "context" }));
-        assert_eq!(edit_next_tracks(&odd, &QueueEdit::Remove { uids: vec!["".into()] }).len(), 6);
-        let down = edit_next_tracks(&next, &QueueEdit::Move { uids: vec!["q1".into()], before: Some("c2".into()) });
+        // A uid that is gone (librespot renumbers queued songs) falls back to the song itself.
+        let stale = QueueRef { uid: "q99".into(), uri: "spotify:track:q2".into() };
+        assert_eq!(uids(&edit_next_tracks(&next, &QueueEdit::Remove { tracks: vec![stale] })), ["q1", "c1", "c2"]);
+        // Nothing matching removes nothing.
+        let none = QueueRef { uid: "".into(), uri: "spotify:track:zz".into() };
+        assert_eq!(edit_next_tracks(&odd, &QueueEdit::Remove { tracks: vec![none] }).len(), 6);
+        let down = edit_next_tracks(&next, &QueueEdit::Move { tracks: rs(&["q1"]), before: Some(r("c2")) });
         assert_eq!(uids(&down), ["q2", "c1", "q1", "c2"]);
+        // An added song moved down among the rest becomes part of it, where it was put.
+        assert_eq!(down[2]["provider"], "context");
+        assert_eq!(uids(&edit_next_tracks(&down, &QueueEdit::Clear)), ["c1", "q1", "c2"]);
         // Fields Spotify sent come back untouched.
         assert_eq!(rm[0], next[0]);
     }

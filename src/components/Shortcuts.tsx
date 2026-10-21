@@ -43,7 +43,10 @@ export function useShortcuts(player: Player, nav: Nav, panel: Panel, togglePanel
   const [listOpen, setListOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       const typing = (e.target as HTMLElement)?.closest?.("input, textarea, select");
+      // Space and Enter on a focused button press that button, not play/pause.
+      const onControl = (e.target as HTMLElement)?.closest?.("button, a, [role=switch], [role=button]");
       const ctrl = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
       const act = (f: () => void) => {
@@ -72,7 +75,7 @@ export function useShortcuts(player: Player, nav: Nav, panel: Panel, togglePanel
       if (e.altKey && e.key === "ArrowLeft") return act(() => nav.back());
       if (e.altKey && e.key === "ArrowRight") return act(() => nav.forward());
       if (typing) return;
-      if (e.code === "Space") return act(() => player.toggle());
+      if (e.code === "Space" && !onControl) return act(() => player.toggle());
       if (!player.track) return;
       if (ctrl && e.key === "ArrowRight") return act(() => play.next().catch(toast));
       if (ctrl && e.key === "ArrowLeft") return act(() => play.previous().catch(toast));
