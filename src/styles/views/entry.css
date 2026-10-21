@@ -130,7 +130,8 @@
   flex-direction: column;
   gap: 8px;
   align-items: center;
-  z-index: 10;
+  /* Above the palette (45) and dialogs (60): a toast fired from them must be read. */
+  z-index: 70;
   pointer-events: none;
 }
 
