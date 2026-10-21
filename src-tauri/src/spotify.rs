@@ -113,12 +113,15 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
         gapless: settings.gapless,
         ..Default::default()
     };
-    let player = Player::new(
-        player_config,
-        session.clone(),
-        mixer.get_soft_volume(),
-        move || backend(None, AudioFormat::default()),
-    );
+    // Experiment: QUACKIFY_METER puts the audio meter between the player and the speakers.
+    let meter_volume = std::env::var_os("QUACKIFY_METER").map(|_| mixer.get_soft_volume());
+    let player = Player::new(player_config, session.clone(), mixer.get_soft_volume(), move || {
+        let sink = backend(None, AudioFormat::default());
+        match meter_volume {
+            Some(volume) => Box::new(crate::meter::MeterSink::new(sink, volume)),
+            None => sink,
+        }
+    });
 
     let config = ConnectConfig {
         name: settings.device_name(),

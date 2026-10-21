@@ -2,6 +2,7 @@ mod connect;
 mod desktop;
 mod links;
 mod media;
+mod meter;
 mod pathfinder;
 mod settings;
 mod spotify;
