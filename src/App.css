@@ -1141,6 +1141,27 @@ h2 {
   margin-top: 16px;
 }
 
+/* Its height is BAR_HEIGHT in webplayer.rs: the web player starts right below it. */
+.web-player-bar {
+  height: 56px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.web-player-bar strong {
+  color: var(--accent);
+  font-size: 16px;
+}
+
+.web-player-bar .muted {
+  flex: 1;
+  margin-left: 8px;
+}
+
 .login-error {
   max-width: 440px;
   text-align: center;

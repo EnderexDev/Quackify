@@ -134,9 +134,10 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Brings the window back from the tray, the taskbar or behind other windows.
+/// Brings the window back from the tray, the taskbar or behind other windows. The window, not
+/// the webview window: with the web player inside it, it holds two webviews.
 pub fn show_window(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
+    if let Some(w) = app.get_window("main") {
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
@@ -145,6 +146,9 @@ pub fn show_window(app: &AppHandle) {
 
 /// The close button hides the window when closing to the tray is on.
 pub fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
+    if let WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } = event {
+        crate::webplayer::fit(window);
+    }
     if let WindowEvent::CloseRequested { api, .. } = event {
         let quitting = window.state::<Desktop>().quitting.load(Ordering::SeqCst);
         if settings::current(window.app_handle()).close_to_tray && !quitting {

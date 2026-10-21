@@ -29,8 +29,12 @@ import "./App.css";
 type Profile = { display_name: string | null; image: string | null };
 type Status = { logged_in: boolean; username: string | null; profile?: Profile };
 
+// Someone who chose the web player gets it again at the next start, until they leave it.
+const WEB_PLAYER_KEY = "webPlayer";
+
 function App() {
   const [status, setStatus] = useState<Status | null>(null);
+  const [webPlayer, setWebPlayer] = useState(() => localStorage.getItem(WEB_PLAYER_KEY) === "1");
 
   useEffect(() => {
     // A failed restore (stale credentials, no network) still has to land on the login screen.
@@ -51,9 +55,18 @@ function App() {
     );
   }
   if (!status.logged_in) {
+    const openWebPlayer = (on: boolean) => {
+      if (on) localStorage.setItem(WEB_PLAYER_KEY, "1");
+      else localStorage.removeItem(WEB_PLAYER_KEY);
+      setWebPlayer(on);
+    };
     return (
       <>
-        <Login onLoggedIn={setStatus} />
+        {webPlayer ? (
+          <WebPlayer onLeave={() => openWebPlayer(false)} />
+        ) : (
+          <Login onLoggedIn={setStatus} onWebPlayer={() => openWebPlayer(true)} />
+        )}
         <Toasts />
       </>
     );
@@ -157,7 +170,31 @@ function useOpenLinks(nav: Nav) {
 // 21/10/26 on an account that plays in the browser) or "Premium account required".
 const notPremium = (e: string) => /travel restriction|premium/i.test(e);
 
-function Login({ onLoggedIn }: { onLoggedIn: (s: Status) => void }) {
+/** Spotify's web player inside the window, below a bar of ours; for Free accounts. */
+function WebPlayer({ onLeave }: { onLeave: () => void }) {
+  useEffect(() => {
+    invoke("web_player_open").catch((e) => {
+      toast(e);
+      onLeave();
+    });
+    return () => {
+      invoke("web_player_close").catch(toast);
+    };
+  }, []);
+
+  return (
+    <div className="web-player-bar">
+      <DuckIcon size={28} />
+      <strong>Quackify</strong>
+      <span className="muted small">Spotify Free, in Spotify's web player. Quackify's own player needs Premium.</span>
+      <button className="link" onClick={onLeave}>
+        Log in with Premium
+      </button>
+    </div>
+  );
+}
+
+function Login({ onLoggedIn, onWebPlayer }: { onLoggedIn: (s: Status) => void; onWebPlayer: () => void }) {
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState("");
 
@@ -177,7 +214,6 @@ function Login({ onLoggedIn }: { onLoggedIn: (s: Status) => void }) {
       setWaiting(false);
     }
   };
-  const openWebPlayer = () => invoke("web_player_open").catch((e) => setError(String(e)));
 
   return (
     <div className="login">
@@ -198,10 +234,11 @@ function Login({ onLoggedIn }: { onLoggedIn: (s: Status) => void }) {
       <div className="login-free">
         <strong>Spotify Free?</strong>
         <p className="muted">
-          Spotify only lets Premium accounts into apps like Quackify. With Free you can still listen here, in
-          Spotify's own web player. Quackify's player, queue, lyrics, media keys and the rest need Spotify Premium.
+          Spotify only lets Premium accounts into apps like Quackify. With Free you can still listen here, with
+          Spotify's own web player inside Quackify. Quackify's player, queue, lyrics, media keys and the rest need
+          Spotify Premium.
         </p>
-        <button className="secondary" onClick={openWebPlayer}>
+        <button className="secondary" onClick={onWebPlayer}>
           Open the web player
         </button>
       </div>

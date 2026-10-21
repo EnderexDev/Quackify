@@ -87,6 +87,7 @@ pub fn run() {
             links::links_status,
             links::links_choose,
             webplayer::web_player_open,
+            webplayer::web_player_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
