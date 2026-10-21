@@ -1,5 +1,6 @@
 mod connect;
 mod desktop;
+mod links;
 mod media;
 mod pathfinder;
 mod settings;
@@ -11,7 +12,11 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         // First, so a second launch only brings this window back instead of starting a second device.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| desktop::show_window(app)))
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            desktop::show_window(app);
+            // A spotify: link clicked while Quackify runs.
+            links::handle_args(app, &args);
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(spotify::SpotifyState::default())
@@ -25,6 +30,7 @@ pub fn run() {
             // Before the tray and the player, which read it.
             app.manage(settings::Store::load(app.handle()));
             desktop::setup(app)?;
+            links::setup(app);
             match media::Media::start(app.handle()) {
                 Ok(media) => {
                     app.manage(media);
@@ -72,6 +78,9 @@ pub fn run() {
             settings::settings_cache_folder,
             settings::settings_pick_folder,
             settings::settings_set_cache_folder,
+            links::links_take,
+            links::links_status,
+            links::links_choose,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

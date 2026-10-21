@@ -55,6 +55,7 @@ export function SettingsView({ account }: { account: Account }) {
   const [appVersion, setAppVersion] = useState("");
   const [folder, setFolder] = useState<CacheFolder | null>(null);
   const [moving, setMoving] = useState(false);
+  const [linksHere, setLinksHere] = useState<boolean | null>(null);
   const readCache = () => {
     invoke<number>("settings_cache_size").then(setCacheBytes, () => {});
     invoke<CacheFolder>("settings_cache_folder").then(setFolder, () => {});
@@ -62,6 +63,11 @@ export function SettingsView({ account }: { account: Account }) {
   useEffect(() => {
     readCache();
     getVersion().then(setAppVersion, () => {});
+    // The choice is made in Windows' Settings: read it again on coming back to the window.
+    const readLinks = () => invoke<boolean>("links_status").then(setLinksHere, () => {});
+    readLinks();
+    window.addEventListener("focus", readLinks);
+    return () => window.removeEventListener("focus", readLinks);
   }, []);
   // An audio change rebuilds the player; the controls wait for it.
   const [applying, setApplying] = useState(false);
@@ -271,6 +277,24 @@ export function SettingsView({ account }: { account: Account }) {
             onBlur={saveName}
             onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
           />
+        </Row>
+      </section>
+
+      <section className="settings-group">
+        <h2>Spotify links</h2>
+        <Row
+          title="Open Spotify links in Quackify"
+          note={
+            linksHere === null
+              ? "…"
+              : linksHere
+                ? "Quackify opens spotify: links, like the Open Spotify buttons on web pages. To give them back, pick Spotify under SPOTIFY in Windows' Settings."
+                : "Windows asks you to choose the app yourself: pick Quackify under SPOTIFY on the page this opens."
+          }
+        >
+          <button className="secondary" onClick={() => invoke("links_choose").catch(toast)}>
+            {linksHere ? "Change in Windows…" : "Choose in Windows…"}
+          </button>
         </Row>
       </section>
 

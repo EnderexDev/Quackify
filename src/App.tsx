@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { clearCache } from "./api/spotify";
 import { DuckIcon } from "./components/icons";
 import { ContextMenuProvider } from "./components/ContextMenu";
@@ -10,8 +11,8 @@ import { QueuePanel } from "./components/Queue";
 import { Sidebar, useNewPlaylist } from "./components/Sidebar";
 import { ShortcutsDialog, useShortcuts } from "./components/Shortcuts";
 import { TopBar } from "./components/TopBar";
-import { NavProvider, useNav } from "./state/nav";
-import { PlayerProvider, usePlayer } from "./state/player";
+import { NavProvider, useNav, type Nav } from "./state/nav";
+import { PlayerProvider, usePlayer, type NowPlaying } from "./state/player";
 import { toast, Toasts } from "./state/toast";
 import { Artist } from "./views/Artist";
 import { BrowseView } from "./views/Browse";
@@ -100,6 +101,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
 
   const shortcuts = useShortcuts(player, nav, panel, (p) => setPanel(panel === p ? null : p));
   useNewPlaylist();
+  useOpenLinks(nav);
 
   const key = JSON.stringify(route);
   return (
@@ -125,6 +127,30 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
       {shortcuts.listOpen && <ShortcutsDialog onClose={shortcuts.closeList} />}
     </div>
   );
+}
+
+/** Opens the spotify: links Windows hands to Quackify, also one that started it or came before logging in. */
+function useOpenLinks(nav: Nav) {
+  const navRef = useRef(nav);
+  navRef.current = nav;
+  useEffect(() => {
+    const take = () =>
+      invoke<string | null>("links_take").then(async (uri) => {
+        if (!uri) return;
+        // Like Spotify, a song opens on its album.
+        if (uri.startsWith("spotify:track:")) {
+          const [track] = await invoke<NowPlaying[]>("spotify_tracks", { uris: [uri] });
+          if (!track?.album.uri) throw "That song could not be found";
+          uri = track.album.uri;
+        }
+        navRef.current.open(uri);
+      }).catch(toast);
+    const off = listen("open-link", take);
+    take();
+    return () => {
+      off.then((f) => f());
+    };
+  }, []);
 }
 
 function Login({ onLoggedIn }: { onLoggedIn: (s: Status) => void }) {
