@@ -1,0 +1,88 @@
+/* Spotify Connect */
+
+.playerbar {
+  position: relative;
+}
+
+.playerbar.remote {
+  padding-bottom: 18px;
+}
+
+.remote-banner {
+  position: absolute;
+  left: -8px;
+  right: -8px;
+  bottom: 0;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 0 24px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.devices {
+  position: relative;
+}
+
+.devices-pop {
+  position: absolute;
+  right: -40px;
+  bottom: 40px;
+  width: 320px;
+  padding: 16px 8px 8px;
+  background: var(--popup);
+  backdrop-filter: var(--blur-popup);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  z-index: 20;
+}
+
+.devices-title {
+  font-weight: 800;
+  font-size: 16px;
+  padding: 0 8px 12px;
+}
+
+.devices-sub {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 12px 8px 6px;
+}
+
+.device {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 8px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+button.device:hover {
+  background: var(--surface-2);
+}
+
+.device.current {
+  color: var(--accent);
+}
+
+.device-name {
+  font-weight: 600;
+}
+
+.device-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.device.current .device-sub {
+  color: var(--accent);
+  opacity: 0.8;
+}

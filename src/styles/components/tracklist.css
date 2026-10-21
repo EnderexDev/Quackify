@@ -1,0 +1,148 @@
+/* Track list */
+
+.tracklist {
+  /* The last column holds the heart and the duration. */
+  --cols: 40px minmax(200px, 4fr) minmax(120px, 3fr) 100px;
+}
+
+.tracklist.no-album {
+  --cols: 40px minmax(0, 1fr) 100px;
+}
+
+.track-row {
+  display: grid;
+  grid-template-columns: var(--cols);
+  align-items: center;
+  gap: 16px;
+  height: 56px;
+  padding: 0 16px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.track-row:not(.track-head):hover {
+  background: var(--surface-2);
+}
+
+.track-head {
+  height: 36px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  margin-bottom: 8px;
+  font-size: 13px;
+  position: sticky;
+  top: 0;
+  background: var(--glass-strong);
+  backdrop-filter: var(--blur);
+  z-index: 1;
+}
+
+.track-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.row-play {
+  display: none;
+  color: var(--text);
+}
+
+.track-row:not(.track-head):hover .num {
+  display: none;
+}
+
+.track-row:not(.track-head):hover .row-play {
+  display: block;
+}
+
+.track-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.track-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  flex: none;
+}
+
+.track-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.track-name {
+  color: var(--text);
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-artists,
+.track-album {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-artists a:hover,
+.track-album a:hover {
+  color: var(--text);
+}
+
+.track-time {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.track-row.current .track-name,
+.track-row.current .num {
+  color: var(--accent);
+}
+
+.track-row.unplayable {
+  opacity: 0.4;
+}
+
+/* Little equalizer shown on the playing row. */
+.eq {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background:
+    linear-gradient(var(--accent), var(--accent)) 0 100% / 3px 60% no-repeat,
+    linear-gradient(var(--accent), var(--accent)) 5px 100% / 3px 100% no-repeat,
+    linear-gradient(var(--accent), var(--accent)) 10px 100% / 3px 40% no-repeat;
+  animation: eq 0.9s infinite alternate ease-in-out;
+}
+
+@keyframes eq {
+  to {
+    background-size:
+      3px 30%,
+      3px 50%,
+      3px 90%;
+  }
+}
+
+/* Below 1100px the album column goes. */
+@media (max-width: 1099px) {
+  .tracklist:not(.no-album) {
+    --cols: 40px minmax(0, 1fr) 100px;
+  }
+
+  .tracklist .track-album {
+    display: none;
+  }
+}

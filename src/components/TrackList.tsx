@@ -132,7 +132,7 @@ export function TrackList({
         <div className="track-row track-head">
           <span className="track-num">#</span>
           <span>Title</span>
-          {showAlbum && <span>Album</span>}
+          {showAlbum && <span className="track-album">Album</span>}
           <span className="track-time">
             <ClockIcon size={16} />
           </span>

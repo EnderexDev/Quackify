@@ -1,0 +1,15 @@
+/* Selecting several songs */
+
+.tracklist:focus {
+  outline: none;
+}
+
+.track-row.selected,
+.track-row.selected:hover {
+  background: var(--surface-3);
+}
+
+.library-item.drop-target {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 2px var(--text);
+}

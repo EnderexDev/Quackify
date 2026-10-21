@@ -1,0 +1,93 @@
+/* Collection page */
+
+.collection,
+.artist {
+  padding: 0 0 40px;
+}
+
+.collection > *:not(.hero),
+.artist > *:not(.artist-hero) {
+  margin-left: 24px;
+  margin-right: 24px;
+}
+
+.hero {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  padding: 72px 24px 24px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tint) 85%, #fff 0%) 0%, color-mix(in srgb, var(--tint) 45%, var(--panel)) 100%);
+}
+
+.hero-cover {
+  width: 216px;
+  height: 216px;
+  flex: none;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55);
+}
+
+.hero-cover.cover-liked svg {
+  width: 72px;
+  height: 72px;
+}
+
+.hero-text {
+  min-width: 0;
+}
+
+.hero-kind {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hero-title {
+  font-size: clamp(36px, 6vw, 84px);
+  font-weight: 900;
+  letter-spacing: -2px;
+  line-height: 1.02;
+  margin: 6px 0 14px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.hero-title.long {
+  font-size: clamp(28px, 4vw, 52px);
+  letter-spacing: -1px;
+}
+
+.hero-desc {
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0 0 8px;
+  font-size: 14px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.hero-meta {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.actions {
+  padding: 24px 0;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.collection .actions {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tint) 25%, var(--panel)) 0, var(--panel) 220px);
+  margin: 0 !important;
+  padding: 24px;
+}
+
+.more {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}

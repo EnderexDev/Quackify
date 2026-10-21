@@ -1,0 +1,31 @@
+/* Every stylesheet, in cascade order: tokens, base, then components and views as they stood in App.css. */
+
+@import "./tokens.css";
+@import "./base.css";
+@import "./components/cover.css";
+@import "./components/shell.css";
+@import "./components/topbar.css";
+@import "./components/palette.css";
+@import "./components/sidebar.css";
+@import "./views/pages.css";
+@import "./views/search.css";
+@import "./components/tracklist.css";
+@import "./views/collection.css";
+@import "./views/artist.css";
+@import "./components/player.css";
+@import "./views/entry.css";
+@import "./components/devices.css";
+@import "./components/menus.css";
+@import "./components/playlists.css";
+@import "./views/lyrics.css";
+@import "./components/nowplaying.css";
+@import "./views/browse.css";
+@import "./views/settings.css";
+@import "./views/show.css";
+@import "./components/list-actions.css";
+@import "./components/queue.css";
+@import "./components/selection.css";
+@import "./components/credits.css";
+@import "./views/profile.css";
+@import "./components/library.css";
+@import "./components/shortcuts.css";

@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
+import { Segmented } from "../components/Segmented";
+import { setTheme, useTheme } from "../state/theme";
 import { toast } from "../state/toast";
 import { Loading } from "./common";
 
@@ -56,6 +58,7 @@ export function SettingsView({ account }: { account: Account }) {
   const [folder, setFolder] = useState<CacheFolder | null>(null);
   const [moving, setMoving] = useState(false);
   const [linksHere, setLinksHere] = useState<boolean | null>(null);
+  const theme = useTheme();
   const readCache = () => {
     invoke<number>("settings_cache_size").then(setCacheBytes, () => {});
     invoke<CacheFolder>("settings_cache_folder").then(setFolder, () => {});
@@ -170,6 +173,21 @@ export function SettingsView({ account }: { account: Account }) {
         </div>
       </section>
 
+      <section className="settings-group">
+        <h2>Appearance</h2>
+        <Row title="Theme" note="System follows Windows' light or dark mode.">
+          <Segmented
+            label="Theme"
+            options={[
+              { id: "system", label: "System" },
+              { id: "dark", label: "Dark" },
+              { id: "light", label: "Light" },
+            ]}
+            value={theme}
+            onChange={setTheme}
+          />
+        </Row>
+      </section>
 
       <section className="settings-group">
         <h2>Audio quality</h2>

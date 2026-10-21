@@ -26,20 +26,27 @@ export const SHORTCUTS: { keys: string; what: string }[] = [
   { keys: "Ctrl + R", what: "Repeat" },
   { keys: "Alt + Shift + B", what: "Like the song playing" },
   { keys: "Ctrl + N", what: "New playlist" },
-  { keys: "Ctrl + K  or  Ctrl + L", what: "Search" },
+  { keys: "Ctrl + K  or  Ctrl + L  or  Ctrl + T", what: "Search" },
   { keys: "Alt + ←  /  Alt + →", what: "Go back / forward" },
   { keys: "Alt + Shift + H", what: "Home" },
   { keys: "Alt + Shift + Q", what: "Queue" },
   { keys: "Alt + Shift + R", what: "Now playing view" },
   { keys: "Alt + Shift + J", what: "Lyrics" },
   { keys: "Ctrl + P", what: "Settings" },
+  { keys: "Ctrl + B", what: "Collapse or expand Your Library" },
   { keys: "Ctrl + A", what: "Select every song of a list" },
   { keys: "Delete", what: "Remove the selected songs from your playlist" },
   { keys: "Ctrl + /", what: "This list" },
 ];
 
 /** Listens for the shortcuts; returns whether the list is open and how to close it. */
-export function useShortcuts(player: Player, nav: Nav, panel: Panel, togglePanel: (p: Exclude<Panel, null>) => void) {
+export function useShortcuts(
+  player: Player,
+  nav: Nav,
+  panel: Panel,
+  togglePanel: (p: Exclude<Panel, null>) => void,
+  app: { openPalette: () => void; toggleSidebar: () => void },
+) {
   const [listOpen, setListOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -54,6 +61,9 @@ export function useShortcuts(player: Player, nav: Nav, panel: Panel, togglePanel
         f();
       };
       if (ctrl && (e.key === "/" || e.code === "Slash")) return act(() => setListOpen((o) => !o));
+      // Like a browser bar, these work from inside a text box too.
+      if (ctrl && !e.shiftKey && !e.altKey && (key === "k" || key === "l" || key === "t")) return act(app.openPalette);
+      if (ctrl && !e.shiftKey && !e.altKey && key === "b") return act(app.toggleSidebar);
       if (ctrl && key === "p") return act(() => nav.go({ page: "settings" }));
       if (ctrl && key === "n") return act(() => window.dispatchEvent(new Event(NEW_PLAYLIST_EVENT)));
       if (e.altKey && e.shiftKey) {
@@ -88,8 +98,8 @@ export function useShortcuts(player: Player, nav: Nav, panel: Panel, togglePanel
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [player, nav, panel, togglePanel]);
-  return { listOpen, closeList: () => setListOpen(false) };
+  }, [player, nav, panel, togglePanel, app]);
+  return { listOpen, openList: () => setListOpen(true), closeList: () => setListOpen(false) };
 }
 
 export function ShortcutsDialog({ onClose }: { onClose: () => void }) {

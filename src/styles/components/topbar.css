@@ -1,0 +1,252 @@
+/* Top bar: the duck, back and forward, the Home and Explore tabs, the magnifier and the avatar menu */
+
+.topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px;
+  min-width: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 750;
+  font-size: 17px;
+  letter-spacing: -0.3px;
+  /* The arrows line up with the page, past Your Library. */
+  width: calc(var(--brand-w, 268px) - 2px);
+  flex: none;
+}
+
+.side-collapsed .brand {
+  --brand-w: 72px;
+}
+
+.nav-arrows {
+  display: flex;
+  gap: 8px;
+}
+
+.round-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--muted);
+  transition:
+    color var(--t-fast),
+    background var(--t-fast),
+    transform var(--t-fast);
+}
+
+.round-btn:not(:disabled):hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+.round-btn.on {
+  color: var(--text);
+}
+
+.topbar-search {
+  width: 38px;
+  height: 38px;
+}
+
+.topbar-end {
+  position: relative;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.topbar-hint {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.topbar-hint:hover {
+  color: var(--text);
+}
+
+.avatar-btn {
+  border-radius: 50%;
+  transition: transform var(--t-fast);
+}
+
+.avatar-btn:hover,
+.avatar-btn.on {
+  transform: scale(1.05);
+}
+
+.avatar-btn .avatar {
+  width: 34px;
+  height: 34px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: linear-gradient(135deg, #7aa7ff, #6b5cff);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  flex: none;
+}
+
+/* Below 1100px the name and the Ctrl K hint go. */
+@media (max-width: 1099px) {
+  .brand {
+    width: auto;
+    margin-right: 8px;
+  }
+
+  .brand-name,
+  .topbar-hint {
+    display: none;
+  }
+}
+
+/* ---- Segmented: a row of choices with a glass pill that slides to the one picked ---- */
+
+.segmented {
+  position: relative;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: var(--r-pill);
+  background: var(--glass);
+  border: 1px solid var(--line);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  flex: none;
+}
+
+.seg-pill {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  transition:
+    transform var(--t-slow) var(--ease-spring),
+    width var(--t-slow) var(--ease-spring);
+}
+
+.seg-btn {
+  position: relative;
+  padding: 7px 16px;
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13.5px;
+  transition: color var(--t-fast);
+}
+
+.seg-btn:hover,
+.seg-btn.on {
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seg-pill {
+    transition-duration: 150ms;
+    transition-timing-function: ease;
+  }
+}
+
+/* ---- Avatar menu ---- */
+
+.avatar-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: 240px;
+  padding: 6px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--popup);
+  -webkit-backdrop-filter: var(--blur-popup);
+  backdrop-filter: var(--blur-popup);
+  box-shadow: var(--shadow-popup);
+  transform-origin: top right;
+  animation: pop-in var(--t-mid) var(--ease-spring);
+}
+
+.avatar-menu-head,
+.avatar-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.avatar-menu-head > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.avatar-menu-head strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar-menu-head .avatar.big {
+  width: 40px;
+  height: 40px;
+}
+
+.avatar-menu-item span {
+  flex: 1;
+}
+
+.avatar-menu-item svg {
+  color: var(--muted);
+}
+
+.avatar-menu-head:hover,
+.avatar-menu-item:hover,
+.avatar-menu-head:focus-visible,
+.avatar-menu-item:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+
+.avatar-menu-item.danger,
+.avatar-menu-item.danger svg {
+  color: var(--danger);
+}
+
+.avatar-menu .menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
+
+kbd {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  white-space: nowrap;
+}

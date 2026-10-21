@@ -1,0 +1,42 @@
+/* Artist page */
+
+.artist-hero {
+  position: relative;
+  height: 340px;
+  background-size: cover;
+  background-position: center 25%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.artist-hero-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.65) 100%);
+}
+
+.artist-hero-text {
+  position: relative;
+  padding: 24px;
+}
+
+.artist-hero h1 {
+  font-size: clamp(40px, 7vw, 96px);
+  font-weight: 900;
+  letter-spacing: -2px;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.artist-hero p {
+  margin: 0;
+  font-size: 15px;
+}
+
+.artist-popular {
+  margin-bottom: 32px;
+}
+
+.see-more {
+  margin: 12px 16px;
+}

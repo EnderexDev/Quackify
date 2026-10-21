@@ -1,0 +1,76 @@
+/* Your Library: tools, grid, folders, pins */
+
+.library-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px 8px;
+}
+
+.library-tools .list-search {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.library-tools .list-search input {
+  width: 100%;
+}
+
+.library-tools .list-sort {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.library-tools .list-sort + .list-sort {
+  margin-left: 0;
+}
+
+.library-folder-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 10px;
+  font-weight: 700;
+}
+
+.library-folder-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folder-cover {
+  display: grid;
+  place-items: center;
+  background: var(--panel-2);
+  color: var(--muted);
+}
+
+.library-sub .pin {
+  color: var(--text);
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+
+.library-list.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 4px;
+  align-content: start;
+}
+
+.library-list.grid .library-item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.library-list.grid .library-cover {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.library-list.grid .library-text {
+  min-width: 0;
+}

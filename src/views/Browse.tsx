@@ -26,6 +26,16 @@ export function BrowseAll() {
   );
 }
 
+/** The Explore tab of the top bar: every genre and mood. */
+export function ExploreView() {
+  return (
+    <div className="page explore">
+      <h1 className="page-title">Explore</h1>
+      <BrowseAll />
+    </div>
+  );
+}
+
 /** A genre or mood: its rows, each with "Show all" when it has more. */
 export function BrowseView({ uri }: { uri: string }) {
   const nav = useNav();

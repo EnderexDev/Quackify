@@ -1,0 +1,26 @@
+/* Covers */
+
+.cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--panel-2);
+}
+
+.cover.round {
+  border-radius: 50%;
+}
+
+.cover-empty,
+.cover-liked {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.cover-liked {
+  background: linear-gradient(135deg, #4b2fd8, #9fb6e8);
+  color: #fff;
+}

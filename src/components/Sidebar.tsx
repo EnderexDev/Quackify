@@ -8,7 +8,7 @@ import { markSaved, notifyLibraryChanged, onLibraryChanged } from "../state/save
 import { toast } from "../state/toast";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
 import { Cover } from "./Cover";
-import { BackIcon, LibraryIcon, PlusIcon, SearchIcon } from "./icons";
+import { BackIcon, DiscIcon, FolderIcon, HeartIcon, LibraryIcon, PinIcon, PlaylistIcon, PlusIcon, PodcastIcon, SearchIcon, UserIcon } from "./icons";
 import { addAll, cardMenu, TRACKS_MIME } from "./menus";
 import { areSaved } from "../api/library";
 
@@ -56,7 +56,7 @@ function usePersisted<T extends string>(key: string, fallback: T, allowed: reado
  * a time. It can be filtered, searched, sorted and shown as a list, a compact list or a grid;
  * items can be pinned to the top, and folders opened.
  */
-export function Sidebar() {
+export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; onExpand?: () => void }) {
   const nav = useNav();
   const player = usePlayer();
   const openMenu = useContextMenu();
@@ -205,6 +205,79 @@ export function Sidebar() {
             ? `Folder • ${c.subtitle}`
             : c.subtitle;
 
+  if (collapsed) {
+    // Narrow: the pinned covers and one icon per kind; a kind opens Your Library on it.
+    const pinned = items.filter((c) => c.pinned).slice(0, 4);
+    const kinds: { filter: LibraryFilter; label: string; icon: React.ReactNode; tint: string }[] = [
+      { filter: "Playlists", label: "Playlists", icon: <PlaylistIcon size={18} />, tint: "#ffd84d" },
+      { filter: "Albums", label: "Albums", icon: <DiscIcon size={18} />, tint: "#ff8a3d" },
+      { filter: "Artists", label: "Artists", icon: <UserIcon size={18} />, tint: "#29d39a" },
+      { filter: "Podcasts & Shows", label: "Podcasts", icon: <PodcastIcon size={18} />, tint: "#a78bfa" },
+    ];
+    return (
+      <aside className="sidebar sidebar-collapsed panel">
+        <button className="side-icon" aria-label="Expand Your Library" title="Expand Your Library (Ctrl B)" onClick={onExpand}>
+          <LibraryIcon size={22} />
+        </button>
+        <div className="side-sep" />
+        <div className="side-pins">
+          {pinned.map((c) => (
+            <button
+              key={c.uri}
+              className={`side-pin ${player.contextUri === c.uri ? "playing" : ""} ${openUri === c.uri ? "open" : ""}`}
+              title={c.title}
+              aria-label={c.title}
+              onClick={() => open(c)}
+              onContextMenu={(e) => onMenu(e, c)}
+            >
+              {c.kind === "folder" ? (
+                <div className="cover folder-cover">
+                  <FolderIcon size={18} />
+                </div>
+              ) : (
+                <Cover src={c.image} round={c.kind === "artist"} liked={c.kind === "liked"} />
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="side-sep" />
+        <button
+          className={`side-kind ${openUri === "spotify:collection:tracks" ? "open" : ""}`}
+          style={{ "--kind": "#a78bfa" } as React.CSSProperties}
+          title="Liked Songs"
+          aria-label="Liked Songs"
+          onClick={() => nav.open("spotify:collection:tracks")}
+        >
+          <HeartIcon size={16} />
+        </button>
+        {kinds.map((k) => (
+          <button
+            key={k.label}
+            className="side-kind"
+            style={{ "--kind": k.tint } as React.CSSProperties}
+            title={k.label}
+            aria-label={k.label}
+            onClick={() => {
+              setFolders([]);
+              setFilter(k.filter);
+              onExpand?.();
+            }}
+          >
+            {k.icon}
+          </button>
+        ))}
+        <button
+          className="side-new"
+          aria-label="Create playlist"
+          title="Create playlist (Ctrl N)"
+          onClick={() => window.dispatchEvent(new Event(NEW_PLAYLIST_EVENT))}
+        >
+          <PlusIcon size={18} />
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="sidebar panel">
       <div className="sidebar-head">
@@ -303,7 +376,7 @@ export function Sidebar() {
             >
               {c.kind === "folder" ? (
                 <div className="cover library-cover folder-cover">
-                  <FolderIcon />
+                  <FolderIcon size={22} />
                 </div>
               ) : (
                 <Cover src={c.image} round={c.kind === "artist"} liked={c.kind === "liked"} className="library-cover" />
@@ -313,7 +386,7 @@ export function Sidebar() {
                 <div className="library-sub">
                   {c.pinned && (
                     <span className="pin" title="Pinned">
-                      <PinIcon />
+                      <PinIcon size={12} />
                     </span>
                   )}
                   {subtitle(c)}
@@ -367,18 +440,3 @@ export function useNewPlaylist() {
   }, [nav]);
 }
 
-function FolderIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" aria-hidden>
-      <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
-    </svg>
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M15 3l6 6-3 1-4 4 1 5-2 2-4-5-5 5-1-1 5-5-5-4 2-2 5 1 4-4z" />
-    </svg>
-  );
-}

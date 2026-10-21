@@ -1,21 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { clearCache } from "./api/spotify";
+import { Aura } from "./components/Aura";
 import { DuckIcon } from "./components/icons";
 import { ContextMenuProvider } from "./components/ContextMenu";
 import { CreditsHost } from "./components/Credits";
 import { PlayerBar } from "./components/PlayerBar";
 import { NowPlayingPanel } from "./components/NowPlaying";
+import { Palette, type PaletteCommand } from "./components/Palette";
 import { QueuePanel } from "./components/Queue";
-import { Sidebar, useNewPlaylist } from "./components/Sidebar";
+import { NEW_PLAYLIST_EVENT, Sidebar, useNewPlaylist } from "./components/Sidebar";
 import { ShortcutsDialog, useShortcuts } from "./components/Shortcuts";
 import { TopBar } from "./components/TopBar";
 import { NavProvider, useNav, type Nav } from "./state/nav";
 import { PlayerProvider, usePlayer, type NowPlaying } from "./state/player";
+import { setTheme } from "./state/theme";
 import { toast, Toasts } from "./state/toast";
 import { Artist } from "./views/Artist";
-import { BrowseView } from "./views/Browse";
+import { BrowseView, ExploreView } from "./views/Browse";
 import { CardsView } from "./views/Cards";
 import { Collection } from "./views/Collection";
 import { Home } from "./views/Home";
@@ -24,7 +27,7 @@ import { Search } from "./views/Search";
 import { SettingsView } from "./views/Settings";
 import { ProfileView } from "./views/Profile";
 import { EpisodeView, ShowView } from "./views/Show";
-import "./App.css";
+import "./styles/index.css";
 
 type Profile = { display_name: string | null; image: string | null };
 type Status = { logged_in: boolean; username: string | null; profile?: Profile };
@@ -86,7 +89,9 @@ function App() {
     <NavProvider>
       <PlayerProvider>
         <ContextMenuProvider>
-        <Shell name={status.profile?.display_name ?? status.username ?? ""} image={status.profile?.image ?? null} onLogout={logout} />
+        <Shell
+          name={status.profile?.display_name ?? status.username ?? ""}
+          image={status.profile?.image ?? null} onLogout={logout} />
         <CreditsHost />
         </ContextMenuProvider>
         <Toasts />
@@ -96,6 +101,25 @@ function App() {
 }
 
 export type Panel = "queue" | "nowplaying" | null;
+
+/** Whether a media query matches, kept up to date. */
+function useMedia(query: string): boolean {
+  const [on, setOn] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    const update = () => setOn(m.matches);
+    update();
+    m.addEventListener("change", update);
+    return () => m.removeEventListener("change", update);
+  }, [query]);
+  return on;
+}
+
+// Below 1200px wide the right-hand panel opens over the page; below 1100px Your Library
+// collapses to icons and the player turns compact (the CSS has the same widths).
+const NARROW = "(max-width: 1199px)";
+const COMPACT = "(max-width: 1099px)";
+const SIDEBAR_KEY = "sidebarCollapsed";
 
 function Shell({ name, image, onLogout }: { name: string; image: string | null; onLogout: () => void }) {
   const nav = useNav();
@@ -111,34 +135,89 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
     if (p) localStorage.setItem("panel", p);
     else localStorage.removeItem("panel");
   };
+  const togglePanel = (p: Exclude<Panel, null>) => setPanel(panel === p ? null : p);
 
-  const shortcuts = useShortcuts(player, nav, panel, (p) => setPanel(panel === p ? null : p));
+  const narrow = useMedia(NARROW);
+  const compact = useMedia(COMPACT);
+  // Ctrl B: null follows the window's width; true or false is a choice that differs from it.
+  const [sideChoice, setSideChoice] = useState<boolean | null>(() => {
+    const saved = localStorage.getItem(SIDEBAR_KEY);
+    return saved === null ? null : saved === "1";
+  });
+  const collapsed = sideChoice ?? compact;
+  const toggleSidebar = () => {
+    const next = !collapsed;
+    const choice = next === compact ? null : next;
+    setSideChoice(choice);
+    if (choice === null) localStorage.removeItem(SIDEBAR_KEY);
+    else localStorage.setItem(SIDEBAR_KEY, choice ? "1" : "0");
+  };
+
+  // The palette starts from the search shown, if any.
+  const [palette, setPalette] = useState<string | null>(null);
+  const openPalette = () => setPalette(route.page === "search" ? route.term : "");
+
+  const app = useMemo(() => ({ openPalette, toggleSidebar }), [route, collapsed, compact]);
+  const shortcuts = useShortcuts(player, nav, panel, togglePanel, app);
   useNewPlaylist();
   useOpenLinks(nav);
 
+  // Over the page, the panel closes with Escape like any overlay.
+  const overlay = narrow && panel !== null;
+  useEffect(() => {
+    if (!overlay) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || palette !== null) return;
+      e.preventDefault();
+      setPanel(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [overlay, palette]);
+
+  const commands: PaletteCommand[] = [
+    { label: "Home", keys: "Alt Shift H", run: () => nav.go({ page: "home" }) },
+    { label: "Explore", run: () => nav.go({ page: "explore" }) },
+    { label: "Settings", keys: "Ctrl P", run: () => nav.go({ page: "settings" }) },
+    { label: "Your profile", run: () => nav.go({ page: "user", uri: "me" }) },
+    { label: "Queue", keys: "Alt Shift Q", run: () => togglePanel("queue") },
+    { label: "New playlist", keys: "Ctrl N", run: () => window.dispatchEvent(new Event(NEW_PLAYLIST_EVENT)) },
+    { label: collapsed ? "Expand Your Library" : "Collapse Your Library", keys: "Ctrl B", run: toggleSidebar },
+    { label: "Theme: System", run: () => setTheme("system") },
+    { label: "Theme: Dark", run: () => setTheme("dark") },
+    { label: "Theme: Light", run: () => setTheme("light") },
+    { label: "Keyboard shortcuts", keys: "Ctrl /", run: shortcuts.openList },
+  ];
+
   const key = JSON.stringify(route);
   return (
-    <div className={`shell ${panel ? "with-queue" : ""}`}>
-      <TopBar name={name} image={image} onLogout={onLogout} />
-      <Sidebar />
-      <main className="main panel" key={route.page === "search" ? "search" : key}>
-        {route.page === "home" && <Home />}
-        {route.page === "search" && <Search term={route.term} tab={route.tab} />}
-        {route.page === "collection" && <Collection uri={route.uri} />}
-        {route.page === "artist" && <Artist uri={route.uri} />}
-        {route.page === "lyrics" && <LyricsView />}
-        {route.page === "settings" && <SettingsView account={{ name, image, onLogout }} />}
-        {route.page === "user" && <ProfileView uri={route.uri} />}
-        {route.page === "show" && <ShowView uri={route.uri} />}
-        {route.page === "episode" && <EpisodeView uri={route.uri} />}
-        {route.page === "browse" && <BrowseView uri={route.uri} />}
-        {route.page === "cards" && <CardsView source={route.source} uri={route.uri} title={route.title} />}
-      </main>
-      {panel === "queue" && <QueuePanel onClose={() => setPanel(null)} />}
-      {panel === "nowplaying" && <NowPlayingPanel onClose={() => setPanel(null)} onOpenQueue={() => setPanel("queue")} />}
-      <PlayerBar panel={panel} onPanel={(p) => setPanel(panel === p ? null : p)} />
-      {shortcuts.listOpen && <ShortcutsDialog onClose={shortcuts.closeList} />}
-    </div>
+    <>
+      <Aura />
+      <div className={`shell ${panel && !narrow ? "with-queue" : ""} ${collapsed ? "side-collapsed" : ""} ${compact ? "compact" : ""}`}>
+        <TopBar name={name} image={image} onLogout={onLogout} onSearch={openPalette} onShortcuts={shortcuts.openList} />
+        <Sidebar collapsed={collapsed} onExpand={toggleSidebar} />
+        <main className="main panel" key={route.page === "search" ? "search" : key}>
+          {route.page === "home" && <Home />}
+          {route.page === "explore" && <ExploreView />}
+          {route.page === "search" && <Search term={route.term} tab={route.tab} />}
+          {route.page === "collection" && <Collection uri={route.uri} />}
+          {route.page === "artist" && <Artist uri={route.uri} />}
+          {route.page === "lyrics" && <LyricsView />}
+          {route.page === "settings" && <SettingsView account={{ name, image, onLogout }} />}
+          {route.page === "user" && <ProfileView uri={route.uri} />}
+          {route.page === "show" && <ShowView uri={route.uri} />}
+          {route.page === "episode" && <EpisodeView uri={route.uri} />}
+          {route.page === "browse" && <BrowseView uri={route.uri} />}
+          {route.page === "cards" && <CardsView source={route.source} uri={route.uri} title={route.title} />}
+        </main>
+        {overlay && <div className="panel-scrim" onMouseDown={() => setPanel(null)} />}
+        {panel === "queue" && <QueuePanel onClose={() => setPanel(null)} />}
+        {panel === "nowplaying" && <NowPlayingPanel onClose={() => setPanel(null)} onOpenQueue={() => setPanel("queue")} />}
+        <PlayerBar panel={panel} onPanel={togglePanel} />
+        {shortcuts.listOpen && <ShortcutsDialog onClose={shortcuts.closeList} />}
+      </div>
+      {palette !== null && <Palette key="palette" initialTerm={palette} onClose={() => setPalette(null)} commands={commands} />}
+    </>
   );
 }
 

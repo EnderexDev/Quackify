@@ -69,7 +69,7 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
       <div className="pb-center">
         <div className="pb-buttons">
           <button
-            className={`icon-btn ${p.shuffle ? "on" : ""}`}
+            className={`icon-btn pb-shuffle ${p.shuffle ? "on" : ""}`}
             onClick={() => p.setShuffle(!p.shuffle)}
             disabled={!t}
             aria-label="Shuffle"
@@ -87,7 +87,7 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
             <NextIcon size={20} />
           </button>
           <button
-            className={`icon-btn ${p.repeat !== "off" ? "on" : ""}`}
+            className={`icon-btn pb-repeat ${p.repeat !== "off" ? "on" : ""}`}
             onClick={p.cycleRepeat}
             disabled={!t}
             aria-label="Repeat"

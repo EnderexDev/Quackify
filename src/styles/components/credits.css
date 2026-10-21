@@ -1,0 +1,36 @@
+/* Credits dialog */
+
+.credits {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.credits-song {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.credits h3 {
+  font-size: 14px;
+  margin: 16px 0 8px;
+}
+
+.credits-person {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.credits-person a {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.credits-person a:hover {
+  text-decoration: underline;
+}
+
+.credits-source {
+  margin-top: 16px;
+}

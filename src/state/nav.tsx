@@ -3,6 +3,8 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 
 export type Route =
   | { page: "home" }
+  /** Explore: genres and moods (Browse all). */
+  | { page: "explore" }
   | { page: "search"; term: string; tab?: import("../api/types").SearchTab }
   | { page: "collection"; uri: string }
   | { page: "artist"; uri: string }
