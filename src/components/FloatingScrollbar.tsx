@@ -45,11 +45,13 @@ export function FloatingScrollbar({ target }: { target: HTMLElement | null }) {
     placeRef.current = place;
     const sizes = new ResizeObserver(place);
     sizes.observe(target);
-    const watchChildren = () => {
-      for (const c of target.children) sizes.observe(c);
-    };
-    watchChildren();
-    const children = new MutationObserver(watchChildren);
+    for (const c of target.children) sizes.observe(c);
+    const children = new MutationObserver((changes) => {
+      for (const m of changes) {
+        m.removedNodes.forEach((n) => n instanceof Element && sizes.unobserve(n));
+        m.addedNodes.forEach((n) => n instanceof Element && sizes.observe(n));
+      }
+    });
     children.observe(target, { childList: true });
     target.addEventListener("scroll", onScroll, { passive: true });
     place();
@@ -63,6 +65,8 @@ export function FloatingScrollbar({ target }: { target: HTMLElement | null }) {
 
   useLayoutEffect(() => {
     if (!fits) placeRef.current();
+    // The thumb went away mid-drag (the page got short): its pointerup will never come.
+    else setDragging(false);
   }, [fits]);
 
   if (!target || fits) return null;
@@ -79,7 +83,11 @@ export function FloatingScrollbar({ target }: { target: HTMLElement | null }) {
       className={`floating-scrollbar ${active || dragging ? "on" : ""}`}
       style={{ ["--margin" as string]: `${MARGIN}px` }}
       // The strip sits over the page's edge: the wheel there still scrolls the page.
-      onWheel={(e) => target.scrollBy({ top: e.deltaY })}
+      onWheel={(e) => {
+        // Some mice report lines or pages instead of pixels.
+        const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? target.clientHeight : 1;
+        target.scrollBy({ top: e.deltaY * unit });
+      }}
       onPointerDown={(e) => {
         // A click on the track jumps a page toward it, as the bar it replaces did.
         if (e.target !== track.current || !thumb.current) return;
