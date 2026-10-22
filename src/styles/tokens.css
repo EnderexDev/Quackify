@@ -63,7 +63,8 @@
   --surface-3: rgba(0, 0, 0, 0.09);
   --line: rgba(0, 0, 0, 0.08);
   --text: #17150f;
-  --muted: #6b675e;
+  /* 4.5 on glass over the darkest aura (it was #6b675e, 4.1). */
+  --muted: #625e55;
   --accent: #f2b705;
   --accent-2: #d99a00;
   --scrim: rgba(20, 18, 12, 0.35);

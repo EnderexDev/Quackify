@@ -54,6 +54,30 @@ function toHsl(r: number, g: number, b: number): Hsl {
 
 const css = (c: Hsl) => `hsl(${Math.round(c.h)} ${Math.round(c.s * 100)}% ${Math.round(c.l * 100)}%)`;
 
+/** WCAG relative luminance of an HSL colour. */
+function luminance({ h, s, l }: Hsl): number {
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const channel = (n: number) => {
+    const c = l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(0) + 0.7152 * channel(8) + 0.0722 * channel(4);
+}
+
+/**
+ * The brightest the music's colours get. Lightness alone treats yellow like blue, but a yellow
+ * at the same lightness is far brighter to the eye; capping the luminance darkens only the light
+ * hues (yellows, greens, cyans), so white text keeps a contrast of 4.5 or more on the aura, the
+ * player bar and the cinema in the worst case (measured over every hue, 23/10/26).
+ */
+const MAX_LUMINANCE = 0.12;
+const capped = (c: Hsl): Hsl => {
+  let l = c.l;
+  while (l > 0 && luminance({ ...c, l }) > MAX_LUMINANCE) l -= 0.005;
+  return { ...c, l };
+};
+
 const hueGap = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
 
 async function read(url: string): Promise<CoverColors> {
@@ -94,7 +118,7 @@ async function read(url: string): Promise<CoverColors> {
   // The darker of the two is the base; colours too light get darker, so white text stays readable.
   const [dark, vivid] = first.l <= second.l ? [first, second] : [second, first];
   return {
-    base: css({ h: dark.h, s: Math.min(dark.s, 0.75), l: Math.min(Math.max(dark.l, 0.2), 0.36) }),
-    glow: css({ h: vivid.h, s: Math.min(Math.max(vivid.s, 0.45), 0.9), l: Math.min(Math.max(vivid.l, 0.38), 0.55) }),
+    base: css(capped({ h: dark.h, s: Math.min(dark.s, 0.75), l: Math.min(Math.max(dark.l, 0.2), 0.36) })),
+    glow: css(capped({ h: vivid.h, s: Math.min(Math.max(vivid.s, 0.45), 0.9), l: Math.min(Math.max(vivid.l, 0.38), 0.55) })),
   };
 }

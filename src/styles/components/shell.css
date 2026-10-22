@@ -143,15 +143,19 @@
   position: absolute;
   inset: -10%;
   opacity: var(--aura-opacity);
-  filter: blur(90px);
   will-change: transform;
   /* The pulse with the low notes (Aura.tsx); the meter sends 30 frames a second. */
   transition: transform 120ms ease-out;
 }
 
+/* The blur on each blob, each on its own layer: drifting then only moves layers on the GPU.
+   With the blur on the group, every frame of the drift blurred the whole group again on the
+   main thread (3.1 s of every 10 s standing still on Home at 165 Hz; 1.0 s this way, 23/10/26). */
 .aura-blob {
   position: absolute;
   border-radius: 50%;
+  filter: blur(90px);
+  will-change: transform;
   transition: background-color 600ms ease-in-out;
   animation: aura-drift 18s ease-in-out infinite alternate;
 }

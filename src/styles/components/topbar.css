@@ -66,7 +66,13 @@
   gap: 14px;
 }
 
+/* On glass, as the only grey text that sits straight on the aura. */
 .topbar-hint {
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;

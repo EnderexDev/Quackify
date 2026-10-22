@@ -28,7 +28,10 @@
   display: grid;
   grid-template-rows: 1fr auto;
   color: var(--text);
-  background: radial-gradient(120% 90% at 50% 40%, transparent 40%, rgba(0, 0, 0, 0.55));
+  /* A quarter of black over the strong aura keeps white text at 4.5 or more on any cover. */
+  background:
+    radial-gradient(120% 90% at 50% 40%, transparent 40%, rgba(0, 0, 0, 0.55)),
+    rgba(0, 0, 0, 0.25);
   animation: cinema-in 450ms var(--ease-out);
 }
 
@@ -230,8 +233,8 @@
   font-weight: 750;
   line-height: 1.2;
   letter-spacing: -0.01em;
-  color: var(--muted);
-  opacity: 0.7;
+  /* At least 3 (big text) over the brightest aura. */
+  color: rgba(246, 244, 238, 0.55);
   cursor: pointer;
   transform-origin: left center;
   transition:
@@ -241,7 +244,7 @@
 }
 
 .cinema-line.past {
-  opacity: 0.4;
+  color: rgba(246, 244, 238, 0.5);
 }
 
 .cinema-line.active {
@@ -251,7 +254,7 @@
 }
 
 .cinema-line:hover {
-  opacity: 1;
+  color: var(--text);
 }
 
 /* Bottom: the shortcuts and the glass bar, gone while the mouse rests. */
