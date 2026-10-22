@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Card as CardData } from "../api/types";
 import { play } from "../api/spotify";
 import { DRAGGABLE, dragCard } from "../state/drag";
+import { peekProps } from "../state/peek";
 import { useNav } from "../state/nav";
 import { kindLabel, TAGGED_KINDS } from "../util/kinds";
 import { usePlayer } from "../state/player";
@@ -52,12 +53,16 @@ export function Card({
         setDragging(true);
       }}
       onDragEnd={() => setDragging(false)}
+      tabIndex={0}
+      role="button"
+      {...peekProps(card, () => (isTrack ? onPlay() : (onPick?.(), nav.open(card.uri, card.title))))}
       onClick={() => (isTrack ? onPlay() : (onPick?.(), nav.open(card.uri, card.title)))}
       onContextMenu={onMenu ?? cardMenuHandler(card, nav, openMenu)}
       title={card.title}
     >
       <div className="card-art">
         <Cover src={card.image} kind={card.kind} shaped />
+        <span className="peek-ring" aria-hidden />
         {TAGGED_KINDS.has(card.kind) && <span className="card-tag">{kindLabel(card)}</span>}
         {card.pinned && !onRemove && (
           <span className="card-pin" title="Pinned">

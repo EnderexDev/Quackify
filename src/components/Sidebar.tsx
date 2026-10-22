@@ -7,6 +7,7 @@ import { usePlayer } from "../state/player";
 import { notifyLibraryChanged, onLibraryChanged } from "../state/saved";
 import { toast } from "../state/toast";
 import { DRAGGABLE, dragCard } from "../state/drag";
+import { peekProps } from "../state/peek";
 import { useAsync } from "../util/useAsync";
 import { Cover } from "./Cover";
 import { ChevronDownIcon, ChevronRightIcon, DiscIcon, HeartIcon, LibraryIcon, PinIcon, PlaylistIcon, PlusIcon, PodcastIcon, SearchIcon, UserIcon } from "./icons";
@@ -190,6 +191,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
                         className={`side-pin-big ${playing ? "playing" : ""} ${actions.dropOn === c.uri ? "drop-target" : actions.candidate(c) ? "drop-candidate" : ""}`}
                         draggable={DRAGGABLE.has(c.kind)}
                         onDragStart={(e) => dragCard(e, c)}
+                        {...peekProps(c)}
                         title={c.title}
                         aria-label={c.title}
                         onClick={() => nav.open(c.uri, c.title)}
@@ -382,6 +384,7 @@ function Branch({
               title={c.title}
               onClick={() => (isFolder ? toggle(c.uri) : nav.open(c.uri, c.title))}
               {...pressable(() => (isFolder ? toggle(c.uri) : nav.open(c.uri, c.title)))}
+              {...peekProps(c, () => (isFolder ? toggle(c.uri) : nav.open(c.uri, c.title)))}
               aria-expanded={isFolder ? folderOpen : undefined}
               onContextMenu={(e) => actions.onMenu(e, c)}
               {...actions.dropProps(c)}

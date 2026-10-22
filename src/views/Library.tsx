@@ -10,6 +10,7 @@ import { pressable, useLibraryActions, useLibraryPages, usePersisted } from "../
 import { Segmented } from "../components/Segmented";
 import { NEW_PLAYLIST_EVENT } from "../components/Sidebar";
 import { DRAGGABLE, dragCard } from "../state/drag";
+import { peekProps } from "../state/peek";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
 import { formatAgo } from "../util/format";
@@ -229,6 +230,7 @@ function Items({ view, items, actions }: { view: View; items: CardData[]; action
             title={c.title}
             onClick={() => nav.open(c.uri, c.title)}
             {...pressable(() => nav.open(c.uri, c.title))}
+            {...peekProps(c, () => nav.open(c.uri, c.title))}
             draggable={DRAGGABLE.has(c.kind)}
             onDragStart={(e) => dragCard(e, c)}
             onContextMenu={(e) => actions.onMenu(e, c)}

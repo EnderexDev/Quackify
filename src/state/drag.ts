@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { artist, collection, PAGE_SIZE, play, type QueueRef } from "../api/spotify";
 import type { Kind } from "../api/types";
 import { QUEUE_LIMIT, TRACKS_MIME } from "../components/menus";
+import { peeking } from "./peek";
 import type { QueuedTrack } from "./player";
 
 /** The drag data type for a card or a library item: its URI. */
@@ -47,6 +48,8 @@ export const DRAGGABLE = new Set<Kind>(["playlist", "album", "liked", "artist", 
 
 /** The dataTransfer and the drag state for a card or a library item. */
 export function dragCard(e: React.DragEvent, c: { uri: string; kind: Kind; title: string }) {
+  // A card held open in a peek is not dragged.
+  if (peeking()) return e.preventDefault();
   e.dataTransfer.effectAllowed = "copy";
   if (c.kind === "track" || c.kind === "episode") {
     e.dataTransfer.setData(TRACKS_MIME, JSON.stringify([c.uri]));
@@ -79,7 +82,12 @@ export async function droppedSongs(e: { dataTransfer: DataTransfer }, limit = QU
     }
     return [];
   }
-  const uri = e.dataTransfer.getData(CONTEXT_MIME);
+  return songsOf(e.dataTransfer.getData(CONTEXT_MIME), limit);
+}
+
+/** The playable songs of an album, a playlist or Liked Songs (a page at a time), or an
+ * artist's popular songs, at most `limit`. */
+export async function songsOf(uri: string, limit = QUEUE_LIMIT): Promise<string[]> {
   if (/^spotify:artist:\w+$/.test(uri)) return (await artist(uri)).topTracks.filter((t) => t.playable).map((t) => t.uri).slice(0, limit);
   if (!/^spotify:(album|playlist):\w+$|^spotify:collection:tracks$/.test(uri)) return [];
   const out: string[] = [];

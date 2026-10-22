@@ -7,6 +7,7 @@ import { DuckIcon } from "./components/icons";
 import { FloatingScrollbar } from "./components/FloatingScrollbar";
 import { ContextMenuProvider } from "./components/ContextMenu";
 import { CreditsHost } from "./components/Credits";
+import { PeekLayer } from "./components/Peek";
 import { PlayerBar } from "./components/PlayerBar";
 import { OPEN_PALETTE_EVENT, Palette, type PaletteCommand } from "./components/Palette";
 import { QueuePanel } from "./components/Queue";
@@ -225,6 +226,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
         {overlay && <div className="panel-scrim" onMouseDown={() => setPanel(null)} />}
         {panel === "queue" && <QueuePanel onClose={() => setPanel(null)} />}
         <PlayerBar panel={panel} onPanel={togglePanel} />
+        <PeekLayer />
         {shortcuts.listOpen && <ShortcutsDialog onClose={shortcuts.closeList} />}
       </div>
       {palette !== null && <Palette key="palette" initialTerm={palette} onClose={() => setPalette(null)} commands={commands} />}
