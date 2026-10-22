@@ -112,6 +112,36 @@ export function library(q: LibraryQuery, offset = 0): Promise<LibraryPage> {
   );
 }
 
+export type LibraryCounts = { playlists: number; folders: number; albums: number; artists: number; podcasts: number };
+
+/** How many of each kind Your Library holds: one small query per kind. Playlists inside
+ * folders count; folders are the flattened list with them minus without them. */
+export function libraryCounts(): Promise<LibraryCounts> {
+  const total = (filter: LibraryFilter, flatten: boolean, withFolders: boolean) =>
+    query("libraryV3", {
+      filters: filter ? [filter] : [],
+      order: null,
+      textFilter: "",
+      features: [],
+      limit: 1,
+      offset: 0,
+      flatten,
+      expandedFolders: [],
+      folderUri: null,
+      includeFoldersWhenFlattening: withFolders,
+    }).then((d) => ((d as { me?: { libraryV3?: { totalCount?: number } } })?.me?.libraryV3?.totalCount ?? 0) as number);
+  return cached("library:counts", async () => {
+    const [playlists, withFolders, albums, artists, podcasts] = await Promise.all([
+      total("Playlists", true, false),
+      total("Playlists", true, true),
+      total("Albums", false, false),
+      total("Artists", false, false),
+      total("Podcasts & Shows", false, false),
+    ]);
+    return { playlists, folders: Math.max(0, withFolders - playlists), albums, artists, podcasts };
+  });
+}
+
 /** Pins an item to the top of Your Library, or unpins it. */
 export async function pinInLibrary(uri: string, pin: boolean): Promise<void> {
   await query(pin ? "pinLibraryItem" : "unpinLibraryItem", { pinnableItemUri: uri });

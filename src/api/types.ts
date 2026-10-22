@@ -16,6 +16,11 @@ export type Card = {
   pinnable?: boolean;
   /** An album that is a single or an EP: its card's tag says so. */
   albumType?: "single" | "ep";
+  /** In Your Library: who made it (a playlist's owner, an album's artists, a podcast's
+   * publisher), when it was added and when it last played (ISO dates). */
+  creator?: string;
+  addedAt?: string | null;
+  playedAt?: string | null;
 };
 
 export type Track = {

@@ -20,6 +20,7 @@ import { toast, Toasts } from "./state/toast";
 import { Artist } from "./views/Artist";
 import { BrowseView, ExploreView } from "./views/Browse";
 import { CardsView } from "./views/Cards";
+import { LibraryView } from "./views/Library";
 import { Collection } from "./views/Collection";
 import { Home } from "./views/Home";
 import { Search } from "./views/Search";
@@ -186,6 +187,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
   const commands: PaletteCommand[] = [
     { label: "Home", keys: "Alt Shift H", run: () => nav.go({ page: "home" }) },
     { label: "Explore", run: () => nav.go({ page: "explore" }) },
+    { label: "Your Library", run: () => nav.go({ page: "library", filter: "Playlists" }) },
     { label: "Settings", keys: "Ctrl P", run: () => nav.go({ page: "settings" }) },
     { label: "Your profile", run: () => nav.go({ page: "user", uri: "me" }) },
     { label: "Queue", keys: "Alt Shift Q", run: () => togglePanel("queue") },
@@ -217,6 +219,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
           {route.page === "episode" && <EpisodeView uri={route.uri} />}
           {route.page === "browse" && <BrowseView uri={route.uri} />}
           {route.page === "cards" && <CardsView source={route.source} uri={route.uri} title={route.title} from={route.from} />}
+          {route.page === "library" && <LibraryView filter={route.filter} folder={route.folder} title={route.title} />}
         </main>
         <FloatingScrollbar target={main} />
         {overlay && <div className="panel-scrim" onMouseDown={() => setPanel(null)} />}

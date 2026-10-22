@@ -13,9 +13,20 @@ import { PlayButton } from "./PlayButton";
 
 /**
  * A tile: click opens the page, the play button plays it from the top. A song tile (recent
- * searches) plays the song. `onPick` hears both; `onRemove` adds a remove button.
+ * searches) plays the song. `onPick` hears both; `onRemove` adds a remove button; `onMenu`
+ * replaces the usual right-click menu (Your Library adds Pin to it). A folder has no play.
  */
-export function Card({ card, onPick, onRemove }: { card: CardData; onPick?: () => void; onRemove?: () => void }) {
+export function Card({
+  card,
+  onPick,
+  onRemove,
+  onMenu,
+}: {
+  card: CardData;
+  onPick?: () => void;
+  onRemove?: () => void;
+  onMenu?: (e: React.MouseEvent) => void;
+}) {
   const nav = useNav();
   const player = usePlayer();
   const isTrack = card.kind === "track" || card.kind === "episode";
@@ -31,8 +42,8 @@ export function Card({ card, onPick, onRemove }: { card: CardData; onPick?: () =
   return (
     <div
       className="card"
-      onClick={() => (isTrack ? onPlay() : (onPick?.(), nav.open(card.uri)))}
-      onContextMenu={cardMenuHandler(card, nav, openMenu)}
+      onClick={() => (isTrack ? onPlay() : (onPick?.(), nav.open(card.uri, card.title)))}
+      onContextMenu={onMenu ?? cardMenuHandler(card, nav, openMenu)}
       title={card.title}
     >
       <div className="card-art">
@@ -43,7 +54,7 @@ export function Card({ card, onPick, onRemove }: { card: CardData; onPick?: () =
             <PinIcon size={13} />
           </span>
         )}
-        <PlayButton className="card-play" playing={isCurrent && player.playing} onClick={onPlay} />
+        {card.kind !== "folder" && <PlayButton className="card-play" playing={isCurrent && player.playing} onClick={onPlay} />}
         {onRemove && (
           <button
             className="card-remove"

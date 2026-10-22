@@ -1,6 +1,7 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
-/** A row of choices with a glass pill that slides to the one picked (top bar tabs, Settings). */
+/** A row of choices with a glass pill that slides to the one picked (top bar tabs, Settings).
+ * A label can be an icon; then `title` names it. */
 export function Segmented<T extends string>({
   options,
   value,
@@ -8,7 +9,7 @@ export function Segmented<T extends string>({
   className = "",
   label,
 }: {
-  options: { id: T; label: string }[];
+  options: { id: T; label: ReactNode; title?: string }[];
   /** null when none of them is the page open: the pill hides. */
   value: T | null;
   onChange: (id: T) => void;
@@ -38,6 +39,8 @@ export function Segmented<T extends string>({
           key={o.id}
           role="tab"
           aria-selected={value === o.id}
+          aria-label={o.title}
+          title={o.title}
           className={`seg-btn ${value === o.id ? "on" : ""}`}
           onClick={() => onChange(o.id)}
         >

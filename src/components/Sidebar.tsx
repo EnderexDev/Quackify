@@ -1,19 +1,14 @@
-import { useEffect, useRef, useState } from "react";
-import { createPlaylist, save } from "../api/library";
-import { clearCache, library, pinInLibrary } from "../api/spotify";
+import { useEffect, useState } from "react";
+import { createPlaylist } from "../api/library";
+import { clearCache, library } from "../api/spotify";
 import type { Card, LibraryFilter, LibrarySort } from "../api/types";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
-import { markSaved, notifyLibraryChanged, onLibraryChanged } from "../state/saved";
+import { notifyLibraryChanged } from "../state/saved";
 import { toast } from "../state/toast";
-import { useContextMenu, type MenuItem } from "./ContextMenu";
 import { Cover } from "./Cover";
 import { BackIcon, DiscIcon, HeartIcon, LibraryIcon, PinIcon, PlaylistIcon, PlusIcon, PodcastIcon, SearchIcon, UserIcon } from "./icons";
-import { addAll, cardMenu, TRACKS_MIME } from "./menus";
-import { areSaved } from "../api/library";
-
-/** How many items a page of Your Library has. */
-const PAGE = 50;
+import { LIBRARY_PAGE, librarySubtitle, useLibraryActions, useLibraryPages, usePersisted } from "./libraryItems";
 
 const FILTERS: { id: LibraryFilter; label: string }[] = [
   { id: "Playlists", label: "Playlists" },
@@ -36,21 +31,6 @@ const VIEWS: { id: View; label: string }[] = [
   { id: "grid", label: "Grid" },
 ];
 
-/** A setting of Your Library kept for the next start. */
-function usePersisted<T extends string>(key: string, fallback: T, allowed: readonly T[]): [T, (v: T) => void] {
-  const [value, setValue] = useState<T>(() => {
-    const saved = localStorage.getItem(key) as T | null;
-    return saved && allowed.includes(saved) ? saved : fallback;
-  });
-  return [
-    value,
-    (v: T) => {
-      localStorage.setItem(key, v);
-      setValue(v);
-    },
-  ];
-}
-
 /**
  * Your Library: Liked Songs, saved playlists, artists, albums, podcasts and folders, loaded 50 at
  * a time. It can be filtered, searched, sorted and shown as a list, a compact list or a grid;
@@ -59,7 +39,6 @@ function usePersisted<T extends string>(key: string, fallback: T, allowed: reado
 export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; onExpand?: () => void }) {
   const nav = useNav();
   const player = usePlayer();
-  const openMenu = useContextMenu();
   const [filter, setFilter] = useState<LibraryFilter>(null);
   const [sort, setSort] = usePersisted<LibrarySort>("librarySort", "Recents", SORTS.map((s) => s.id));
   const [view, setView] = usePersisted<View>("libraryView", "list", VIEWS.map((v) => v.id));
@@ -68,142 +47,16 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
   // The folders opened, the innermost last.
   const [folders, setFolders] = useState<Card[]>([]);
   const folder = folders[folders.length - 1] ?? null;
-  const [items, setItems] = useState<Card[]>([]);
-  const [total, setTotal] = useState(0);
-  // Where the next page starts on Spotify's side (items shown can be fewer: duplicates are
-  // dropped), and which query the pages belong to: an answer for an older query is ignored.
-  const nextOffset = useRef(0);
-  const generation = useRef(0);
-  const [error, setError] = useState("");
-  // Bumped when something is saved or removed, to reload the list.
-  const [version, setVersion] = useState(0);
-  useEffect(() => onLibraryChanged(() => setVersion((v) => v + 1)), []);
   const query = { filter, sort, text: text.trim(), folder: folder?.uri ?? null };
-  const queryKey = JSON.stringify(query);
-
-  // Songs dragged from a list onto a playlist (added) or Liked Songs (liked).
-  const [dropOn, setDropOn] = useState<string | null>(null);
-  const takesSongs = (c: Card) => c.kind === "playlist" || c.kind === "liked";
-  const dropSongs = (c: Card, data: string) => {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(data);
-    } catch {
-      return;
-    }
-    // Only a list of song or episode URIs is taken.
-    if (!Array.isArray(parsed)) return;
-    const uris = parsed.filter((u): u is string => typeof u === "string" && /^spotify:(track|episode):\w+$/.test(u));
-    if (!uris.length) return;
-    const n = uris.length === 1 ? "1 song" : `${uris.length} songs`;
-    if (c.kind === "liked") {
-      save(uris).then(() => {
-        uris.forEach((u) => markSaved(u, true));
-        notifyLibraryChanged();
-        toast(`Saved ${n} to Liked Songs`);
-      }, toast);
-    } else {
-      // Spotify refuses it for a playlist that is not yours; the toast says so.
-      addAll(c.uri, uris).then(() => toast(`Added ${n} to ${c.title}`), toast);
-    }
-  };
-  const loadingMore = useRef(false);
-  const sentinel = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const gen = ++generation.current;
-    // A new query starts empty, and no next page is asked before its first page is in.
-    nextOffset.current = Number.POSITIVE_INFINITY;
-    loadingMore.current = false;
-    setItems([]);
-    setTotal(0);
-    setError("");
-    // Typing waits for a pause.
-    const id = setTimeout(
-      () =>
-        library(query, 0).then(
-          (page) => {
-            if (gen !== generation.current) return;
-            nextOffset.current = PAGE;
-            setItems(page.items);
-            setTotal(page.total);
-          },
-          (e) => gen === generation.current && setError(String(e)),
-        ),
-      query.text ? 250 : 0,
-    );
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey, version]);
-
-  // Next page when the end of the list scrolls into view.
-  useEffect(() => {
-    const el = sentinel.current;
-    if (!el) return;
-    const io = new IntersectionObserver((entries) => {
-      if (!entries[0].isIntersecting || loadingMore.current || items.length === 0 || nextOffset.current >= total) return;
-      const gen = generation.current;
-      const offset = nextOffset.current;
-      loadingMore.current = true;
-      library(query, offset)
-        .then((page) => {
-          if (gen !== generation.current) return;
-          // Moves on even when the page added nothing new, so the same page is not asked again;
-          // an empty page ends the list.
-          nextOffset.current = page.items.length ? offset + PAGE : total;
-          setItems((prev) => [...prev, ...page.items.filter((c) => !prev.some((p) => p.uri === c.uri))]);
-        })
-        .catch((e) => gen === generation.current && setError(String(e)))
-        .finally(() => {
-          if (gen === generation.current) loadingMore.current = false;
-        });
-    });
-    io.observe(el);
-    return () => io.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, total, queryKey]);
+  const { items, error, sentinel } = useLibraryPages(query);
+  const { onMenu, dropProps, dropOn } = useLibraryActions();
 
   const route = nav.route;
   const openUri = route.page === "collection" || route.page === "artist" || route.page === "show" ? route.uri : null;
 
   const open = (c: Card) => (c.kind === "folder" ? setFolders((f) => [...f, c]) : nav.open(c.uri));
 
-  const pinItem = (c: Card): MenuItem[] =>
-    c.pinnable
-      ? [
-          "separator",
-          {
-            label: c.pinned ? (c.kind === "folder" ? "Unpin folder" : "Unpin") : c.kind === "folder" ? "Pin folder" : "Pin",
-            onClick: () =>
-              pinInLibrary(c.uri, !c.pinned).then(() => {
-                toast(c.pinned ? "Unpinned" : "Pinned to the top of Your Library");
-                setVersion((v) => v + 1);
-              }, toast),
-          },
-        ]
-      : [];
-
-  const onMenu = (e: React.MouseEvent, c: Card) => {
-    e.preventDefault();
-    const at = { clientX: e.clientX, clientY: e.clientY, preventDefault: () => {} };
-    if (c.kind === "folder") return openMenu(at, [{ label: "Open", onClick: () => open(c) }, ...pinItem(c)]);
-    if (c.kind === "liked") return openMenu(at, [...cardMenu(c, undefined, nav), ...pinItem(c)]);
-    areSaved([c.uri]).then(
-      ([saved]) => openMenu(at, [...cardMenu(c, saved, nav), ...pinItem(c)]),
-      () => openMenu(at, [...cardMenu(c, undefined, nav), ...pinItem(c)]),
-    );
-  };
-
-  const subtitle = (c: Card) =>
-    c.kind === "liked"
-      ? `Playlist • ${c.subtitle}`
-      : c.kind === "artist"
-        ? "Artist"
-        : c.kind === "show"
-          ? `Podcast • ${c.subtitle}`
-          : c.kind === "folder"
-            ? `Folder • ${c.subtitle}`
-            : c.subtitle;
+  const subtitle = librarySubtitle;
 
   if (collapsed) {
     // Narrow: the pinned covers and one icon per kind; a kind opens Your Library on it.
@@ -275,8 +128,14 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
   return (
     <aside className="sidebar panel">
       <div className="sidebar-head">
-        <LibraryIcon size={22} />
-        <span>Your Library</span>
+        <button
+          className="sidebar-title"
+          title="Open Your Library"
+          onClick={() => nav.go({ page: "library", filter: filter ?? "Playlists" })}
+        >
+          <LibraryIcon size={22} />
+          <span>Your Library</span>
+        </button>
         <button
           className="round-btn small create-btn"
           aria-label="Create playlist"
@@ -350,20 +209,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
             <div
               key={c.uri}
               className={`library-item ${openUri === c.uri ? "open" : ""} ${dropOn === c.uri ? "drop-target" : ""}`}
-              onDragOver={(e) => {
-                if (!takesSongs(c) || !e.dataTransfer.types.includes(TRACKS_MIME)) return;
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "copy";
-                setDropOn(c.uri);
-              }}
-              onDragLeave={() => setDropOn((d) => (d === c.uri ? null : d))}
-              onDrop={(e) => {
-                setDropOn(null);
-                const data = e.dataTransfer.getData(TRACKS_MIME);
-                if (!takesSongs(c) || !data) return;
-                e.preventDefault();
-                dropSongs(c, data);
-              }}
+              {...dropProps(c)}
               onClick={() => open(c)}
               onContextMenu={(e) => onMenu(e, c)}
               title={c.title}
@@ -404,13 +250,13 @@ export function useNewPlaylist() {
       try {
         // Every page of the matching playlists, so a number further down is not reused.
         const taken = new Set<number>();
-        for (let offset = 0; ; offset += PAGE) {
+        for (let offset = 0; ; offset += LIBRARY_PAGE) {
           const page = await library({ filter: "Playlists", text: "My Playlist #" }, offset);
           for (const c of page.items) {
             const n = /^My Playlist #(\d+)$/.exec(c.title)?.[1];
             if (n) taken.add(Number(n));
           }
-          if (!page.items.length || offset + PAGE >= page.total) break;
+          if (!page.items.length || offset + LIBRARY_PAGE >= page.total) break;
         }
         let n = 1;
         while (taken.has(n)) n++;

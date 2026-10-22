@@ -364,9 +364,30 @@ export function toLibrary(data: Raw): LibraryPage {
           }
         : toCard(it);
     if (!card || !card.uri) continue;
-    items.push({ ...card, pinned: !!it?.pinned, pinnable: !!it?.pinnable });
+    items.push({
+      ...card,
+      pinned: !!it?.pinned,
+      pinnable: !!it?.pinnable,
+      creator: creatorOf(d),
+      addedAt: it?.addedAt?.isoString ?? null,
+      playedAt: it?.playedAt?.isoString ?? null,
+    });
   }
   return { items, total: lib?.totalCount ?? 0 };
+}
+
+/** Who made a library item: a playlist's owner, an album's artists, a podcast's publisher. */
+function creatorOf(d: Raw): string {
+  switch (d?.__typename) {
+    case "Playlist":
+      return d.ownerV2?.data?.name ?? "";
+    case "Album":
+      return names(d.artists).map((a) => a.name).join(", ");
+    case "Podcast":
+      return d.publisher?.name ?? "";
+    default:
+      return "";
+  }
 }
 
 function colorOf(d: Raw): string | null {

@@ -201,3 +201,18 @@
     display: none;
   }
 }
+
+/* The title opens the whole Your Library page. */
+.sidebar-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: auto;
+  color: inherit;
+  font: inherit;
+  transition: color var(--t-fast);
+}
+
+.sidebar-title:hover {
+  color: var(--text);
+}

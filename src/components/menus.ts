@@ -7,7 +7,7 @@ import { markSaved, notifyLibraryChanged, setSaved } from "../state/saved";
 import { toast } from "../state/toast";
 import type { MenuItem } from "./ContextMenu";
 
-type Nav = { open: (uri: string) => void };
+type Nav = { open: (uri: string, title?: string) => void };
 
 /** open.spotify.com link for a spotify: URI. */
 export function webLink(uri: string): string {
@@ -180,7 +180,7 @@ export function cardMenu(card: Card, saved: boolean | undefined, nav: Nav): Menu
   const items: MenuItem[] = [
     isTrack
       ? { label: "Play", onClick: () => play.tracks([card.uri], 0).catch(toast) }
-      : { label: "Open", onClick: () => nav.open(card.uri) },
+      : { label: "Open", onClick: () => nav.open(card.uri, card.title) },
   ];
   if (isTrack) items.push({ label: "Add to queue", onClick: () => play.addToQueue(card.uri).catch(toast) });
   if (card.kind === "user") return [...items, "separator", { label: "Copy link", onClick: () => copy(webLink(card.uri)) }];
