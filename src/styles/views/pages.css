@@ -80,6 +80,7 @@
 
 .shelf {
   margin-bottom: 28px;
+  container-type: inline-size;
 }
 
 .shelf h2,
@@ -89,15 +90,65 @@
   margin-bottom: 12px;
 }
 
-/* One row of cards that fills the width; cards past the edge are hidden. */
+/* One row of cards that scrolls sideways: as many whole cards as fit (about 168px each), the
+   rest past the edge, reached with the arrows, a drag or a trackpad. */
 .shelf-row {
+  --cols: 2;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
-  grid-template-rows: 1fr;
-  grid-auto-rows: 0;
-  overflow: hidden;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - (var(--cols) - 1) * 8px) / var(--cols));
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
   column-gap: 8px;
-  margin: 0 -10px;
+  /* Room for a card lifting on hover and a playlist's tab, which the overflow would cut. */
+  padding: 6px 10px 0;
+  scroll-padding: 0 10px;
+  margin: -6px -10px 0;
+}
+
+.shelf-row > * {
+  scroll-snap-align: start;
+}
+
+.shelf-row.dragging {
+  scroll-snap-type: none;
+  cursor: grabbing;
+}
+
+.shelf-row.dragging > * {
+  pointer-events: none;
+}
+
+@container (min-width: 520px) {
+  .shelf-row {
+    --cols: 3;
+  }
+}
+
+@container (min-width: 700px) {
+  .shelf-row {
+    --cols: 4;
+  }
+}
+
+@container (min-width: 880px) {
+  .shelf-row {
+    --cols: 5;
+  }
+}
+
+@container (min-width: 1060px) {
+  .shelf-row {
+    --cols: 6;
+  }
+}
+
+@container (min-width: 1240px) {
+  .shelf-row {
+    --cols: 7;
+  }
 }
 
 .card {

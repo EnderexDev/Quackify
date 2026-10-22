@@ -198,7 +198,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
         <TopBar name={name} image={image} onLogout={onLogout} onSearch={openPalette} onShortcuts={shortcuts.openList} />
         <Sidebar collapsed={collapsed} onExpand={toggleSidebar} />
         <main ref={setMain} className="main panel" key={route.page === "search" ? "search" : key}>
-          {route.page === "home" && <Home />}
+          {route.page === "home" && <Home name={name} />}
           {route.page === "explore" && <ExploreView />}
           {route.page === "search" && <Search term={route.term} tab={route.tab} />}
           {route.page === "collection" && <Collection uri={route.uri} />}

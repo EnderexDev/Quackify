@@ -8,6 +8,7 @@
 @import "./components/palette.css";
 @import "./components/sidebar.css";
 @import "./views/pages.css";
+@import "./views/home.css";
 @import "./views/search.css";
 @import "./components/tracklist.css";
 @import "./views/collection.css";

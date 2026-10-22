@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
 import { Segmented } from "../components/Segmented";
+import { Toggle } from "../components/Toggle";
 import type { ProgressMode } from "../state/meter";
 import { playerLyrics } from "../state/prefs";
 import { setTheme, useTheme } from "../state/theme";
@@ -381,19 +382,5 @@ function Row({ title, note, children }: { title: string; note: string; children:
       </div>
       {children}
     </div>
-  );
-}
-
-function Toggle({ on, onChange, disabled = false }: { on: boolean; onChange: (on: boolean) => void; disabled?: boolean }) {
-  return (
-    <button
-      role="switch"
-      aria-checked={on}
-      className={`toggle ${on ? "on" : ""}`}
-      disabled={disabled}
-      onClick={() => onChange(!on)}
-    >
-      <span className="toggle-knob" />
-    </button>
   );
 }
