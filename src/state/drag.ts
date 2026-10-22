@@ -93,21 +93,41 @@ export async function droppedSongs(e: { dataTransfer: DataTransfer }, limit = QU
 
 const ref = (q: QueuedTrack): QueueRef => ({ uid: q.uid, uri: q.uri });
 
+/** One addition at a time: a second one would take the first one's songs for its own. */
+let adding: Promise<unknown> = Promise.resolve();
+
 /**
  * Adds songs to the queue: at the end of the songs you added, or with `next` right after the
  * song playing. Spotify only adds at the end, so "next" adds them, waits for them to show in
  * the queue and moves them ahead of the ones that were there. Returns where they went.
  */
-export async function queueSongs(uris: string[], next: boolean, queue: () => QueuedTrack[]): Promise<"next" | "end"> {
+export function queueSongs(uris: string[], next: boolean, queue: () => QueuedTrack[]): Promise<"next" | "end"> {
+  const run = adding.then(() => addSongs(uris, next, queue));
+  adding = run.catch(() => {});
+  return run;
+}
+
+async function addSongs(uris: string[], next: boolean, queue: () => QueuedTrack[]): Promise<"next" | "end"> {
   const before = queue().filter((q) => q.provider === "queue");
   for (const u of uris) await play.addToQueue(u);
   if (!next || before.length === 0) return before.length === 0 ? "next" : "end";
   const had = new Set(before.map((q) => q.uid));
   const deadline = Date.now() + 6000;
   while (Date.now() < deadline) {
-    const added = queue().filter((q) => q.provider === "queue" && q.uid && !had.has(q.uid));
-    if (added.length >= uris.length) {
-      await play.editQueue({ kind: "move", tracks: added.map(ref), before: ref(before[0]) });
+    const now = queue().filter((q) => q.provider === "queue");
+    // This batch: new entries of these songs, as many of each as were added.
+    const wanted = new Map<string, number>();
+    uris.forEach((u) => wanted.set(u, (wanted.get(u) ?? 0) + 1));
+    const batch = now.filter((q) => {
+      const left = wanted.get(q.uri) ?? 0;
+      if (!q.uid || had.has(q.uid) || left === 0) return false;
+      wanted.set(q.uri, left - 1);
+      return true;
+    });
+    if (batch.length >= uris.length) {
+      // The first older song still there: one that played meanwhile is gone.
+      const anchor = now.find((q) => had.has(q.uid));
+      if (anchor) await play.editQueue({ kind: "move", tracks: batch.map(ref), before: ref(anchor) });
       return "next";
     }
     await new Promise((r) => setTimeout(r, 200));
