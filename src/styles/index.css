@@ -2,6 +2,8 @@
 
 @import "./tokens.css";
 @import "./base.css";
+/* Early, so a component's own animation wins over the page coming in. */
+@import "./components/motion.css";
 @import "./components/cover.css";
 @import "./components/shell.css";
 @import "./components/topbar.css";

@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 // First, so the theme is on <html> before anything paints.
 import "./state/theme";
+import "./state/motion";
 import App from "./App";
 import { MiniPlayer } from "./components/MiniPlayer";
 import { PlayerProvider } from "./state/player";

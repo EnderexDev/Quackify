@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { onMeter } from "../state/meter";
+import { useReducedMotion } from "../state/motion";
 import { usePlayer } from "../state/player";
 import { coverColors, type CoverColors } from "../util/coverColors";
 
@@ -20,6 +21,7 @@ export function Aura() {
   // Another device playing: this app does not hear that music, so the aura rests.
   const still = unfocused || !!player.remoteDevice;
   const blobs = useRef<HTMLDivElement>(null);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     if (!image) return setColors(IDLE);
@@ -52,7 +54,7 @@ export function Aura() {
   // The pulse: the lows of the sound playing grow the blobs a little.
   useEffect(() => {
     const el = blobs.current;
-    if (!el || still || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!el || still || reduced) return;
     const off = onMeter((f) => {
       // The first sixth of the bands: about 50 to 140 Hz.
       const n = Math.max(1, Math.round(f.bands.length / 6));
@@ -64,7 +66,7 @@ export function Aura() {
       off();
       el.style.transform = "";
     };
-  }, [still]);
+  }, [still, reduced]);
 
   return (
     <div className={`aura ${still ? "still" : ""}`} aria-hidden>
