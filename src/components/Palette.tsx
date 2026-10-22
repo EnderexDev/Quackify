@@ -34,6 +34,9 @@ type Item = {
 
 export type PaletteCommand = { label: string; keys?: string; run: () => void };
 
+/** Fired by a page to open the palette (an empty playlist's "Find songs"). */
+export const OPEN_PALETTE_EVENT = "quackify:open-palette";
+
 /** "Album · The Mallards", "Song · Lua Teal · 2:57". */
 function describe(card: Card): string {
   const kind = kindLabel(card);

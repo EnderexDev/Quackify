@@ -72,6 +72,9 @@ export type Collection = {
   title: string;
   description: string;
   owner: string;
+  /** An album's main artist: their photo and page, shown by their name. */
+  ownerImage?: string | null;
+  ownerUri?: string | null;
   image: string | null;
   color: string | null;
   total: number;

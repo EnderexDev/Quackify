@@ -7,6 +7,93 @@
 .track-row.selected,
 .track-row.selected:hover {
   background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* A selected row shows a ticked box where its number was. */
+.row-check {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--text);
+  color: var(--bg);
+}
+
+.track-row.selected .num,
+.track-row.selected:hover .row-play {
+  visibility: hidden;
+}
+
+/* The bar over the list while several songs are selected. */
+.selection-bar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: 100%;
+  margin: 12px auto 0;
+  padding: 8px 8px 8px 18px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur-popup);
+  backdrop-filter: var(--blur-popup);
+  box-shadow: var(--shadow-popup);
+  animation: selection-in var(--t-mid) var(--ease-spring);
+}
+
+@keyframes selection-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+}
+
+.selection-count {
+  margin-right: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.selection-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.selection-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.selection-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: 4px;
+  border-radius: 50%;
+  color: var(--muted);
+}
+
+.selection-close:hover {
+  background: var(--surface-3);
+  color: var(--text);
 }
 
 .library-item.drop-target {

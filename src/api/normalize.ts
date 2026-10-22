@@ -409,6 +409,8 @@ export function toAlbum(data: Raw): Collection {
       .filter(Boolean)
       .join(" • "),
     owner: names(a?.artists).map((x) => x.name).join(", "),
+    ownerImage: pickImage(a?.artists?.items?.[0]?.visuals?.avatarImage?.sources, 160),
+    ownerUri: a?.artists?.items?.[0]?.uri ?? null,
     image: imageOf(a, 640),
     color: colorOf(a),
     total: a?.tracksV2?.totalCount ?? 0,

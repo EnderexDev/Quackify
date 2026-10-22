@@ -31,14 +31,16 @@
 }
 
 .hero-kind {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .hero-title {
-  font-size: clamp(36px, 6vw, 84px);
-  font-weight: 900;
-  letter-spacing: -2px;
+  font-size: clamp(32px, 4.5vw, 56px);
+  font-weight: 800;
+  letter-spacing: -1px;
   line-height: 1.02;
   margin: 6px 0 14px;
   overflow: hidden;
@@ -48,8 +50,59 @@
 }
 
 .hero-title.long {
-  font-size: clamp(28px, 4vw, 52px);
-  letter-spacing: -1px;
+  font-size: clamp(26px, 3.4vw, 40px);
+  letter-spacing: -0.5px;
+}
+
+.hero-owner-image {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.hero-owner {
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.hero-owner:hover {
+  text-decoration: underline;
+}
+
+.hero-guests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.hero-guests .chip {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+/* An empty playlist: the duck, a line and the way to find songs. */
+.empty-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-list h3 {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.empty-list p {
+  margin: 0 0 6px;
 }
 
 .hero-desc {

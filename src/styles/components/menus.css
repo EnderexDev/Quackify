@@ -49,9 +49,11 @@
   transform: scale(1.03);
 }
 
+/* Saved and Following are white, not yellow: yellow is only for what plays, the main play and the heart. */
 .save-btn.on {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--text);
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 .menu {

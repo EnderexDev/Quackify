@@ -20,8 +20,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
   background: var(--surface-2);
   color: var(--muted);
 }
@@ -36,10 +36,10 @@
 }
 
 .list-sort {
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 7px 12px;
+  border-radius: var(--r-pill);
   border: none;
-  background: transparent;
+  background: var(--surface-2);
   color: var(--muted);
   font: inherit;
   font-weight: 600;

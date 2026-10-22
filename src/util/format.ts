@@ -10,3 +10,18 @@ export function formatDuration(ms: number): string {
 export function formatCount(n: number): string {
   return n.toLocaleString("en-US");
 }
+
+/** How long ago a date was, the way Spotify lists "Date added": "3 days ago", or the date past a month. */
+export function formatAgo(iso: string | null): string {
+  if (!iso) return "";
+  const at = new Date(iso);
+  const days = Math.floor((Date.now() - at.getTime()) / 86_400_000);
+  if (Number.isNaN(days)) return "";
+  if (days < 1) return "Today";
+  if (days < 7) return `${days} ${days === 1 ? "day" : "days"} ago`;
+  if (days < 30) {
+    const w = Math.floor(days / 7);
+    return `${w} ${w === 1 ? "week" : "weeks"} ago`;
+  }
+  return at.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}

@@ -8,7 +8,8 @@ import { ConfirmDialog, EditDetailsDialog } from "../components/Dialog";
 import { SaveButton } from "../components/LikeButton";
 import { collectionMenu } from "../components/menus";
 import { useSaved } from "../state/saved";
-import { SearchIcon, ShuffleIcon } from "../components/icons";
+import { DuckIcon, SearchIcon, ShuffleIcon } from "../components/icons";
+import { OPEN_PALETTE_EVENT } from "../components/Palette";
 import { PlayButton } from "../components/PlayButton";
 import { TrackList } from "../components/TrackList";
 import { useNav } from "../state/nav";
@@ -229,6 +230,12 @@ function Loaded({ first }: { first: Data }) {
       }),
     );
   const totalMs = first.kind === "album" ? tracks.reduce((s, t) => s + t.durationMs, 0) : 0;
+  // An album's guests: artists on its songs besides its own, at most 6.
+  const albumArtists = new Set(first.kind === "album" ? (tracks[0]?.artists ?? []).map((a) => a.uri) : []);
+  const guests =
+    first.kind === "album"
+      ? [...new Map(tracks.flatMap((t) => t.artists).filter((a) => a.uri && !albumArtists.has(a.uri)).map((a) => [a.uri, a])).values()].slice(0, 6)
+      : [];
   const color = first.color ?? "#3a3a3a";
 
   return (
@@ -246,8 +253,16 @@ function Loaded({ first }: { first: Data }) {
           </h1>
           {first.kind === "playlist" && description && <p className="hero-desc">{description}</p>}
           <p className="hero-meta">
+            {first.ownerImage && <Cover src={first.ownerImage} kind="artist" className="hero-owner-image" />}
             {[
-              first.owner && <b key="o">{first.owner}</b>,
+              first.owner &&
+                (first.ownerUri ? (
+                  <a key="o" className="hero-owner" onClick={() => nav.open(first.ownerUri!)}>
+                    {first.owner}
+                  </a>
+                ) : (
+                  <b key="o">{first.owner}</b>
+                )),
               first.kind === "album" && first.description,
               `${formatCount(first.total - removed)} ${first.total - removed === 1 ? "song" : "songs"}`,
               totalMs > 0 && formatDuration(totalMs),
@@ -260,6 +275,15 @@ function Loaded({ first }: { first: Data }) {
                 </span>
               ))}
           </p>
+          {guests.length > 0 && (
+            <div className="hero-guests">
+              {guests.map((g) => (
+                <button key={g.uri} className="chip" onClick={() => nav.open(g.uri)}>
+                  with {g.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </header>
       <div className="actions">
@@ -330,6 +354,7 @@ function Loaded({ first }: { first: Data }) {
         contextUri={uri}
         showAlbum={first.kind !== "album"}
         showCover={first.kind !== "album"}
+        showAdded={first.kind !== "album"}
         onPlay={(i) => play.context(uri, view.tracks[i].uri).catch(toast)}
         // While the rest of the list loads, rows are not removed or moved: their places are still moving.
         onRemove={first.canEditItems && !bulkLoading ? (rows) => removeAt(rows.map((i) => view.positions[i])) : undefined}
@@ -343,7 +368,15 @@ function Loaded({ first }: { first: Data }) {
         </div>
       )}
       {first.kind === "playlist" && tracks.length === 0 && done && (
-        <p className="muted pad">This playlist is empty. Right-click a song anywhere and pick Add to playlist.</p>
+        <div className="empty-list">
+          <DuckIcon size={48} />
+          <h3>This playlist is empty</h3>
+          <p>Find songs and add them with the right click, or drag them onto it in Your Library.</p>
+          <button className="pill-button" onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}>
+            <SearchIcon size={14} />
+            Find songs
+          </button>
+        </div>
       )}
       {dialog === "edit" && (
         <EditDetailsDialog

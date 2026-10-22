@@ -9,6 +9,17 @@
   --cols: 40px minmax(0, 1fr) 100px;
 }
 
+.tracklist.with-added {
+  --cols: 40px minmax(200px, 4fr) minmax(120px, 3fr) minmax(100px, 1.4fr) 100px;
+}
+
+.track-added {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .tracklist.with-plays {
   --cols: 40px minmax(0, 2fr) minmax(90px, 1fr) 100px;
 }
@@ -150,7 +161,8 @@
     --cols: 40px minmax(0, 1fr) 100px;
   }
 
-  .tracklist .track-album {
+  .tracklist .track-album,
+  .tracklist .track-added {
     display: none;
   }
 }

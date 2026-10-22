@@ -8,7 +8,7 @@ import { FloatingScrollbar } from "./components/FloatingScrollbar";
 import { ContextMenuProvider } from "./components/ContextMenu";
 import { CreditsHost } from "./components/Credits";
 import { PlayerBar } from "./components/PlayerBar";
-import { Palette, type PaletteCommand } from "./components/Palette";
+import { OPEN_PALETTE_EVENT, Palette, type PaletteCommand } from "./components/Palette";
 import { QueuePanel } from "./components/Queue";
 import { NEW_PLAYLIST_EVENT, Sidebar, useNewPlaylist } from "./components/Sidebar";
 import { ShortcutsDialog, useShortcuts } from "./components/Shortcuts";
@@ -161,6 +161,11 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
   const app = useMemo(() => ({ openPalette, toggleSidebar }), [route, collapsed, compact]);
   const shortcuts = useShortcuts(player, nav, panel, togglePanel, app);
   useNewPlaylist();
+  useEffect(() => {
+    const open = () => setPalette("");
+    window.addEventListener(OPEN_PALETTE_EVENT, open);
+    return () => window.removeEventListener(OPEN_PALETTE_EVENT, open);
+  }, []);
   useOpenLinks(nav);
 
   // Over the page, the panel closes with Escape like any overlay.

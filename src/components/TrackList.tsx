@@ -4,10 +4,12 @@ import type { Track } from "../api/types";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
 import { useSaved } from "../state/saved";
-import { formatCount, formatDuration } from "../util/format";
+import { toast } from "../state/toast";
+import { play } from "../api/spotify";
+import { formatAgo, formatCount, formatDuration } from "../util/format";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
 import { Cover } from "./Cover";
-import { ClockIcon, PauseIcon, PlayIcon } from "./icons";
+import { CheckIcon, ClockIcon, CloseIcon, HeartIcon, HeartOutlineIcon, PauseIcon, PlayIcon, PlaylistAddIcon, QueueIcon } from "./icons";
 import { LikeButton } from "./LikeButton";
 import { TRACKS_MIME, trackMenu, tracksMenu } from "./menus";
 
@@ -27,6 +29,7 @@ export function TrackList({
   showCover = true,
   showHeader = true,
   showPlays = false,
+  showAdded = false,
   onRemove,
   onMove,
   playlistName,
@@ -40,6 +43,8 @@ export function TrackList({
   showHeader?: boolean;
   /** An artist's popular songs: how many times each was played, where the album would be. */
   showPlays?: boolean;
+  /** Playlists and Liked Songs: when each song was added. */
+  showAdded?: boolean;
   /** For the user's own playlists: remove rows, or move rows to just before row `to`. */
   onRemove?: (indices: number[]) => void;
   onMove?: (from: number[], to: number) => void;
@@ -130,12 +135,17 @@ export function TrackList({
   };
 
   return (
-    <div className={`tracklist ${showPlays ? "with-plays" : showAlbum ? "" : "no-album"}`} tabIndex={-1} onKeyDown={onKeyDown}>
+    <div
+      className={`tracklist ${showPlays ? "with-plays" : showAlbum ? (showAdded ? "with-added" : "") : "no-album"}`}
+      tabIndex={-1}
+      onKeyDown={onKeyDown}
+    >
       {showHeader && (
         <div className="track-row track-head">
           <span className="track-num">#</span>
           <span>Title</span>
           {showAlbum && <span className="track-album">Album</span>}
+          {showAlbum && showAdded && <span className="track-added">Date added</span>}
           <span className="track-time">
             <ClockIcon size={16} />
           </span>
@@ -150,6 +160,7 @@ export function TrackList({
           selected={selected.has(i)}
           showAlbum={showAlbum}
           showPlays={showPlays}
+          showAdded={showAdded}
           showCover={showCover}
           onPlay={() => onPlay(i)}
           onSelect={(e) => select(i, e)}
@@ -185,6 +196,84 @@ export function TrackList({
           }}
         />
       ))}
+      {selected.size > 1 && (
+        <SelectionBar
+          rows={sorted(selected).map((k) => tracks[k])}
+          onClear={() => {
+            setSelected(new Set());
+            anchor.current = null;
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Over the list while several songs are selected: play them, queue them, add them to a
+ * playlist or like them, or clear the selection. The actions are the right-click menu's.
+ */
+function SelectionBar({ rows, onClear }: { rows: Track[]; onClear: () => void }) {
+  const nav = useNav();
+  const openMenu = useContextMenu();
+  const item = (items: MenuItem[], label: RegExp) =>
+    items.find((m): m is Exclude<MenuItem, "separator"> => m !== "separator" && label.test(m.label));
+  const playable = rows.filter((t) => t.playable).map((t) => t.uri);
+  // Whether they are all liked already: then the heart takes them out.
+  const key = rows.map((t) => t.uri).join(",");
+  const [allSaved, setAllSaved] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    setAllSaved(undefined);
+    areSaved(rows.map((t) => t.uri)).then((s) => live && setAllSaved(s.every(Boolean)), () => {});
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  const at = (e: React.MouseEvent) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { clientX: r.left, clientY: r.top - 8, preventDefault: () => {} };
+  };
+
+  return (
+    <div className="selection-bar" role="toolbar" aria-label={`${rows.length} selected`}>
+      <span className="selection-count">{rows.length} selected</span>
+      <button className="selection-btn" disabled={!playable.length} onClick={() => play.tracks(playable, 0).catch(toast)}>
+        <PlayIcon size={14} />
+        Play
+      </button>
+      <button className="selection-btn" onClick={() => item(tracksMenu(rows, undefined, nav), /queue/i)?.onClick?.()}>
+        <QueueIcon size={14} />
+        Queue
+      </button>
+      <button
+        className="selection-btn"
+        onClick={async (e) => {
+          const where = at(e);
+          const add = item(tracksMenu(rows, undefined, nav), /playlist/i);
+          if (!add) return;
+          const mine = add.submenu ? await Promise.resolve(add.submenu()).catch((): MenuItem[] => []) : [];
+          openMenu(where, [...(add.submenuHead ?? []), ...mine]);
+        }}
+      >
+        <PlaylistAddIcon size={14} />
+        Add to playlist
+      </button>
+      <button
+        className="selection-btn"
+        disabled={allSaved === undefined}
+        onClick={() => {
+          item(tracksMenu(rows, allSaved, nav), /liked/i)?.onClick?.();
+          setAllSaved(!allSaved);
+        }}
+      >
+        {allSaved ? <HeartIcon size={14} className="accent" /> : <HeartOutlineIcon size={14} />}
+        {allSaved ? "Unlike" : "Like"}
+      </button>
+      <button className="selection-close" aria-label="Clear selection" title="Clear selection (Esc)" onClick={onClear}>
+        <CloseIcon size={14} />
+      </button>
     </div>
   );
 }
@@ -196,6 +285,7 @@ function TrackRow({
   selected,
   showAlbum,
   showPlays,
+  showAdded,
   showCover,
   onPlay,
   onSelect,
@@ -210,6 +300,7 @@ function TrackRow({
   selected: boolean;
   showAlbum: boolean;
   showPlays: boolean;
+  showAdded: boolean;
   showCover: boolean;
   onPlay: () => void;
   onSelect: (e: React.MouseEvent) => void;
@@ -270,6 +361,11 @@ function TrackRow({
     >
       <span className="track-num">
         <span className="num">{current && player.playing ? <span className="eq" /> : index + 1}</span>
+        {selected && (
+          <span className="row-check" aria-hidden>
+            <CheckIcon size={12} />
+          </span>
+        )}
         <button
           className="row-play"
           aria-label="Play"
@@ -302,6 +398,7 @@ function TrackRow({
           </span>
         )
       )}
+      {showAlbum && showAdded && <span className="track-added">{formatAgo(t.addedAt)}</span>}
       <span className="track-time">
         <LikeButton uri={t.uri} size={16} className="row-like" />
         <span>{formatDuration(t.durationMs)}</span>
