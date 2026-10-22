@@ -33,7 +33,8 @@ const LIVE_QUIET = 0.08;
 const PLAYED = "rgba(255, 255, 255, 0.95)";
 const AHEAD = "rgba(255, 255, 255, 0.32)";
 
-type Wave = { uri: string; bins: Float32Array; weight: Float32Array; dirty: boolean };
+/** `version` goes up with every change to `bins`, so the drawing knows when to redraw. */
+type Wave = { uri: string; bins: Float32Array; weight: Float32Array; dirty: boolean; version: number };
 
 export function ProgressBar({
   uri,
@@ -69,7 +70,7 @@ export function ProgressBar({
       return;
     }
     const bins = loadWave(uri);
-    const w: Wave = { uri, bins, weight: bins.map((v) => (v > 0 ? WAVE_SAVED_WEIGHT : 0)), dirty: false };
+    const w: Wave = { uri, bins, weight: bins.map((v) => (v > 0 ? WAVE_SAVED_WEIGHT : 0)), dirty: false, version: 0 };
     wave.current = w;
     const flush = () => {
       if (!w.dirty) return;
@@ -86,6 +87,7 @@ export function ProgressBar({
       w.bins[i] = (w.bins[i] * n + v) / (n + 1);
       w.weight[i] = n + 1;
       w.dirty = true;
+      w.version++;
     });
     const timer = window.setInterval(flush, 15000);
     window.addEventListener("beforeunload", flush);
@@ -97,7 +99,9 @@ export function ProgressBar({
     };
   }, [mode, uri]);
 
-  // The drawing loop, only in Wave and Live; it rests while the window is hidden.
+  // The drawing loop, only in Wave and Live. It draws only when something changed (where the
+  // song is, the size, the waveform, the sound), so a paused bar costs nothing; the browser
+  // stops it while the window is hidden.
   useEffect(() => {
     if (mode === "simple") return;
     const c = canvas.current;
@@ -106,6 +110,8 @@ export function ProgressBar({
     let heights = new Float32Array(0);
     const range = { lo: new Float32Array(0), hi: new Float32Array(0) };
     let sounding = false;
+    // What the canvas shows now: a Wave frame's inputs, or "idle" for a cleared Live bar.
+    let shown = "";
     let raf = 0;
     const draw = () => {
       raf = requestAnimationFrame(draw);
@@ -113,17 +119,30 @@ export function ProgressBar({
       const w = c.clientWidth;
       const h = c.clientHeight;
       if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+        // Resizing clears the canvas.
         c.width = Math.round(w * dpr);
         c.height = Math.round(h * dpr);
+        shown = "";
       }
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
       const { position, duration, playing } = live.current;
       const played = duration ? Math.min(1, position() / duration) * w : 0;
-      if (mode === "wave") return drawWave(ctx, w, h, played, wave.current?.bins ?? null);
+      if (mode === "wave") {
+        const wv = wave.current;
+        const inputs = `${Math.round(played * 2)}:${wv?.uri ?? ""}:${wv?.version ?? 0}`;
+        if (inputs === shown) return;
+        shown = inputs;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        return drawWave(ctx, w, h, played, wv?.bins ?? null);
+      }
       const half = Math.max(8, Math.floor(w / LIVE_PITCH / 2));
       if (heights.length !== half) heights = new Float32Array(half);
-      const loud = drawLive(ctx, w, h, played, heights, normalize(playing ? meterNow().bands : null, range));
+      const bands = normalize(playing ? meterNow().bands : null, range);
+      if (!bands && shown === "idle") return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const loud = drawLive(ctx, w, h, played, heights, bands);
+      shown = loud ? "" : "idle";
       // While there is sound the bars are the bar; without it, the line comes back.
       if (loud !== sounding) {
         sounding = loud;
