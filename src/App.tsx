@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { clearCache } from "./api/spotify";
 import { Aura } from "./components/Aura";
 import { DuckIcon } from "./components/icons";
+import { FloatingScrollbar } from "./components/FloatingScrollbar";
 import { ContextMenuProvider } from "./components/ContextMenu";
 import { CreditsHost } from "./components/Credits";
 import { PlayerBar } from "./components/PlayerBar";
@@ -127,6 +128,8 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
   const route = nav.route;
   // The right-hand panel. Whether it was open is kept for the next start, like Spotify does;
   // a "nowplaying" saved before the song page existed reads as closed.
+  // The page that scrolls, for the bar drawn over it; a new page is a new element.
+  const [main, setMain] = useState<HTMLElement | null>(null);
   const [panel, setPanelState] = useState<Panel>(() => (localStorage.getItem("panel") === "queue" ? "queue" : null));
   const setPanel = (p: Panel) => {
     setPanelState(p);
@@ -194,7 +197,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
       <div className={`shell ${panel && !narrow ? "with-queue" : ""} ${collapsed ? "side-collapsed" : ""} ${compact ? "compact" : ""}`}>
         <TopBar name={name} image={image} onLogout={onLogout} onSearch={openPalette} onShortcuts={shortcuts.openList} />
         <Sidebar collapsed={collapsed} onExpand={toggleSidebar} />
-        <main className="main panel" key={route.page === "search" ? "search" : key}>
+        <main ref={setMain} className="main panel" key={route.page === "search" ? "search" : key}>
           {route.page === "home" && <Home />}
           {route.page === "explore" && <ExploreView />}
           {route.page === "search" && <Search term={route.term} tab={route.tab} />}
@@ -208,6 +211,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
           {route.page === "browse" && <BrowseView uri={route.uri} />}
           {route.page === "cards" && <CardsView source={route.source} uri={route.uri} title={route.title} />}
         </main>
+        <FloatingScrollbar target={main} />
         {overlay && <div className="panel-scrim" onMouseDown={() => setPanel(null)} />}
         {panel === "queue" && <QueuePanel onClose={() => setPanel(null)} />}
         <PlayerBar panel={panel} onPanel={togglePanel} />

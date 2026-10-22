@@ -43,6 +43,41 @@
   grid-area: main;
   overflow-y: auto;
   position: relative;
+  /* FloatingScrollbar draws the bar over the page, so the page reaches the panel's edge. */
+  scrollbar-width: none;
+}
+
+.floating-scrollbar {
+  grid-area: main;
+  justify-self: end;
+  align-self: stretch;
+  z-index: 3;
+  width: 14px;
+  margin: var(--margin) 4px var(--margin) 0;
+  opacity: 0;
+  transition: opacity var(--t-mid) var(--ease-out);
+}
+
+.floating-scrollbar:hover,
+.floating-scrollbar.on {
+  opacity: 1;
+}
+
+.floating-thumb {
+  width: 6px;
+  margin-left: auto;
+  margin-right: 2px;
+  border-radius: var(--r-pill);
+  background: var(--scrollbar);
+  transition:
+    width var(--t-fast),
+    background var(--t-fast);
+}
+
+.floating-scrollbar:hover .floating-thumb,
+.floating-scrollbar.on:active .floating-thumb {
+  width: 10px;
+  background: var(--scrollbar-hover);
 }
 
 /* Below 1200px the right-hand panel slides over the page from the right, the rest dimmed. */
