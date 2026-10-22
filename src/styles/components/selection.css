@@ -7,7 +7,17 @@
 .track-row.selected,
 .track-row.selected:hover {
   background: var(--surface-3);
-  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* Selected rows next to each other make one block: round corners only at its ends. */
+.track-row.selected + .track-row.selected {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.track-row.selected:has(+ .track-row.selected) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 /* A selected row shows a ticked box where its number was. */
