@@ -20,6 +20,7 @@ import { useNav } from "../state/nav";
 import {
   dayPart,
   finished,
+  FOR_NOW_MAX,
   FOR_NOW_MIN,
   forNow,
   historyReady,
@@ -75,7 +76,8 @@ export function Home({ name }: { name: string }) {
   const [first, ...rest] = data.sections;
   const shortcuts = first && !first.title ? first.cards.slice(0, 8) : [];
   const sections = shortcuts.length ? rest : data.sections;
-  const hasForNow = forNowUris.length >= FOR_NOW_MIN;
+  // Counted on the cards that can still show: one that failed to load does not keep it up.
+  const hasForNow = forNowUris.filter((u) => forNowCards.get(u) !== null).length >= FOR_NOW_MIN;
 
   const rows: Row[] = [
     ...(hasForNow ? [{ id: FOR_NOW_ID, title: "For now", type: "forNow" as const }] : []),
@@ -116,7 +118,7 @@ export function Home({ name }: { name: string }) {
         .filter((r) => !layout.hidden.includes(r.id))
         .map((r) =>
           r.type === "forNow" ? (
-            <ForNow key={r.id} at={slot} cards={forNowUris.map((u) => forNowCards.get(u)).filter((c): c is ContextCard => !!c)} />
+            <ForNow key={r.id} at={slot} cards={forNowUris.map((u) => forNowCards.get(u)).filter((c): c is ContextCard => !!c).slice(0, FOR_NOW_MAX)} />
           ) : r.type === "shortcuts" ? (
             <ShelfRow key={r.id} title={r.title} note="picked by Spotify" rowClass="tiles">
               {shortcuts.map((c) => (
@@ -205,16 +207,16 @@ async function contextCard(uri: string): Promise<ContextCard> {
   };
 }
 
-/** The cards of these contexts as they arrive; one that fails to load is left out. */
-function useContextCards(uris: string[]): Map<string, ContextCard> {
-  const [cards, setCards] = useState(() => new Map<string, ContextCard>());
+/** The cards of these contexts as they arrive; null for one that failed to load. */
+function useContextCards(uris: string[]): Map<string, ContextCard | null> {
+  const [cards, setCards] = useState(() => new Map<string, ContextCard | null>());
   const key = uris.join(" ");
   useEffect(() => {
     let live = true;
     for (const uri of uris) {
       contextCard(uri)
         .then((c) => live && setCards((m) => new Map(m).set(uri, c)))
-        .catch(() => {});
+        .catch(() => live && setCards((m) => new Map(m).set(uri, null)));
     }
     return () => {
       live = false;
@@ -275,7 +277,8 @@ function useContinuing(enabled: boolean, log: Log): Halfway[] {
       live = false;
     };
   }, [enabled]);
-  const spots = enabled ? leftHalfway(log, Date.now()).slice(0, CONTINUE_MAX) : [];
+  // Twice the room: some turn out finished once their length is in, and drop out.
+  const spots = enabled ? leftHalfway(log, Date.now()).slice(0, 2 * CONTINUE_MAX) : [];
   const cards = useContextCards(spots.map(([c]) => c));
   if (!enabled) return [];
   const contexts: Halfway[] = spots.flatMap(([uri, spot]) => {

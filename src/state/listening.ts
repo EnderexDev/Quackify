@@ -180,8 +180,10 @@ export function leftHalfway(log: Log, now: number): [string, Spot][] {
     .sort((a, b) => b[1].at - a[1].at);
 }
 
-/** Whether a spot is at the very end of its context, once its length is known. */
-export const finished = (s: Spot, total: number) => s.index !== null && s.index >= total - 1 && s.pos >= s.dur - END_MS;
+/** Whether a spot is at the very end of its context, once its length is known. Not told while
+ * shuffling: the last row is not the last song heard then. */
+export const finished = (s: Spot, total: number) =>
+  !s.shuffle && s.index !== null && s.index >= total - 1 && s.pos >= s.dur - END_MS;
 
 // ---- The store ----
 
@@ -210,6 +212,8 @@ export function observe(s: Sample) {
     prev.track === s.track &&
     prev.playing === s.playing &&
     prev.index === s.index &&
+    prev.dur === s.dur &&
+    prev.shuffle === s.shuffle &&
     Math.abs(prev.pos + (prev.playing ? s.now - prev.now : 0) - s.pos) < 2000
   ) {
     last = prev;
