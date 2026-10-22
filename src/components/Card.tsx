@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Card as CardData } from "../api/types";
 import { play } from "../api/spotify";
+import { DRAGGABLE, dragCard } from "../state/drag";
 import { useNav } from "../state/nav";
 import { kindLabel, TAGGED_KINDS } from "../util/kinds";
 import { usePlayer } from "../state/player";
@@ -32,6 +33,9 @@ export function Card({
   const isTrack = card.kind === "track" || card.kind === "episode";
   const isCurrent = isTrack ? player.track?.uri === card.uri : player.contextUri === card.uri;
   const openMenu = useContextMenu();
+  // A card can be dragged to the queue or onto a playlist, as a whole (not a removable one).
+  const canDrag = DRAGGABLE.has(card.kind) && !onRemove;
+  const [dragging, setDragging] = useState(false);
 
   const onPlay = () => {
     onPick?.();
@@ -41,7 +45,13 @@ export function Card({
 
   return (
     <div
-      className="card"
+      className={`card ${dragging ? "dragged" : ""}`}
+      draggable={canDrag}
+      onDragStart={(e) => {
+        dragCard(e, card);
+        setDragging(true);
+      }}
+      onDragEnd={() => setDragging(false)}
       onClick={() => (isTrack ? onPlay() : (onPick?.(), nav.open(card.uri, card.title)))}
       onContextMenu={onMenu ?? cardMenuHandler(card, nav, openMenu)}
       title={card.title}

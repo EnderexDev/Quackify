@@ -9,6 +9,7 @@ import { CompactIcon, GridIcon, GroupIcon, ListIcon, PinIcon, PlusIcon, SearchIc
 import { pressable, useLibraryActions, useLibraryPages, usePersisted } from "../components/libraryItems";
 import { Segmented } from "../components/Segmented";
 import { NEW_PLAYLIST_EVENT } from "../components/Sidebar";
+import { DRAGGABLE, dragCard } from "../state/drag";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
 import { formatAgo } from "../util/format";
@@ -224,10 +225,12 @@ function Items({ view, items, actions }: { view: View; items: CardData[]; action
         return (
           <div
             key={c.uri}
-            className={`library-row ${actions.dropOn === c.uri ? "drop-target" : ""}`}
+            className={`library-row ${actions.dropOn === c.uri ? "drop-target" : actions.candidate(c) ? "drop-candidate" : ""}`}
             title={c.title}
             onClick={() => nav.open(c.uri, c.title)}
             {...pressable(() => nav.open(c.uri, c.title))}
+            draggable={DRAGGABLE.has(c.kind)}
+            onDragStart={(e) => dragCard(e, c)}
             onContextMenu={(e) => actions.onMenu(e, c)}
             {...actions.dropProps(c)}
           >

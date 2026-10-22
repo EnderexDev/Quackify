@@ -491,3 +491,85 @@
 .progress-live.sounding .slider-track {
   opacity: 0;
 }
+
+/* ---- Dragging songs, an album or a playlist: the bar becomes two drop zones ---- */
+
+.pb-drop {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--glass-strong) 82%, transparent);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  animation: pb-drop-in var(--t-fast) var(--ease-out);
+}
+
+@keyframes pb-drop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.pb-drop-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-width: 0;
+  border: 1.5px dashed color-mix(in srgb, var(--text) 35%, transparent);
+  border-radius: 16px;
+  color: var(--muted);
+  transition:
+    border-color var(--t-fast),
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.pb-drop-zone.on {
+  border-color: var(--text);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.pb-drop-zone span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pb-drop-zone strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pb-drop-zone small {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* What could take the songs being dragged, marked in the sidebar and the library. */
+.side-leaf.drop-candidate,
+.side-cat.drop-candidate,
+.library-row.drop-candidate,
+.library-item.drop-candidate {
+  outline: 1.5px dashed color-mix(in srgb, var(--text) 35%, transparent);
+  outline-offset: -1px;
+}
+
+.side-pin-big.drop-candidate .cover {
+  outline: 1.5px dashed var(--muted);
+  outline-offset: 2px;
+}
+
+/* The card being dragged stays in place, faded. */
+.card.dragged {
+  opacity: 0.4;
+}

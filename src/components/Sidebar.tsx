@@ -6,6 +6,7 @@ import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
 import { notifyLibraryChanged, onLibraryChanged } from "../state/saved";
 import { toast } from "../state/toast";
+import { DRAGGABLE, dragCard } from "../state/drag";
 import { useAsync } from "../util/useAsync";
 import { Cover } from "./Cover";
 import { ChevronDownIcon, ChevronRightIcon, DiscIcon, HeartIcon, LibraryIcon, PinIcon, PlaylistIcon, PlusIcon, PodcastIcon, SearchIcon, UserIcon } from "./icons";
@@ -186,7 +187,9 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
                     return (
                       <button
                         key={c.uri}
-                        className={`side-pin-big ${playing ? "playing" : ""} ${actions.dropOn === c.uri ? "drop-target" : ""}`}
+                        className={`side-pin-big ${playing ? "playing" : ""} ${actions.dropOn === c.uri ? "drop-target" : actions.candidate(c) ? "drop-candidate" : ""}`}
+                        draggable={DRAGGABLE.has(c.kind)}
+                        onDragStart={(e) => dragCard(e, c)}
                         title={c.title}
                         aria-label={c.title}
                         onClick={() => nav.open(c.uri, c.title)}
@@ -270,7 +273,9 @@ function Tree({
     <div ref={tree} className="side-tree">
       {bar && <span className="side-indicator" style={{ transform: `translateY(${bar.y}px)`, height: bar.h }} />}
       <div
-        className={`side-cat ${likedOpen ? "open" : ""} ${actions.dropOn === LIKED.uri ? "drop-target" : ""}`}
+        className={`side-cat ${likedOpen ? "open" : ""} ${actions.dropOn === LIKED.uri ? "drop-target" : actions.candidate(LIKED) ? "drop-candidate" : ""}`}
+        draggable
+        onDragStart={(e) => dragCard(e, LIKED)}
         style={{ "--kind": LIKED_TINT } as React.CSSProperties}
         onClick={() => nav.open(LIKED.uri)}
         {...pressable(() => nav.open(LIKED.uri))}
@@ -371,7 +376,9 @@ function Branch({
         return (
           <div key={c.uri} className="side-leaf-group" style={{ "--i": i } as React.CSSProperties}>
             <div
-              className={`side-leaf ${openUri === c.uri ? "open" : ""} ${playing ? "playing" : ""} ${actions.dropOn === c.uri ? "drop-target" : ""}`}
+              className={`side-leaf ${openUri === c.uri ? "open" : ""} ${playing ? "playing" : ""} ${actions.dropOn === c.uri ? "drop-target" : actions.candidate(c) ? "drop-candidate" : ""}`}
+              draggable={DRAGGABLE.has(c.kind)}
+              onDragStart={(e) => dragCard(e, c)}
               title={c.title}
               onClick={() => (isFolder ? toggle(c.uri) : nav.open(c.uri, c.title))}
               {...pressable(() => (isFolder ? toggle(c.uri) : nav.open(c.uri, c.title)))}
@@ -450,7 +457,9 @@ function LibrarySearch({
         {pages.items.map((c) => (
           <div
             key={c.uri}
-            className={`library-item ${openUri === c.uri ? "open" : ""} ${actions.dropOn === c.uri ? "drop-target" : ""}`}
+            className={`library-item ${openUri === c.uri ? "open" : ""} ${actions.dropOn === c.uri ? "drop-target" : actions.candidate(c) ? "drop-candidate" : ""}`}
+            draggable={DRAGGABLE.has(c.kind)}
+            onDragStart={(e) => dragCard(e, c)}
             onClick={() => nav.open(c.uri, c.title)}
             {...pressable(() => nav.open(c.uri, c.title))}
             onContextMenu={(e) => actions.onMenu(e, c)}

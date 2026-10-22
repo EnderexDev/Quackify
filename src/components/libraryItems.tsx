@@ -8,7 +8,8 @@ import { useNav } from "../state/nav";
 import { markSaved, notifyLibraryChanged, onLibraryChanged } from "../state/saved";
 import { toast } from "../state/toast";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
-import { addAll, cardMenu, TRACKS_MIME } from "./menus";
+import { carriesSongs, droppedSongs, readDrop, useDrag, type DragItem } from "../state/drag";
+import { addAll, cardMenu } from "./menus";
 
 /** A setting of Your Library kept for the next start. Storage that fails only loses the
  * memory: the choice still applies. */
@@ -202,35 +203,35 @@ export function useLibraryActions(onPinned?: () => void) {
     );
   };
 
+  const drag = useDrag();
   const takesSongs = (c: Card) => c.kind === "playlist" || c.kind === "liked";
-  const dropSongs = (c: Card, data: string) => {
-    let parsed: unknown;
+  // A playlist is not dropped on itself.
+  const takes = (c: Card, d: DragItem | null) => takesSongs(c) && !(d?.kind === "context" && d.uri === c.uri);
+  const dropSongs = async (c: Card, e: { dataTransfer: DataTransfer }) => {
     try {
-      parsed = JSON.parse(data);
-    } catch {
-      return;
-    }
-    // Only a list of song or episode URIs is taken.
-    if (!Array.isArray(parsed)) return;
-    const uris = parsed.filter((u): u is string => typeof u === "string" && /^spotify:(track|episode):\w+$/.test(u));
-    if (!uris.length) return;
-    const n = uris.length === 1 ? "1 song" : `${uris.length} songs`;
-    if (c.kind === "liked") {
-      save(uris).then(() => {
+      const uris = await droppedSongs(e, Number.POSITIVE_INFINITY);
+      if (!uris.length) return;
+      const n = uris.length === 1 ? "1 song" : `${uris.length} songs`;
+      if (c.kind === "liked") {
+        await save(uris);
         uris.forEach((u) => markSaved(u, true));
         notifyLibraryChanged();
         toast(`Saved ${n} to Liked Songs`);
-      }, toast);
-    } else {
-      // Spotify refuses it for a playlist that is not yours; the toast says so.
-      addAll(c.uri, uris).then(() => toast(`Added ${n} to ${c.title}`), toast);
+      } else {
+        // Spotify refuses it for a playlist that is not yours; the toast says so.
+        await addAll(c.uri, uris);
+        toast(`Added ${n} to ${c.title}`);
+      }
+    } catch (err) {
+      toast(err);
     }
   };
 
-  /** Handlers that make an item take dropped songs; `dropOn` is the item under the drag. */
+  /** Handlers that make an item take dropped songs or a dropped album or playlist; `dropOn`
+   * is the item under the drag, `candidate` an item that would take what is being dragged. */
   const dropProps = (c: Card) => ({
     onDragOver: (e: React.DragEvent) => {
-      if (!takesSongs(c) || !e.dataTransfer.types.includes(TRACKS_MIME)) return;
+      if (!takes(c, drag) || !carriesSongs(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
       setDropOn(c.uri);
@@ -238,12 +239,12 @@ export function useLibraryActions(onPinned?: () => void) {
     onDragLeave: () => setDropOn((d) => (d === c.uri ? null : d)),
     onDrop: (e: React.DragEvent) => {
       setDropOn(null);
-      const data = e.dataTransfer.getData(TRACKS_MIME);
-      if (!takesSongs(c) || !data) return;
+      if (!takes(c, drag) || !carriesSongs(e)) return;
       e.preventDefault();
-      dropSongs(c, data);
+      dropSongs(c, readDrop(e));
     },
   });
+  const candidate = (c: Card) => drag !== null && takes(c, drag);
 
-  return { onMenu, dropProps, dropOn };
+  return { onMenu, dropProps, dropOn, candidate };
 }

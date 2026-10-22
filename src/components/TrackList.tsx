@@ -12,6 +12,7 @@ import { Cover } from "./Cover";
 import { CheckIcon, ClockIcon, CloseIcon, HeartIcon, HeartOutlineIcon, MoreIcon, PauseIcon, PlayIcon, PlaylistAddIcon, QueueIcon } from "./icons";
 import { LikeButton } from "./LikeButton";
 import { TRACKS_MIME, trackMenu, tracksMenu } from "./menus";
+import { beginDrag } from "../state/drag";
 
 /**
  * Track rows. Double-click a row, or click its number, to play it; `onPlay` gets the row index
@@ -362,6 +363,7 @@ function TrackRow({
         e.dataTransfer.effectAllowed = "copyMove";
         e.dataTransfer.setData(TRACKS_MIME, JSON.stringify(rows.map((r) => r.uri)));
         e.dataTransfer.setData("text/plain", rows.map((r) => r.name).join(", "));
+        beginDrag({ kind: "tracks", uris: rows.map((r) => r.uri), label: rows.length === 1 ? rows[0].name : `${rows.length} songs` });
         drag.start();
       }}
       onDragOver={(e) => {

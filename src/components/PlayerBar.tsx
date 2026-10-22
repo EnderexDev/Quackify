@@ -9,6 +9,7 @@ import { useProgressMode } from "../state/meter";
 import { useNav } from "../state/nav";
 import { usePlayer, type NowPlaying } from "../state/player";
 import { playerLyrics } from "../state/prefs";
+import { carriesSongs, droppedSongs, queueSongs, readDrop, useDrag } from "../state/drag";
 import { useSaved } from "../state/saved";
 import { sleepLabel, sleepMenu, useSleep, useSleepTimer } from "../state/sleep";
 import { toast } from "../state/toast";
@@ -105,6 +106,7 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
   return (
     <footer className={`playerbar ${p.remoteDevice ? "remote" : ""} ${t && !p.playing ? "paused" : ""} ${t ? "" : "idle"} ${episode ? "episode" : ""}`}>
       <RemotePill />
+      <QueueDrop />
       <div className="pb-left" onContextMenu={songMenu}>
         {t && (
           <>
@@ -385,5 +387,66 @@ function VolumePercent({
       />
       %
     </label>
+  );
+}
+
+/**
+ * While songs, an album or a playlist are dragged, the bar turns into two drop zones: play them
+ * right after the song playing, or add them at the end of the queue.
+ */
+function QueueDrop() {
+  const drag = useDrag();
+  const p = usePlayer();
+  const [over, setOver] = useState<"next" | "end" | null>(null);
+  // The queue as it is when the songs land (the drop runs on after this render).
+  const queue = useRef(p.queue);
+  queue.current = p.queue;
+  useEffect(() => setOver(null), [drag]);
+  if (!drag) return null;
+  const queued = p.queue.filter((q) => q.provider === "queue").length;
+  const drop = async (where: "next" | "end", e: React.DragEvent) => {
+    if (!carriesSongs(e)) return;
+    e.preventDefault();
+    setOver(null);
+    const data = readDrop(e);
+    try {
+      const uris = await droppedSongs(data);
+      if (!uris.length) return toast("Nothing there to add to the queue");
+      const went = await queueSongs(uris, where === "next", () => queue.current);
+      const n = uris.length === 1 ? "1 song" : `${uris.length} songs`;
+      toast(went === "next" ? `${n} will play next` : `Added ${n} to the queue`);
+    } catch (err) {
+      toast(err);
+    }
+  };
+  const zone = (where: "next" | "end", icon: React.ReactNode, title: string, note: string) => (
+    <div
+      className={`pb-drop-zone ${over === where ? "on" : ""}`}
+      onDragOver={(e) => {
+        if (!carriesSongs(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setOver(where);
+      }}
+      onDragLeave={() => setOver((o) => (o === where ? null : o))}
+      onDrop={(e) => drop(where, e)}
+    >
+      {icon}
+      <span>
+        <strong>{title}</strong>
+        <small>{note}</small>
+      </span>
+    </div>
+  );
+  return (
+    <div className="pb-drop">
+      {zone("next", <NextIcon size={20} />, "Play next", p.track ? `Right after ${p.track.name}` : "Before the rest of the queue")}
+      {zone(
+        "end",
+        <QueueIcon size={20} />,
+        "Add to the end of the queue",
+        queued ? `After the ${queued === 1 ? "song" : `${queued} songs`} already there` : "Your queue is empty",
+      )}
+    </div>
   );
 }
