@@ -182,17 +182,26 @@ export function ProgressBar({
   );
 }
 
+/** Wave: how far under the song's loudest a bar can be and still show (about 25 dB of the 30 a bar's value spans). */
+const WAVE_RANGE = 0.85;
 /**
- * Thin bars as tall as the song is loud there, stretched to the song's own range so its shape
- * shows; a short stub where it has not been heard yet. The range runs from its 15% quietest to
- * its 2% loudest stretches: a loud master varies only a dB or two after its intro, and a plain
- * minimum to maximum would leave all of that at the top.
+ * Wave: the curve over that range; above 1 it spreads out the small differences near the top.
+ * Steeper made a song's quieter intro (6 to 10 dB under the rest) look like dots, the same as
+ * silence and as stretches not heard yet.
+ */
+const WAVE_CURVE = 1.5;
+/** Wave: the shortest heard bar, as a share of the height (an unheard one is a 2 px stub); only near silence gets it. */
+const WAVE_MIN = 0.15;
+
+/**
+ * Thin bars as tall as the song is loud there, in decibels under the song's own loudest (its
+ * 2% loudest stretch), with a curve that spreads out the top: a loud master varies a dB or two
+ * after its intro, and that still shows, while a quieter intro stays near half the height
+ * rather than vanishing. A short stub where it has not been heard yet.
  */
 function drawWave(ctx: CanvasRenderingContext2D, w: number, h: number, played: number, bins: Float32Array | null) {
   const heard = bins ? Array.from(bins).filter((v) => v > 0).sort((a, b) => a - b) : [];
-  const lo = heard.length ? heard[Math.floor(heard.length * 0.15)] : 0;
-  const hi = heard.length ? heard[Math.min(heard.length - 1, Math.floor(heard.length * 0.98))] : 0;
-  const span = hi - lo;
+  const top = heard.length ? heard[Math.min(heard.length - 1, Math.floor(heard.length * 0.98))] : 0;
   const step = w / WAVE_BINS;
   const bar = Math.max(1.5, step * 0.5);
   const mid = h / 2;
@@ -200,8 +209,8 @@ function drawWave(ctx: CanvasRenderingContext2D, w: number, h: number, played: n
     const v = bins ? bins[i] : 0;
     let bh = 2;
     if (v > 0) {
-      const t = span > 0.02 ? Math.min(1, Math.max(0, (v - lo) / span)) : 0.6;
-      bh = Math.max(3, (0.14 + 0.86 * Math.pow(t, 1.6)) * (h - 2));
+      const t = Math.min(1, Math.max(0, (v - (top - WAVE_RANGE)) / WAVE_RANGE));
+      bh = Math.max(3, Math.max(WAVE_MIN, Math.pow(t, WAVE_CURVE)) * (h - 2));
     }
     const x = i * step + (step - bar) / 2;
     ctx.fillStyle = x + bar / 2 <= played ? PLAYED : AHEAD;
