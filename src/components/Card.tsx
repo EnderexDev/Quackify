@@ -1,11 +1,13 @@
 import type { Card as CardData } from "../api/types";
 import { play } from "../api/spotify";
 import { useNav } from "../state/nav";
+import { kindLabel, TAGGED_KINDS } from "../util/kinds";
 import { usePlayer } from "../state/player";
 import { toast } from "../state/toast";
 import { useContextMenu } from "./ContextMenu";
 import { cardMenuHandler } from "./menus";
 import { Cover } from "./Cover";
+import { PinIcon } from "./icons";
 import { PlayButton } from "./PlayButton";
 
 /**
@@ -17,7 +19,6 @@ export function Card({ card, onPick, onRemove }: { card: CardData; onPick?: () =
   const player = usePlayer();
   const isTrack = card.kind === "track" || card.kind === "episode";
   const isCurrent = isTrack ? player.track?.uri === card.uri : player.contextUri === card.uri;
-  const round = card.kind === "artist" || card.kind === "user";
   const openMenu = useContextMenu();
 
   const onPlay = () => {
@@ -34,7 +35,13 @@ export function Card({ card, onPick, onRemove }: { card: CardData; onPick?: () =
       title={card.title}
     >
       <div className="card-art">
-        <Cover src={card.image} round={round} liked={card.kind === "liked"} />
+        <Cover src={card.image} kind={card.kind} shaped />
+        {TAGGED_KINDS.has(card.kind) && <span className="card-tag">{kindLabel(card)}</span>}
+        {card.pinned && !onRemove && (
+          <span className="card-pin" title="Pinned">
+            <PinIcon size={13} />
+          </span>
+        )}
         <PlayButton className="card-play" playing={isCurrent && player.playing} onClick={onPlay} />
         {onRemove && (
           <button

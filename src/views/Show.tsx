@@ -31,7 +31,7 @@ export function ShowView({ uri }: { uri: string }) {
   return (
     <div className="page collection show" style={{ ["--tint" as string]: s.color ?? "#3a3a3a" }}>
       <header className="hero">
-        <Cover src={s.image} className="hero-cover" />
+        <Cover src={s.image} kind="show" shaped className="hero-cover" />
         <div className="hero-text">
           <span className="hero-kind">Podcast</span>
           <h1 className={`hero-title ${s.name.length > 28 ? "long" : ""}`}>{s.name}</h1>

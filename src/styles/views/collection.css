@@ -23,12 +23,7 @@
   width: 216px;
   height: 216px;
   flex: none;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55);
-}
-
-.hero-cover.cover-liked svg {
-  width: 72px;
-  height: 72px;
+  --cover-shadow: 0 12px 48px rgba(0, 0, 0, 0.55);
 }
 
 .hero-text {

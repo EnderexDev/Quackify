@@ -7,6 +7,7 @@ import type { Card, SearchResults, Track } from "../api/types";
 import { useNav } from "../state/nav";
 import { toast } from "../state/toast";
 import { formatDuration } from "../util/format";
+import { kindLabel } from "../util/kinds";
 import { useContextMenu } from "./ContextMenu";
 import { Cover } from "./Cover";
 import { CloseIcon, MoreIcon, PlayIcon, QueueIcon, SearchIcon } from "./icons";
@@ -15,17 +16,6 @@ import { cardMenu, trackMenu } from "./menus";
 const DEBOUNCE_MS = 200;
 const MAX_RESULTS = 5;
 
-const KIND_LABEL: Record<Card["kind"], string> = {
-  playlist: "Playlist",
-  album: "Album",
-  artist: "Artist",
-  liked: "Playlist",
-  track: "Song",
-  show: "Podcast",
-  episode: "Episode",
-  user: "Profile",
-  folder: "Folder",
-};
 
 /** One line of the palette: a result, a recent search or a command. */
 type Item = {
@@ -46,7 +36,7 @@ export type PaletteCommand = { label: string; keys?: string; run: () => void };
 
 /** "Album · The Mallards", "Song · Lua Teal · 2:57". */
 function describe(card: Card): string {
-  const kind = KIND_LABEL[card.kind];
+  const kind = kindLabel(card);
   if (card.kind === "artist" || card.kind === "user" || !card.subtitle) return kind;
   // Spotify's top result already starts with its kind ("Song • A2O"): not said twice.
   const parts = card.subtitle.split(" • ");
@@ -310,7 +300,7 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
                 onClick={item.run}
               >
                 {card ? (
-                  <Cover src={item.image ?? null} round={item.round} liked={card.kind === "liked"} className="palette-cover" />
+                  <Cover src={item.image ?? null} kind={item.round ? "artist" : card.kind} className="palette-cover" />
                 ) : (
                   <span className="palette-cover palette-cmd">&gt;</span>
                 )}

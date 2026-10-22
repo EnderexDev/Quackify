@@ -39,13 +39,6 @@
   text-overflow: ellipsis;
 }
 
-.folder-cover {
-  display: grid;
-  place-items: center;
-  background: var(--panel-2);
-  color: var(--muted);
-}
-
 .library-sub .pin {
   color: var(--text);
   margin-right: 4px;

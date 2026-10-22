@@ -97,6 +97,7 @@ export function toCard(x: Raw): Card | null {
       return {
         uri,
         kind: "album",
+        albumType: type === "SINGLE" ? "single" : type === "EP" ? "ep" : undefined,
         title: d.name ?? "",
         subtitle: [lead, names(d.artists).map((a) => a.name).join(", ")].filter(Boolean).join(" • "),
         image: imageOf(d),
@@ -396,6 +397,7 @@ export function toAlbum(data: Raw): Collection {
   return {
     uri: a?.uri ?? "",
     kind: "album",
+    albumType: a?.type === "SINGLE" ? "single" : a?.type === "EP" ? "ep" : undefined,
     title: a?.name ?? "",
     description: [a?.type ? a.type[0] + a.type.slice(1).toLowerCase() : "", a?.date?.isoString?.slice(0, 4)]
       .filter(Boolean)

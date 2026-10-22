@@ -134,7 +134,7 @@ function SongInfo({ t }: { t: NowPlaying }) {
 
       {artist && (
         <div className="song-artist" onClick={() => artist.uri && nav.open(artist.uri)}>
-          <Cover src={artist.image} round className="song-artist-image" />
+          <Cover src={artist.image} kind="artist" className="song-artist-image" />
           <div className="song-artist-text">
             <div className="song-artist-name">
               {artist.name}

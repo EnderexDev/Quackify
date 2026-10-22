@@ -16,6 +16,7 @@ import { usePlayer } from "../state/player";
 import { notifyLibraryChanged } from "../state/saved";
 import { toast } from "../state/toast";
 import { formatCount, formatDuration } from "../util/format";
+import { kindLabel } from "../util/kinds";
 import { useAsync } from "../util/useAsync";
 import { Failed, Loading } from "./common";
 
@@ -41,7 +42,6 @@ const COMPARE: Record<Exclude<Sort, "custom">, (a: Track, b: Track) => number> =
   duration: (a, b) => a.durationMs - b.durationMs,
 };
 
-const KIND_LABEL = { playlist: "Playlist", album: "Album", liked: "Playlist", artist: "Artist", track: "Song", show: "Podcast", episode: "Episode", user: "Profile", folder: "Folder" } as const;
 
 /** A playlist, album or Liked Songs: header, play button, and every track (paged on scroll). */
 export function Collection({ uri }: { uri: string }) {
@@ -234,9 +234,9 @@ function Loaded({ first }: { first: Data }) {
   return (
     <div className="page collection" style={{ ["--tint" as string]: color }}>
       <header className="hero">
-        <Cover src={first.image} liked={first.kind === "liked"} className="hero-cover" />
+        <Cover src={first.image} kind={first.kind} shaped className="hero-cover" />
         <div className="hero-text">
-          <span className="hero-kind">{KIND_LABEL[first.kind]}</span>
+          <span className="hero-kind">{kindLabel(first)}</span>
           <h1
             className={`hero-title ${title.length > 28 ? "long" : ""} ${own ? "editable" : ""}`}
             onClick={() => own && setDialog("edit")}

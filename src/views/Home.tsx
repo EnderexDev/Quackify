@@ -49,7 +49,7 @@ function Shortcut({ card }: { card: CardData }) {
   const isCurrent = player.contextUri === card.uri;
   return (
     <div className="shortcut" onClick={() => nav.open(card.uri)} title={card.title}>
-      <Cover src={card.image} round={card.kind === "artist"} liked={card.kind === "liked"} className="shortcut-cover" />
+      <Cover src={card.image} kind={card.kind} className="shortcut-cover" />
       <span className={`shortcut-title ${isCurrent ? "accent" : ""}`}>{card.title}</span>
       <PlayButton
         size={36}

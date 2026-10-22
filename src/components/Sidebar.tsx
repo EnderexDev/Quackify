@@ -8,7 +8,7 @@ import { markSaved, notifyLibraryChanged, onLibraryChanged } from "../state/save
 import { toast } from "../state/toast";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
 import { Cover } from "./Cover";
-import { BackIcon, DiscIcon, FolderIcon, HeartIcon, LibraryIcon, PinIcon, PlaylistIcon, PlusIcon, PodcastIcon, SearchIcon, UserIcon } from "./icons";
+import { BackIcon, DiscIcon, HeartIcon, LibraryIcon, PinIcon, PlaylistIcon, PlusIcon, PodcastIcon, SearchIcon, UserIcon } from "./icons";
 import { addAll, cardMenu, TRACKS_MIME } from "./menus";
 import { areSaved } from "../api/library";
 
@@ -230,13 +230,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
               onClick={() => open(c)}
               onContextMenu={(e) => onMenu(e, c)}
             >
-              {c.kind === "folder" ? (
-                <div className="cover folder-cover">
-                  <FolderIcon size={18} />
-                </div>
-              ) : (
-                <Cover src={c.image} round={c.kind === "artist"} liked={c.kind === "liked"} />
-              )}
+              <Cover src={c.image} kind={c.kind} />
             </button>
           ))}
         </div>
@@ -374,13 +368,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
               onContextMenu={(e) => onMenu(e, c)}
               title={c.title}
             >
-              {c.kind === "folder" ? (
-                <div className="cover library-cover folder-cover">
-                  <FolderIcon size={22} />
-                </div>
-              ) : (
-                <Cover src={c.image} round={c.kind === "artist"} liked={c.kind === "liked"} className="library-cover" />
-              )}
+              <Cover src={c.image} kind={c.kind} className="library-cover" />
               <div className="library-text">
                 <div className={`library-title ${playingHere ? "accent" : ""}`}>{c.title}</div>
                 <div className="library-sub">

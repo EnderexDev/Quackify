@@ -8,6 +8,7 @@ import { TrackList } from "../components/TrackList";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
 import { toast } from "../state/toast";
+import { kindLabel } from "../util/kinds";
 import { useAsync } from "../util/useAsync";
 import { BrowseAll } from "./Browse";
 import { Failed, Loading } from "./common";
@@ -197,10 +198,10 @@ function Results({ term }: { term: string }) {
                 nav.open(top.uri);
               }}
             >
-              <Cover src={top.image} round={top.kind === "artist"} className="top-cover" />
+              <Cover src={top.image} kind={top.kind} shaped className="top-cover" />
               <div className="top-title">{top.title}</div>
               <div className="top-sub">
-                <span className="pill">{top.kind[0].toUpperCase() + top.kind.slice(1)}</span>
+                <span className="pill">{kindLabel(top)}</span>
                 {top.kind !== "artist" && <span className="muted">{top.subtitle}</span>}
               </div>
               <PlayButton

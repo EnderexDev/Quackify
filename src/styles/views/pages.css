@@ -102,35 +102,71 @@
 
 .card {
   padding: 10px;
-  border-radius: 8px;
+  border-radius: 16px;
   cursor: pointer;
   min-width: 0;
-  transition: background 0.15s;
+  transition:
+    background var(--t-fast),
+    transform var(--t-mid) var(--ease-out);
 }
 
 .card:hover {
-  background: var(--panel-2);
+  background: var(--surface-2);
+  transform: translateY(-4px);
 }
 
 .card-art {
   position: relative;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  --cover-shadow: var(--shadow-cover);
 }
 
-.card-art .cover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+.card-art .cover:not(.round, .shape-show) {
+  border-radius: 8%;
+}
+
+/* The kind, on the cover's corner: Playlist, Album, Single, EP, Podcast. */
+.card-tag {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  left: 6px;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.card-pin {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
 }
 
 .card-play {
   position: absolute;
+  z-index: 3;
   right: 8px;
   bottom: 8px;
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(8px) scale(0.9);
   transition:
-    opacity 0.15s,
-    transform 0.15s;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+    opacity var(--t-fast),
+    transform var(--t-mid) var(--ease-spring);
+  box-shadow: 0 4px 16px rgba(255, 217, 77, 0.35);
 }
 
 .card:hover .card-play {

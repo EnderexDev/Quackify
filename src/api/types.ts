@@ -14,6 +14,8 @@ export type Card = {
   /** In Your Library: pinned to the top, and whether it can be. */
   pinned?: boolean;
   pinnable?: boolean;
+  /** An album that is a single or an EP: its card's tag says so. */
+  albumType?: "single" | "ep";
 };
 
 export type Track = {
@@ -64,6 +66,7 @@ export type LibrarySort = "Recents" | "Recently Added" | "Alphabetical" | "Creat
 export type Collection = {
   uri: string;
   kind: Kind;
+  albumType?: Card["albumType"];
   title: string;
   description: string;
   owner: string;
