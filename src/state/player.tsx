@@ -254,10 +254,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     ];
     // Listen first, then read the snapshot, so nothing slips between the two.
     Promise.all(offs).then(resync);
-    const onHide = () => flush();
-    window.addEventListener("pagehide", onHide);
+    // Closing to the tray hides the window without unloading it: both count what played so far.
+    const onLeave = () => flush();
+    const onHide = () => document.visibilityState === "hidden" && flush();
+    window.addEventListener("pagehide", onLeave);
+    document.addEventListener("visibilitychange", onHide);
     return () => {
-      window.removeEventListener("pagehide", onHide);
+      window.removeEventListener("pagehide", onLeave);
+      document.removeEventListener("visibilitychange", onHide);
       offs.forEach((o) => o.then((f) => f()));
     };
   }, []);
