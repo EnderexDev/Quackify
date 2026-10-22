@@ -230,7 +230,12 @@ function DiscographyPages({
 function Release({ card, artist: artistName }: { card: CardData; artist: string }) {
   const player = usePlayer();
   const [open, setOpen] = useState(false);
-  const songs = useAsync(() => (open ? collection(card.uri) : Promise.resolve(null)), `${card.uri}:${open}`).data;
+  // A retry is a new key: the failed read is already out of the cache.
+  const [attempt, setAttempt] = useState(0);
+  const { data: songs, error } = useAsync(
+    () => (open ? collection(card.uri) : Promise.resolve(null)),
+    `${card.uri}:${open}:${attempt}`,
+  );
   return (
     <div className={`release ${open ? "open" : ""}`}>
       <div className="release-head" onClick={() => setOpen(!open)} title={card.title}>
@@ -257,6 +262,13 @@ function Release({ card, artist: artistName }: { card: CardData; artist: string 
             contextUri={card.uri}
             onPlay={(i) => play.context(card.uri, songs.tracks[i].uri).catch(toast)}
           />
+        ) : error ? (
+          <p className="muted small release-error">
+            Could not load the songs.{" "}
+            <button className="link" onClick={() => setAttempt((n) => n + 1)}>
+              Try again
+            </button>
+          </p>
         ) : (
           <div className="spinner small" />
         ))}

@@ -219,6 +219,10 @@
   font-size: 13px;
 }
 
+.release-error {
+  margin: 4px 16px 0;
+}
+
 .release-play {
   opacity: 0;
   transition: opacity var(--t-fast);
