@@ -5,7 +5,7 @@ import { openCredits } from "./Credits";
 import type { Card, Named } from "../api/types";
 import { markSaved, notifyLibraryChanged, setSaved } from "../state/saved";
 import { newPlaylist } from "../state/newPlaylist";
-import { toast } from "../state/toast";
+import { notify, toast } from "../state/toast";
 import type { MenuItem } from "./ContextMenu";
 
 type Nav = { open: (uri: string, title?: string) => void };
@@ -19,9 +19,12 @@ export function webLink(uri: string): string {
 /** Copies to the clipboard and says whether it worked. */
 export const copy = (text: string, done = "Link copied") =>
   navigator.clipboard.writeText(text).then(
-    () => toast(done),
+    () => notify(done),
     (e) => toast(e),
   );
+
+/** The toast's way to the playlist something was just added to. */
+const openAction = (nav: Nav, uri: string) => ({ label: "Open", run: () => nav.open(uri) });
 
 /** The player Spotify gives to put a song in a web page. */
 export function embedCode(uri: string): string {
@@ -30,7 +33,7 @@ export function embedCode(uri: string): string {
 }
 
 /** "Add to playlist" for one song: New playlist on top at once, then the user's playlists, ✓ where it already is. */
-export function playlistPicker(track: { uri: string; name?: string }, _nav: Nav): { submenuHead: MenuItem[]; submenu: () => Promise<MenuItem[]> } {
+export function playlistPicker(track: { uri: string; name?: string }, nav: Nav): { submenuHead: MenuItem[]; submenu: () => Promise<MenuItem[]> } {
   return {
     submenuHead: [
       {
@@ -43,7 +46,7 @@ export function playlistPicker(track: { uri: string; name?: string }, _nav: Nav)
       (await editablePlaylists(track.uri)).map((p) => ({
         label: p.name,
         checked: p.contains,
-        onClick: () => addToPlaylist(p.uri, [track.uri]).then(() => toast(`Added to ${p.name}`), toast),
+        onClick: () => addToPlaylist(p.uri, [track.uri]).then(() => notify(`Added to ${p.name}`, { action: openAction(nav, p.uri) }), toast),
       })),
   };
 }
@@ -70,7 +73,7 @@ export function trackMenu(
   return [
     {
       label: "Add to queue",
-      onClick: () => play.addToQueue(track.uri).then(() => toast("Added to queue"), toast),
+      onClick: () => play.addToQueue(track.uri).then(() => notify("Added to queue"), toast),
     },
     { label: "Add to playlist", ...playlistPicker(track, nav) },
     {
@@ -111,7 +114,7 @@ export function trackMenu(
 export const TRACKS_MIME = "application/x-quackify-tracks";
 
 /** The menu for several selected songs at once. `allSaved`: whether every one is liked. */
-export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSaved: boolean | undefined, _nav: Nav): MenuItem[] {
+export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSaved: boolean | undefined, nav: Nav): MenuItem[] {
   // Every selected song goes to a playlist or Liked Songs; the queue only takes ones that play.
   const uris = tracks.map((t) => t.uri);
   const playable = tracks.filter((t) => t.playable !== false).map((t) => t.uri);
@@ -123,7 +126,7 @@ export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSav
         try {
           const queued = playable.slice(0, QUEUE_LIMIT);
           for (const u of queued) await play.addToQueue(u);
-          toast(`Added ${queued.length} ${queued.length === 1 ? "song" : "songs"} to the queue`);
+          notify(`Added ${queued.length} ${queued.length === 1 ? "song" : "songs"} to the queue`);
         } catch (e) {
           toast(e);
         }
@@ -141,7 +144,7 @@ export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSav
       submenu: async () =>
         (await editablePlaylists(uris[0] ?? "")).map((p) => ({
           label: p.name,
-          onClick: () => addAll(p.uri, uris).then(() => toast(`Added ${n} to ${p.name}`), toast),
+          onClick: () => addAll(p.uri, uris).then(() => notify(`Added ${n} to ${p.name}`, { action: openAction(nav, p.uri) }), toast),
         })),
     },
     {
@@ -152,7 +155,7 @@ export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSav
         (want ? save(uris) : unsave(uris)).then(() => {
           uris.forEach((u) => markSaved(u, want));
           notifyLibraryChanged();
-          toast(want ? `Saved ${n} to Liked Songs` : `Removed ${n} from Liked Songs`);
+          notify(want ? `Saved ${n} to Liked Songs` : `Removed ${n} from Liked Songs`);
         }, toast);
       },
     },
@@ -217,7 +220,7 @@ export function collectionMenu(o: {
         try {
           const uris = await o.songs();
           for (const u of uris.slice(0, QUEUE_LIMIT)) await play.addToQueue(u);
-          toast(uris.length > QUEUE_LIMIT ? `Added the first ${QUEUE_LIMIT} songs to the queue` : "Added to queue");
+          notify(uris.length > QUEUE_LIMIT ? `Added the first ${QUEUE_LIMIT} songs to the queue` : "Added to queue");
         } catch (e) {
           toast(e);
         }
@@ -242,7 +245,7 @@ export function collectionMenu(o: {
               o
                 .songs()
                 .then((uris) => addAll(p.uri, uris))
-                .then(() => toast(`Added to ${p.name}`), toast),
+                .then(() => notify(`Added to ${p.name}`, { action: openAction(o.nav, p.uri) }), toast),
           })),
     },
   ];

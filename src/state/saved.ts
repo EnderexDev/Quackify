@@ -66,7 +66,7 @@ export async function setSaved(uri: string, value: boolean) {
     if (before === undefined) known.delete(uri);
     else known.set(uri, before);
     notify();
-    toast(e);
+    toast(e, { label: "Try again", run: () => setSaved(uri, value) });
   }
 }
 

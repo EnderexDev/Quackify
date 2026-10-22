@@ -5,7 +5,7 @@ import { areSaved } from "../api/library";
 import { play, recentSearches, removeRecentSearches, saveRecentSearch, search } from "../api/spotify";
 import type { Card, SearchResults, Track } from "../api/types";
 import { useNav } from "../state/nav";
-import { toast } from "../state/toast";
+import { notify, toast  } from "../state/toast";
 import { formatDuration } from "../util/format";
 import { kindLabel } from "../util/kinds";
 import { useContextMenu } from "./ContextMenu";
@@ -333,7 +333,7 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
                         title="Add to queue"
                         onClick={(e) => {
                           e.stopPropagation();
-                          play.addToQueue(card.uri).then(() => toast("Added to queue"), toast);
+                          play.addToQueue(card.uri).then(() => notify("Added to queue"), toast);
                         }}
                       >
                         <QueueIcon size={16} />

@@ -6,7 +6,7 @@ import { areSaved } from "../api/library";
 import type { Panel } from "../App";
 import type { Nav } from "../state/nav";
 import type { Player } from "../state/player";
-import { toast } from "../state/toast";
+import { notify, toast  } from "../state/toast";
 import { Dialog } from "./Dialog";
 import { newPlaylist } from "../state/newPlaylist";
 import { toggleCinema, toggleMini } from "../state/windows";
@@ -80,7 +80,7 @@ export function useShortcuts(
           return act(() =>
             areSaved([uri]).then(([saved]) => {
               setSaved(uri, !saved);
-              toast(saved ? "Removed from Liked Songs" : "Added to Liked Songs");
+              notify(saved ? "Removed from Liked Songs" : "Added to Liked Songs");
             }, toast),
           );
         }

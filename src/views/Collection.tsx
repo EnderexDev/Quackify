@@ -15,7 +15,7 @@ import { TrackList } from "../components/TrackList";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
 import { notifyLibraryChanged } from "../state/saved";
-import { toast } from "../state/toast";
+import { notify, toast } from "../state/toast";
 import { formatCount, formatLength } from "../util/format";
 import { kindLabel } from "../util/kinds";
 import { useAsync } from "../util/useAsync";
@@ -177,7 +177,7 @@ function Loaded({ first }: { first: Data }) {
     ).then(
       () => {
         setRemoved((n) => n + gone.length);
-        toast(gone.length === 1 ? `Removed from ${title}` : `Removed ${gone.length} songs from ${title}`);
+        notify(gone.length === 1 ? `Removed from ${title}` : `Removed ${gone.length} songs from ${title}`);
       },
       (e) => {
         setTracks(before);

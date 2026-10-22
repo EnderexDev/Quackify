@@ -6,7 +6,7 @@ import { library, pinInLibrary, type LibraryQuery } from "../api/spotify";
 import type { Card } from "../api/types";
 import { useNav } from "../state/nav";
 import { markSaved, notifyLibraryChanged, onLibraryChanged } from "../state/saved";
-import { toast } from "../state/toast";
+import { notify, toast } from "../state/toast";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
 import { carriesSongs, droppedSongs, readDrop, useDrag, type DragItem } from "../state/drag";
 import { addAll, cardMenu } from "./menus";
@@ -183,7 +183,7 @@ export function useLibraryActions(onPinned?: () => void) {
             label: c.pinned ? (c.kind === "folder" ? "Unpin folder" : "Unpin") : c.kind === "folder" ? "Pin folder" : "Pin",
             onClick: () =>
               pinInLibrary(c.uri, !c.pinned).then(() => {
-                toast(c.pinned ? "Unpinned" : "Pinned to the top of Your Library");
+                notify(c.pinned ? "Unpinned" : "Pinned to the top of Your Library");
                 notifyLibraryChanged();
                 onPinned?.();
               }, toast),
@@ -216,11 +216,11 @@ export function useLibraryActions(onPinned?: () => void) {
         await save(uris);
         uris.forEach((u) => markSaved(u, true));
         notifyLibraryChanged();
-        toast(`Saved ${n} to Liked Songs`);
+        notify(`Saved ${n} to Liked Songs`);
       } else {
         // Spotify refuses it for a playlist that is not yours; the toast says so.
         await addAll(c.uri, uris);
-        toast(`Added ${n} to ${c.title}`);
+        notify(`Added ${n} to ${c.title}`, { action: { label: "Open", run: () => nav.open(c.uri, c.title) } });
       }
     } catch (err) {
       toast(err);

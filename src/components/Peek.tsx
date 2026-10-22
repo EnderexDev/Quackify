@@ -9,7 +9,7 @@ import { useNav } from "../state/nav";
 import { closePeek, pressInPeek, usePeekState, type PeekOpen } from "../state/peek";
 import { currentQueue, usePlayer } from "../state/player";
 import { useSaved } from "../state/saved";
-import { toast } from "../state/toast";
+import { notify, toast  } from "../state/toast";
 import { coverColors, GRAPHITE, type CoverColors } from "../util/coverColors";
 import { formatDuration, formatLength } from "../util/format";
 import { kindLabel } from "../util/kinds";
@@ -85,7 +85,7 @@ function PeekPanel({ peek }: { peek: PeekOpen }) {
     save: run(() => toggleSaved()),
     queue: run(() =>
       songsOf(card.uri)
-        .then((uris) => queueSongs(uris, false, currentQueue).then(() => toast(`Added ${uris.length} songs to the queue`)))
+        .then((uris) => queueSongs(uris, false, currentQueue).then(() => notify(`Added ${uris.length} songs to the queue`)))
         .catch(toast),
     ),
     open: run(() => nav.open(card.uri, card.title)),

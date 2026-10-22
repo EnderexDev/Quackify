@@ -13,7 +13,7 @@ import { PlayButton } from "../components/PlayButton";
 import { useNav } from "../state/nav";
 import { useSaved } from "../state/saved";
 import { usePlayer } from "../state/player";
-import { toast } from "../state/toast";
+import { notify, toast  } from "../state/toast";
 import { formatLength } from "../util/format";
 import { useAsync } from "../util/useAsync";
 import { Failed, Loading } from "./common";
@@ -173,7 +173,7 @@ function episodeWhen(e: Episode) {
 function episodeMenu(e: Episode, playThis: () => void, nav: ReturnType<typeof useNav>, playing = false): MenuItem[] {
   return [
     { label: playing ? "Pause" : "Play", onClick: playThis },
-    { label: "Add to queue", onClick: () => play.addToQueue(e.uri).then(() => toast("Added to queue"), toast) },
+    { label: "Add to queue", onClick: () => play.addToQueue(e.uri).then(() => notify("Added to queue"), toast) },
     "separator",
     { label: "Go to podcast", onClick: () => e.show.uri && nav.open(e.show.uri), disabled: !e.show.uri },
     { label: "Copy episode link", onClick: () => copy(webLink(e.uri)) },
@@ -225,7 +225,7 @@ function EpisodeRow({ episode: e, contextUri }: { episode: Episode; contextUri: 
         </div>
       </div>
       <div className="episode-actions" onClick={(ev) => ev.stopPropagation()}>
-        <button className="icon-btn" aria-label="Add to queue" title="Add to queue" onClick={() => play.addToQueue(e.uri).then(() => toast("Added to queue"), toast)}>
+        <button className="icon-btn" aria-label="Add to queue" title="Add to queue" onClick={() => play.addToQueue(e.uri).then(() => notify("Added to queue"), toast)}>
           <QueueIcon size={18} />
         </button>
         <button className="icon-btn" aria-label={`More options for ${e.name}`} title="More options" onClick={(ev) => openMenu(ev, menu)}>

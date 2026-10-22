@@ -7,7 +7,7 @@ import { clearCache, library } from "../api/spotify";
 import { useNav } from "../state/nav";
 import { NEW_PLAYLIST_EVENT, type NewPlaylistFrom } from "../state/newPlaylist";
 import { notifyLibraryChanged } from "../state/saved";
-import { toast } from "../state/toast";
+import { notify, toast } from "../state/toast";
 import { Dialog } from "./Dialog";
 import { CheckIcon } from "./icons";
 import { LIBRARY_PAGE } from "./libraryItems";
@@ -123,7 +123,7 @@ function NewPlaylistDialog({ from, onClose }: { from?: NewPlaylistFrom; onClose:
           added = uris.length;
         }
         step.filled = true;
-        if (added) toast(`Added ${added === 1 ? "1 song" : `${added} songs`} to ${step.name}`);
+        if (added) notify(`Added ${added === 1 ? "1 song" : `${added} songs`} to ${step.name}`);
         onClose();
         nav.open(step.uri);
       } catch (e) {

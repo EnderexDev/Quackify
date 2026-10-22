@@ -5,7 +5,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { play } from "../api/spotify";
 import type { MenuItem } from "../components/ContextMenu";
 import type { Player } from "./player";
-import { toast } from "./toast";
+import { notify, toast  } from "./toast";
 
 export type Sleep = { kind: "at"; at: number; minutes: number } | { kind: "end"; uri: string } | null;
 export const SLEEP_MINUTES = [15, 30, 60];
@@ -70,7 +70,7 @@ export function useSleepTimer(player: Player) {
     const fire = () => {
       setSleep(null);
       play.pause().catch(toast);
-      toast("Sleep timer: paused");
+      notify("Sleep timer: paused", { kind: "info" });
     };
     if (s.kind === "at") {
       const id = window.setTimeout(fire, Math.max(0, s.at - Date.now()));

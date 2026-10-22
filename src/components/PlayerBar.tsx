@@ -12,7 +12,7 @@ import { playerLyrics } from "../state/prefs";
 import { carriesSongs, droppedSongs, queueSongs, readDrop, useDrag } from "../state/drag";
 import { useSaved } from "../state/saved";
 import { sleepLabel, sleepMenu, useSleep, useSleepTimer } from "../state/sleep";
-import { toast } from "../state/toast";
+import { notify, toast  } from "../state/toast";
 import { toggleMini, useMiniOpen } from "../state/windows";
 import { formatDuration } from "../util/format";
 import type { Panel } from "../App";
@@ -420,10 +420,10 @@ function QueueDrop() {
     const data = readDrop(e);
     try {
       const uris = await droppedSongs(data);
-      if (!uris.length) return toast("Nothing there to add to the queue");
+      if (!uris.length) return notify("Nothing there to add to the queue", { kind: "info" });
       const went = await queueSongs(uris, where === "next", currentQueue);
       const n = uris.length === 1 ? "1 song" : `${uris.length} songs`;
-      toast(went === "next" ? `${n} will play next` : `Added ${n} to the queue`);
+      notify(went === "next" ? `${n} will play next` : `Added ${n} to the queue`);
     } catch (err) {
       toast(err);
     }

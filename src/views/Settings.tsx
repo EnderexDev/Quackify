@@ -11,7 +11,7 @@ import type { ProgressMode } from "../state/meter";
 import { useNav } from "../state/nav";
 import { cinemaAuto, playerLyrics } from "../state/prefs";
 import { setTheme, useTheme } from "../state/theme";
-import { toast } from "../state/toast";
+import { notify, toast  } from "../state/toast";
 import { Loading } from "./common";
 
 type Quality = "normal" | "high" | "very_high";
@@ -132,7 +132,7 @@ export function SettingsView({ account }: { account: Account }) {
     setClearing(true);
     try {
       setCacheBytes(await invoke<number>("settings_clear_cache"));
-      toast("Cache cleared");
+      notify("Cache cleared");
     } catch (e) {
       toast(e);
       readCache();
@@ -147,7 +147,7 @@ export function SettingsView({ account }: { account: Account }) {
     setMoving(true);
     try {
       setFolder(await invoke<CacheFolder>("settings_set_cache_folder", { parent }));
-      toast(pick ? "Song cache moved" : "Song cache back in its default folder");
+      notify(pick ? "Song cache moved" : "Song cache back in its default folder");
     } catch (e) {
       toast(e);
     } finally {

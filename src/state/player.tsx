@@ -8,7 +8,7 @@ import { listen } from "@tauri-apps/api/event";
 import { play, type Repeat } from "../api/spotify";
 import type { Named } from "../api/types";
 import { flush, observe } from "./listening";
-import { toast } from "./toast";
+import { notify, toast  } from "./toast";
 
 export type NowPlaying = {
   uri: string;
@@ -225,7 +225,7 @@ export function PlayerProvider({ children, record = true }: { children: ReactNod
       listen<LocalEvent>("player-event", ({ payload: e }) => {
         viewVersion.current++;
         if (e.kind === "unavailable") {
-          toast("A track is not available, skipping it.");
+          notify("A track is not available, skipping it.", { kind: "info" });
           return;
         }
         if (!localIsActive()) return;
