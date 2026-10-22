@@ -158,16 +158,29 @@ function roundBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number
   ctx.fill();
 }
 
-/** A waveform saved as one base-36 digit per bar. */
-function loadWave(uri: string): Float32Array {
+/** A waveform saved as one base-36 digit per bar; a song played again moves to the front of the kept ones. */
+export function loadWave(uri: string): Float32Array {
   const bins = new Float32Array(WAVE_BINS);
   const saved = localStorage.getItem(WAVE_PREFIX + uri);
-  if (saved && saved.length === WAVE_BINS) for (let i = 0; i < WAVE_BINS; i++) bins[i] = parseInt(saved[i], 36) / 35 || 0;
+  if (saved && saved.length === WAVE_BINS) {
+    for (let i = 0; i < WAVE_BINS; i++) bins[i] = parseInt(saved[i], 36) / 35 || 0;
+    keepRecent(uri);
+  }
   return bins;
 }
 
 function saveWave(uri: string, bins: Float32Array) {
   const text = Array.from(bins, (v) => Math.round(Math.min(1, v) * 35).toString(36)).join("");
+  try {
+    localStorage.setItem(WAVE_PREFIX + uri, text);
+    keepRecent(uri);
+  } catch {
+    // Storage full: the waveform is simply not kept.
+  }
+}
+
+/** Puts `uri` first among the kept waveforms and drops the oldest past WAVE_KEEP. */
+function keepRecent(uri: string) {
   let index: string[] = [];
   try {
     index = JSON.parse(localStorage.getItem(WAVE_INDEX) ?? "[]");
@@ -175,9 +188,6 @@ function saveWave(uri: string, bins: Float32Array) {
   index = [uri, ...index.filter((u) => u !== uri)];
   for (const old of index.splice(WAVE_KEEP)) localStorage.removeItem(WAVE_PREFIX + old);
   try {
-    localStorage.setItem(WAVE_PREFIX + uri, text);
     localStorage.setItem(WAVE_INDEX, JSON.stringify(index));
-  } catch {
-    // Storage full: the waveform is simply not kept.
-  }
+  } catch {}
 }
