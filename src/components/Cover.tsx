@@ -22,7 +22,9 @@ export function Cover({
   shaped?: boolean;
   className?: string;
 }) {
-  const [broken, setBroken] = useState(false);
+  // The URL that failed, not a flag: a cover reused for the next song shows the new image.
+  const [failed, setFailed] = useState<string | null>(null);
+  const broken = !!src && src === failed;
   const wrap = shaped && kind && SHAPED.has(kind);
   const round = kind === "artist" || kind === "user";
   const cls = `cover ${round ? "round" : ""} ${kind === "show" ? "shape-show" : ""} ${wrap ? "" : className}`;
@@ -47,7 +49,7 @@ export function Cover({
       </div>
     );
   } else {
-    art = <img className={cls} src={src} alt="" loading="lazy" draggable={false} onError={() => setBroken(true)} />;
+    art = <img className={cls} src={src} alt="" loading="lazy" draggable={false} onError={() => setFailed(src)} />;
   }
   if (!wrap) return art;
   return (
