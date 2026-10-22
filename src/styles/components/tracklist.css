@@ -1,30 +1,36 @@
 /* Track list */
 
+/* Measures from the Figma "Faixa": 48px rows 2px apart, 10px corners, a 22px number column,
+   36px covers, 14px between columns. The last column holds the heart, the duration and •••. */
 .tracklist {
-  /* The last column holds the heart and the duration. */
-  --cols: 40px minmax(200px, 4fr) minmax(120px, 3fr) 100px;
+  --cols: 22px minmax(200px, 4fr) minmax(120px, 3fr) 112px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .tracklist.no-album {
-  --cols: 40px minmax(0, 1fr) 100px;
+  --cols: 22px minmax(0, 1fr) 112px;
 }
 
 .tracklist.with-added {
-  --cols: 40px minmax(200px, 4fr) minmax(120px, 3fr) minmax(100px, 1.4fr) 100px;
+  --cols: 22px minmax(200px, 4fr) minmax(120px, 3fr) minmax(100px, 1.4fr) 112px;
 }
 
 .track-added {
-  font-size: 13px;
+  font-size: 12.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* An artist's popular songs: the plays sit close to the names, as in the Figma. */
 .tracklist.with-plays {
-  --cols: 40px minmax(0, 2fr) minmax(90px, 1fr) 100px;
+  --cols: 22px minmax(0, 1fr) 150px 112px;
 }
 
 .track-plays {
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -32,10 +38,11 @@
   display: grid;
   grid-template-columns: var(--cols);
   align-items: center;
-  gap: 16px;
-  height: 56px;
-  padding: 0 16px;
-  border-radius: 6px;
+  gap: 14px;
+  height: 48px;
+  padding: 0 14px 0 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
   color: var(--muted);
 }
 
@@ -43,29 +50,36 @@
   background: var(--surface-2);
 }
 
+/* Column names: small capitals over a thin line, as in the Figma. */
 .track-head {
-  height: 36px;
-  border-bottom: 1px solid var(--line);
+  height: 32px;
+  margin-bottom: 6px;
   border-radius: 0;
-  margin-bottom: 8px;
-  font-size: 13px;
-  position: sticky;
-  top: 0;
-  background: var(--glass-strong);
-  backdrop-filter: var(--blur);
-  z-index: 1;
+  border-bottom-color: var(--line);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The clock sits over the durations, past the ••• column. */
+.track-head .track-time {
+  padding-right: 28px;
 }
 
 .track-num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
   position: relative;
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .row-play {
   display: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
   color: var(--text);
 }
 
@@ -74,40 +88,49 @@
 }
 
 .track-row:not(.track-head):hover .row-play {
-  display: block;
+  display: grid;
 }
 
 .track-main {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
 }
 
 .track-cover {
-  width: 40px;
-  height: 40px;
-  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
   flex: none;
+  --cover-shadow: var(--shadow-cover);
 }
 
 .track-text {
   display: flex;
   flex-direction: column;
+  gap: 1px;
   min-width: 0;
 }
 
 .track-name {
   color: var(--text);
-  font-size: 15px;
+  font-size: 13.5px;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.track-artists,
+.track-artists {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .track-album {
-  font-size: 13px;
+  font-size: 12.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -119,10 +142,30 @@
 }
 
 .track-time {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-more {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  color: var(--muted);
+  visibility: hidden;
+}
+
+.row-more:hover {
+  color: var(--text);
+}
+
+.track-row:hover .row-more,
+.track-row.selected .row-more {
+  visibility: visible;
 }
 
 .track-row.current .track-name,
@@ -158,7 +201,7 @@
 /* Below 1100px the album column goes. */
 @media (max-width: 1099px) {
   .tracklist:not(.no-album) {
-    --cols: 40px minmax(0, 1fr) 100px;
+    --cols: 22px minmax(0, 1fr) 112px;
   }
 
   .tracklist .track-album,

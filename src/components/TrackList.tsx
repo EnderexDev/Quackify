@@ -9,7 +9,7 @@ import { play } from "../api/spotify";
 import { formatAgo, formatCount, formatDuration } from "../util/format";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
 import { Cover } from "./Cover";
-import { CheckIcon, ClockIcon, CloseIcon, HeartIcon, HeartOutlineIcon, PauseIcon, PlayIcon, PlaylistAddIcon, QueueIcon } from "./icons";
+import { CheckIcon, ClockIcon, CloseIcon, HeartIcon, HeartOutlineIcon, MoreIcon, PauseIcon, PlayIcon, PlaylistAddIcon, QueueIcon } from "./icons";
 import { LikeButton } from "./LikeButton";
 import { TRACKS_MIME, trackMenu, tracksMenu } from "./menus";
 
@@ -372,7 +372,7 @@ function TrackRow({
           disabled={!t.playable}
           onClick={() => (current ? player.toggle() : onPlay())}
         >
-          {current && player.playing ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
+          {current && player.playing ? <PauseIcon size={16} /> : <PlayIcon size={16} />}
         </button>
       </span>
       <span className="track-main">
@@ -402,6 +402,22 @@ function TrackRow({
       <span className="track-time">
         <LikeButton uri={t.uri} size={16} className="row-like" />
         <span>{formatDuration(t.durationMs)}</span>
+        <button
+          className="row-more"
+          aria-label={`More options for ${t.name}`}
+          title="More options"
+          onClick={(e) => {
+            e.stopPropagation();
+            onMenu(e, () =>
+              openMenu(e, [
+                ...trackMenu(t, saved, nav),
+                ...(onRemove ? (["separator", { label: `Remove from ${playlistName ?? "this playlist"}`, onClick: onRemove }] as const) : []),
+              ]),
+            );
+          }}
+        >
+          <MoreIcon size={16} />
+        </button>
       </span>
     </div>
   );

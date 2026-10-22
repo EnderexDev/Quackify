@@ -5,6 +5,12 @@
   padding: 0 0 40px;
 }
 
+/* The cover's colour runs from the top of the page through the header and the actions,
+   fading out behind the list (Figma "Playlist" and "Álbum"). */
+.collection {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tint) 70%, transparent) 0, color-mix(in srgb, var(--tint) 22%, transparent) 300px, transparent 520px);
+}
+
 .collection > *:not(.hero),
 .artist > *:not(.artist-hero) {
   margin-left: 24px;
@@ -14,16 +20,22 @@
 .hero {
   display: flex;
   align-items: flex-end;
-  gap: 24px;
-  padding: 72px 24px 24px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--tint) 85%, #fff 0%) 0%, color-mix(in srgb, var(--tint) 45%, var(--panel)) 100%);
+  gap: 28px;
+  padding: 24px 28px 4px;
 }
 
+/* A playlist's cover is 150px and an album's 200px at the Figma's 1280px; both grow with a
+   wider window so the header keeps its weight. */
 .hero-cover {
-  width: 216px;
-  height: 216px;
+  width: clamp(150px, 13vw, 260px);
+  height: clamp(150px, 13vw, 260px);
   flex: none;
-  --cover-shadow: 0 12px 48px rgba(0, 0, 0, 0.55);
+  --cover-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.hero.big .hero-cover {
+  width: clamp(200px, 16vw, 300px);
+  height: clamp(200px, 16vw, 300px);
 }
 
 .hero-text {
@@ -38,7 +50,7 @@
 }
 
 .hero-title {
-  font-size: clamp(32px, 4.5vw, 56px);
+  font-size: clamp(40px, 3.6vw, 72px);
   font-weight: 800;
   letter-spacing: -1px;
   line-height: 1.02;
@@ -50,7 +62,7 @@
 }
 
 .hero-title.long {
-  font-size: clamp(26px, 3.4vw, 40px);
+  font-size: clamp(30px, 2.6vw, 48px);
   letter-spacing: -0.5px;
 }
 
@@ -106,7 +118,7 @@
 }
 
 .hero-desc {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--muted);
   margin: 0 0 8px;
   font-size: 14px;
   overflow: hidden;
@@ -118,7 +130,7 @@
 .hero-meta {
   margin: 0;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--muted);
 }
 
 .actions {
@@ -129,9 +141,23 @@
 }
 
 .collection .actions {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--tint) 25%, var(--panel)) 0, var(--panel) 220px);
   margin: 0 !important;
-  padding: 24px;
+  padding: 18px 28px;
+  gap: 18px;
+}
+
+.save-heart {
+  color: var(--muted);
+}
+
+.save-heart:hover,
+.save-heart.on {
+  color: var(--text);
+}
+
+/* The dot under a button is for modes like shuffle, not for a saved list. */
+.save-heart.on::after {
+  display: none;
 }
 
 .more {

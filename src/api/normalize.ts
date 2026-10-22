@@ -387,6 +387,8 @@ export function toPlaylist(data: Raw): Collection {
     title: p?.name ?? "",
     description: plainText(p?.description),
     owner: p?.ownerV2?.data?.name ?? "",
+    ownerImage: pickImage(p?.ownerV2?.data?.avatar?.sources, 64),
+    ownerUri: p?.ownerV2?.data?.uri ?? null,
     image: imageOf(p, 640),
     color: colorOf(p),
     total: p?.content?.totalCount ?? 0,

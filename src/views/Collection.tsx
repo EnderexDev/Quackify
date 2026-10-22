@@ -8,7 +8,7 @@ import { ConfirmDialog, EditDetailsDialog } from "../components/Dialog";
 import { SaveButton } from "../components/LikeButton";
 import { collectionMenu } from "../components/menus";
 import { useSaved } from "../state/saved";
-import { DuckIcon, SearchIcon, ShuffleIcon } from "../components/icons";
+import { DuckIcon, SearchIcon, ShuffleIcon, SortIcon } from "../components/icons";
 import { OPEN_PALETTE_EVENT } from "../components/Palette";
 import { PlayButton } from "../components/PlayButton";
 import { TrackList } from "../components/TrackList";
@@ -16,7 +16,7 @@ import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
 import { notifyLibraryChanged } from "../state/saved";
 import { toast } from "../state/toast";
-import { formatCount, formatDuration } from "../util/format";
+import { formatCount, formatLength } from "../util/format";
 import { kindLabel } from "../util/kinds";
 import { useAsync } from "../util/useAsync";
 import { Failed, Loading } from "./common";
@@ -73,7 +73,6 @@ function Loaded({ first }: { first: Data }) {
   const naturalSort: Sort = first.kind === "liked" ? "added" : "custom";
   const [sort, setSort] = useState<Sort>(naturalSort);
   const [filter, setFilter] = useState("");
-  const [searching, setSearching] = useState(false);
   const reordered = sort !== naturalSort || filter.trim() !== "";
 
   // Every page, for sorting, searching and whole-list actions: they need all the songs.
@@ -229,7 +228,8 @@ function Loaded({ first }: { first: Data }) {
         onDelete: () => setDialog("delete"),
       }),
     );
-  const totalMs = first.kind === "album" ? tracks.reduce((s, t) => s + t.durationMs, 0) : 0;
+  // The length shows once every song is known: an album at once, a long playlist when all of it loaded.
+  const totalMs = done ? tracks.reduce((s, t) => s + t.durationMs, 0) : 0;
   // An album's guests: artists on its songs besides its own, at most 6.
   const albumArtists = new Set(first.kind === "album" ? (tracks[0]?.artists ?? []).map((a) => a.uri) : []);
   const guests =
@@ -240,7 +240,7 @@ function Loaded({ first }: { first: Data }) {
 
   return (
     <div className="page collection" style={{ ["--tint" as string]: color }}>
-      <header className="hero">
+      <header className={`hero ${first.kind === "album" ? "big" : ""}`}>
         <Cover src={first.image} kind={first.kind} shaped className="hero-cover" />
         <div className="hero-text">
           <span className="hero-kind">{kindLabel(first)}</span>
@@ -253,7 +253,7 @@ function Loaded({ first }: { first: Data }) {
           </h1>
           {first.kind === "playlist" && description && <p className="hero-desc">{description}</p>}
           <p className="hero-meta">
-            {first.ownerImage && <Cover src={first.ownerImage} kind="artist" className="hero-owner-image" />}
+            {first.ownerImage && <Cover src={first.ownerImage} kind={first.kind === "album" ? "artist" : "user"} className="hero-owner-image" />}
             {[
               first.owner &&
                 (first.ownerUri ? (
@@ -265,7 +265,7 @@ function Loaded({ first }: { first: Data }) {
                 )),
               first.kind === "album" && first.description,
               `${formatCount(first.total - removed)} ${first.total - removed === 1 ? "song" : "songs"}`,
-              totalMs > 0 && formatDuration(totalMs),
+              totalMs > 0 && formatLength(totalMs),
             ]
               .filter(Boolean)
               .map((x, i) => (
@@ -302,41 +302,31 @@ function Loaded({ first }: { first: Data }) {
         </button>
         {listTools && (
           <div className="list-tools">
-            {searching || filter ? (
-              <label className="list-search">
-                <SearchIcon size={16} />
-                <input
-                  autoFocus
-                  value={filter}
-                  placeholder={first.kind === "liked" ? "Search in Liked Songs" : "Search in playlist"}
-                  onChange={(e) => setFilter(e.currentTarget.value)}
-                  onBlur={() => !filter && setSearching(false)}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Escape") return;
-                    setFilter("");
-                    setSearching(false);
-                  }}
-                />
-              </label>
-            ) : (
-              <button
-                className="icon-btn"
-                aria-label="Search in this list"
-                title="Search in this list"
-                onClick={() => setSearching(true)}
-              >
-                <SearchIcon size={18} />
-              </button>
-            )}
-            <select className="list-sort" value={sort} aria-label="Sort by" onChange={(e) => setSort(e.currentTarget.value as Sort)}>
-              {(Object.keys(SORT_LABEL) as Sort[])
-                .filter((k) => first.kind !== "liked" || k !== "custom")
-                .map((k) => (
-                  <option key={k} value={k}>
-                    {SORT_LABEL[k]}
-                  </option>
-                ))}
-            </select>
+            <label className="list-sort-pill">
+              <SortIcon size={14} />
+              <select className="list-sort" value={sort} aria-label="Sort by" onChange={(e) => setSort(e.currentTarget.value as Sort)}>
+                {(Object.keys(SORT_LABEL) as Sort[])
+                  .filter((k) => first.kind !== "liked" || k !== "custom")
+                  .map((k) => (
+                    <option key={k} value={k}>
+                      {SORT_LABEL[k]}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label className="list-search">
+              <SearchIcon size={16} />
+              <input
+                value={filter}
+                placeholder={first.kind === "liked" ? "Search in Liked Songs" : "Search in playlist"}
+                onChange={(e) => setFilter(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Escape") return;
+                  setFilter("");
+                  e.currentTarget.blur();
+                }}
+              />
+            </label>
           </div>
         )}
       </div>

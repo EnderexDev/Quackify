@@ -18,7 +18,6 @@
 /* In rows the heart shows on hover, and always once the song is liked. */
 .row-like {
   visibility: hidden;
-  margin-right: 14px;
 }
 
 .track-row:hover .row-like,

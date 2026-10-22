@@ -25,3 +25,10 @@ export function formatAgo(iso: string | null): string {
   }
   return at.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
+
+/** A list's length the way Spotify writes it: "2 h 41 min", "45 min". */
+export function formatLength(ms: number): string {
+  const min = Math.round(ms / 60000);
+  const h = Math.floor(min / 60);
+  return h ? `${h} h ${min % 60} min` : `${min} min`;
+}

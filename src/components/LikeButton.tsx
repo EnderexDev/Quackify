@@ -25,6 +25,15 @@ export function SaveButton({ uri, kind }: { uri: string; kind: "album" | "playli
   const [saved, toggle] = useSaved(uri);
   const follows = kind === "artist" || kind === "show";
   const label = follows ? (saved ? "Following" : "Follow") : saved ? "Saved" : "Save";
+  // Albums and playlists save with a heart, white (yellow stays for liked songs).
+  if (!follows) {
+    const name = saved ? "Remove from Your Library" : "Save to Your Library";
+    return (
+      <button className={`icon-btn big save-heart ${saved ? "on" : ""}`} disabled={saved === undefined} onClick={toggle} aria-label={name} title={name}>
+        {saved ? <HeartIcon size={24} /> : <HeartOutlineIcon size={24} />}
+      </button>
+    );
+  }
   return (
     <button className={`save-btn ${saved ? "on" : ""}`} disabled={saved === undefined} onClick={toggle}>
       {label}

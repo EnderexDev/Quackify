@@ -20,14 +20,16 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  height: 32px;
+  padding: 0 14px;
   border-radius: var(--r-pill);
   background: var(--surface-2);
   color: var(--muted);
 }
 
 .list-search input {
-  width: 200px;
+  width: 150px;
+  font-size: 13px;
   background: none;
   border: none;
   outline: none;
@@ -36,10 +38,10 @@
 }
 
 .list-sort {
-  padding: 7px 12px;
-  border-radius: var(--r-pill);
+  padding: 6px 8px;
+  border-radius: 6px;
   border: none;
-  background: var(--surface-2);
+  background: transparent;
   color: var(--muted);
   font: inherit;
   font-weight: 600;
@@ -48,6 +50,24 @@
 
 .list-sort:hover {
   color: var(--text);
+}
+
+/* Sort as a pill with its icon, next to the search pill. */
+.list-sort-pill {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 4px 0 14px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.list-sort-pill .list-sort {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .list-sort option {
