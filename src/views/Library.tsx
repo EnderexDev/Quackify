@@ -50,7 +50,8 @@ export function LibraryView({ filter, folder, title }: { filter: Filter; folder?
   const nav = useNav();
   const kind = KINDS[filter];
   const [view, setView] = usePersisted<View>("libraryPageView", "grid", VIEWS.map((v) => v.id));
-  const [sort, setSort] = usePersisted<LibrarySort>("librarySort", "Recents", SORTS.map((s) => s.id));
+  const [savedSort, setSort] = usePersisted<LibrarySort>("librarySort", "Recents", SORTS.map((s) => s.id));
+  const sort = filter === "Artists" && savedSort === "Creator" ? "Recents" : savedSort;
   const [group, setGroup] = usePersisted<Group>("libraryGroup", "none", ["none", "creator"]);
   const [text, setText] = useState("");
   const query = { filter, sort, text: text.trim(), folder: folder ?? null };
@@ -86,7 +87,8 @@ export function LibraryView({ filter, folder, title }: { filter: Filter; folder?
         <label className="list-sort-pill">
           <SortIcon size={14} />
           <select className="list-sort" value={sort} aria-label="Sort by" onChange={(e) => setSort(e.currentTarget.value as LibrarySort)}>
-            {SORTS.map((s) => (
+            {/* Spotify answers nothing for artists sorted by creator. */}
+            {SORTS.filter((s) => filter !== "Artists" || s.id !== "Creator").map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
               </option>
@@ -148,12 +150,20 @@ export function LibraryView({ filter, folder, title }: { filter: Filter; folder?
           <Items view={view} items={g.items} actions={actions} />
         </section>
       ))}
-      {pages.loaded && !pages.complete && group === "none" && (
+      {pages.error && pages.items.length > 0 && (
+        <div className="library-empty">
+          <p className="muted">Could not load the rest: {pages.error}</p>
+          <button className="pill-btn" onClick={pages.loadMore}>
+            Try again
+          </button>
+        </div>
+      )}
+      {!pages.error && pages.loaded && !pages.complete && group === "none" && (
         <div ref={pages.sentinel} className="more">
           <div className="spinner small" />
         </div>
       )}
-      {group !== "none" && pages.loaded && !pages.complete && (
+      {!pages.error && group !== "none" && pages.loaded && !pages.complete && (
         <div className="more">
           <div className="spinner small" />
         </div>
@@ -177,7 +187,9 @@ function groupItems(items: CardData[], filter: Filter) {
           : c.kind === "liked"
             ? "You"
             : c.creator || "Other";
-    groups.set(name, [...(groups.get(name) ?? []), c]);
+    const list = groups.get(name);
+    if (list) list.push(c);
+    else groups.set(name, [c]);
   }
   const list = [...groups].map(([name, items]) => ({ name, items }));
   return filter === "Artists" ? list.sort((a, b) => (a.name === "#" ? 1 : b.name === "#" ? -1 : a.name.localeCompare(b.name))) : list;

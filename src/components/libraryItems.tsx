@@ -82,13 +82,17 @@ export function useLibraryPages(query: LibraryQuery, all = false) {
     const gen = generation.current;
     const offset = nextOffset.current;
     loadingMore.current = true;
+    setError("");
     library(query, offset)
       .then((page) => {
         if (gen !== generation.current) return;
         // Moves on even when the page added nothing new, so the same page is not asked again;
         // an empty page ends the list.
         nextOffset.current = page.items.length ? offset + LIBRARY_PAGE : total;
-        setItems((prev) => [...prev, ...page.items.filter((c) => !prev.some((p) => p.uri === c.uri))]);
+        setItems((prev) => {
+          const have = new Set(prev.map((p) => p.uri));
+          return [...prev, ...page.items.filter((c) => !have.has(c.uri))];
+        });
       })
       .catch((e) => gen === generation.current && setError(String(e)))
       .finally(() => {
@@ -114,7 +118,8 @@ export function useLibraryPages(query: LibraryQuery, all = false) {
 
   const reload = () => setVersion((v) => v + 1);
   const complete = loaded && (nextOffset.current >= total || items.length >= total);
-  return { items, total, loaded, complete, error, sentinel, reload };
+  // A failed next page stops the loading; `loadMore` tries it again.
+  return { items, total, loaded, complete, error, sentinel, reload, loadMore };
 }
 
 /** The line under an item's name in the sidebar. */

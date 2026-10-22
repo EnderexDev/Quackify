@@ -40,7 +40,9 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
   const nav = useNav();
   const player = usePlayer();
   const [filter, setFilter] = useState<LibraryFilter>(null);
-  const [sort, setSort] = usePersisted<LibrarySort>("librarySort", "Recents", SORTS.map((s) => s.id));
+  const [savedSort, setSort] = usePersisted<LibrarySort>("librarySort", "Recents", SORTS.map((s) => s.id));
+  // Spotify answers nothing for artists sorted by creator.
+  const sort = filter === "Artists" && savedSort === "Creator" ? "Recents" : savedSort;
   const [view, setView] = usePersisted<View>("libraryView", "list", VIEWS.map((v) => v.id));
   const [text, setText] = useState("");
   const [searching, setSearching] = useState(false);
@@ -186,7 +188,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
           </button>
         )}
         <select className="list-sort" value={sort} aria-label="Sort by" onChange={(e) => setSort(e.currentTarget.value as LibrarySort)}>
-          {SORTS.map((s) => (
+          {SORTS.filter((s) => filter !== "Artists" || s.id !== "Creator").map((s) => (
             <option key={s.id} value={s.id}>
               {s.label}
             </option>
