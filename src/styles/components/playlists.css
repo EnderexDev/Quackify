@@ -102,3 +102,106 @@
 .dialog:focus {
   outline: none;
 }
+
+/* ---- New playlist (Figma "nova playlist"): name and description, Also add, Create in white ---- */
+
+.dialog:has(.new-playlist) {
+  width: min(460px, 92vw);
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+}
+
+.dialog:has(.new-playlist) h2 {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.new-playlist-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.new-playlist-name,
+.new-playlist-description {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  resize: none;
+  transition: border-color var(--t-fast);
+}
+
+.new-playlist-name {
+  font-weight: 600;
+}
+
+.new-playlist-name:focus,
+.new-playlist-description:focus {
+  border-color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.new-playlist-actions {
+  align-items: center;
+  margin-top: 16px;
+}
+
+/* "Also add …": a white check on the left, the buttons on the right. */
+.new-playlist-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  margin-right: auto;
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.new-playlist-check .box {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 5px;
+  border: 1.5px solid var(--muted);
+}
+
+.new-playlist-check.on .box {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+
+.new-playlist-actions .secondary {
+  background: none;
+  border: none;
+}
+
+.new-playlist-create {
+  background: var(--text);
+  color: var(--bg);
+  border-radius: var(--r-pill);
+}
+
+.new-playlist-create:not(:disabled):hover {
+  background: var(--text);
+  opacity: 0.88;
+}
+
+.new-playlist-actions .primary,
+.new-playlist-actions .secondary {
+  height: 36px;
+  padding: 0 18px;
+  font-size: 13.5px;
+}

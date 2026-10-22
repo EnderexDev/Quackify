@@ -8,7 +8,7 @@ import type { Nav } from "../state/nav";
 import type { Player } from "../state/player";
 import { toast } from "../state/toast";
 import { Dialog } from "./Dialog";
-import { NEW_PLAYLIST_EVENT } from "./Sidebar";
+import { newPlaylist } from "../state/newPlaylist";
 
 const SEEK_STEP_MS = 5000;
 const VOLUME_STEP = 0.1;
@@ -64,7 +64,7 @@ export function useShortcuts(
       if (ctrl && !e.shiftKey && !e.altKey && (key === "k" || key === "l" || key === "t")) return act(app.openPalette);
       if (ctrl && !e.shiftKey && !e.altKey && key === "b") return act(app.toggleSidebar);
       if (ctrl && key === "p") return act(() => nav.go({ page: "settings" }));
-      if (ctrl && key === "n") return act(() => window.dispatchEvent(new Event(NEW_PLAYLIST_EVENT)));
+      if (ctrl && key === "n") return act(() => newPlaylist());
       if (e.altKey && e.shiftKey) {
         if (e.code === "KeyQ") return act(() => togglePanel("queue"));
         // R and J both open the song page, where the lyrics now live; again goes back.

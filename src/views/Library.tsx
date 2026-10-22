@@ -8,7 +8,7 @@ import { Cover } from "../components/Cover";
 import { CompactIcon, GridIcon, GroupIcon, ListIcon, PinIcon, PlusIcon, SearchIcon, SortIcon } from "../components/icons";
 import { pressable, useLibraryActions, useLibraryPages, usePersisted } from "../components/libraryItems";
 import { Segmented } from "../components/Segmented";
-import { NEW_PLAYLIST_EVENT } from "../components/Sidebar";
+import { newPlaylist } from "../state/newPlaylist";
 import { DRAGGABLE, dragCard } from "../state/drag";
 import { peekProps } from "../state/peek";
 import { useNav } from "../state/nav";
@@ -119,7 +119,7 @@ export function LibraryView({ filter, folder, title }: { filter: Filter; folder?
           />
         </label>
         {filter === "Playlists" && (
-          <button className="pill-btn white library-new" onClick={() => window.dispatchEvent(new Event(NEW_PLAYLIST_EVENT))}>
+          <button className="pill-btn white library-new" onClick={() => newPlaylist()}>
             <PlusIcon size={14} />
             New playlist
           </button>

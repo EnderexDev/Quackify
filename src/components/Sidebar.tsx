@@ -1,17 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPlaylist } from "../api/library";
-import { clearCache, library, libraryCounts, type LibraryCounts } from "../api/spotify";
+import { libraryCounts, type LibraryCounts } from "../api/spotify";
 import type { Card, LibraryFilter, LibrarySort } from "../api/types";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
-import { notifyLibraryChanged, onLibraryChanged } from "../state/saved";
-import { toast } from "../state/toast";
+import { newPlaylist } from "../state/newPlaylist";
+import { onLibraryChanged } from "../state/saved";
 import { DRAGGABLE, dragCard } from "../state/drag";
 import { peekProps } from "../state/peek";
 import { useAsync } from "../util/useAsync";
 import { Cover } from "./Cover";
 import { ChevronDownIcon, ChevronRightIcon, DiscIcon, HeartIcon, LibraryIcon, PinIcon, PlaylistIcon, PlusIcon, PodcastIcon, SearchIcon, UserIcon } from "./icons";
-import { LIBRARY_PAGE, librarySubtitle, pressable, readStored, useLibraryActions, useLibraryPages, usePersisted, writeStored } from "./libraryItems";
+import { librarySubtitle, pressable, readStored, useLibraryActions, useLibraryPages, usePersisted, writeStored } from "./libraryItems";
 
 type Filter = Exclude<LibraryFilter, null>;
 
@@ -85,7 +84,6 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
       : route.page === "library"
         ? (route.folder ?? null)
         : null;
-  const newPlaylist = () => window.dispatchEvent(new Event(NEW_PLAYLIST_EVENT));
   const openKind = (filter: Filter) => nav.go({ page: "library", filter });
 
   if (collapsed) {
@@ -132,7 +130,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
             {k.icon}
           </button>
         ))}
-        <button className="side-new" aria-label="Create playlist" title="Create playlist (Ctrl N)" onClick={newPlaylist}>
+        <button className="side-new" aria-label="Create playlist" title="Create playlist (Ctrl N)" onClick={() => newPlaylist()}>
           <PlusIcon size={18} />
         </button>
       </aside>
@@ -157,7 +155,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
         >
           <SearchIcon size={16} />
         </button>
-        <button className="round-btn small" aria-label="Create playlist" title="Create playlist (Ctrl N)" onClick={newPlaylist}>
+        <button className="round-btn small" aria-label="Create playlist" title="Create playlist (Ctrl N)" onClick={() => newPlaylist()}>
           <PlusIcon size={16} />
         </button>
       </div>
@@ -222,7 +220,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
           />
         </div>
       )}
-      <button className="side-new-wide" onClick={newPlaylist}>
+      <button className="side-new-wide" onClick={() => newPlaylist()}>
         <PlusIcon size={14} />
         New playlist
       </button>
@@ -481,43 +479,3 @@ function LibrarySearch({
     </>
   );
 }
-
-/** Ctrl+N and the + button make a playlist through this, so both count names the same way. */
-export const NEW_PLAYLIST_EVENT = "quackify:new-playlist";
-
-/** One new playlist at a time, so two quick ones get different numbers. */
-let creating: Promise<unknown> = Promise.resolve();
-
-/** Makes "My Playlist #N" (the next free N among your playlists) and opens it. */
-export function useNewPlaylist() {
-  const nav = useNav();
-  useEffect(() => {
-    const make = () => (creating = creating.then(makeOne, makeOne));
-    const makeOne = async () => {
-      try {
-        // Every page of the matching playlists, so a number further down is not reused.
-        const taken = new Set<number>();
-        for (let offset = 0; ; offset += LIBRARY_PAGE) {
-          const page = await library({ filter: "Playlists", text: "My Playlist #" }, offset);
-          for (const c of page.items) {
-            const n = /^My Playlist #(\d+)$/.exec(c.title)?.[1];
-            if (n) taken.add(Number(n));
-          }
-          if (!page.items.length || offset + LIBRARY_PAGE >= page.total) break;
-        }
-        let n = 1;
-        while (taken.has(n)) n++;
-        const uri = await createPlaylist(`My Playlist #${n}`);
-        // The next one must see this one: Your Library's cached pages are stale now.
-        clearCache("library:");
-        notifyLibraryChanged();
-        nav.open(uri);
-      } catch (e) {
-        toast(e);
-      }
-    };
-    window.addEventListener(NEW_PLAYLIST_EVENT, make);
-    return () => window.removeEventListener(NEW_PLAYLIST_EVENT, make);
-  }, [nav]);
-}
-

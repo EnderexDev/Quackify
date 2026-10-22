@@ -1,9 +1,10 @@
 // The items of the right-click menus for tracks and for cards (playlists, albums, artists).
-import { addToPlaylist, areSaved, createPlaylist, editablePlaylists, save, unsave } from "../api/library";
+import { addToPlaylist, areSaved, editablePlaylists, save, unsave } from "../api/library";
 import { play, songRadio } from "../api/spotify";
 import { openCredits } from "./Credits";
 import type { Card, Named } from "../api/types";
 import { markSaved, notifyLibraryChanged, setSaved } from "../state/saved";
+import { newPlaylist } from "../state/newPlaylist";
 import { toast } from "../state/toast";
 import type { MenuItem } from "./ContextMenu";
 
@@ -29,19 +30,12 @@ export function embedCode(uri: string): string {
 }
 
 /** "Add to playlist" for one song: New playlist on top at once, then the user's playlists, ✓ where it already is. */
-export function playlistPicker(track: { uri: string; name?: string }, nav: Nav): { submenuHead: MenuItem[]; submenu: () => Promise<MenuItem[]> } {
+export function playlistPicker(track: { uri: string; name?: string }, _nav: Nav): { submenuHead: MenuItem[]; submenu: () => Promise<MenuItem[]> } {
   return {
     submenuHead: [
       {
         label: "New playlist",
-        onClick: () =>
-          createPlaylist(track.name ?? "New playlist")
-            .then((uri) => addToPlaylist(uri, [track.uri]).then(() => uri))
-            .then((uri) => {
-              notifyLibraryChanged();
-              toast("Added to a new playlist");
-              nav.open(uri);
-            }, toast),
+        onClick: () => newPlaylist({ songs: async () => [track.uri], label: track.name ?? "this song", name: track.name }),
       },
       "separator",
     ],
@@ -117,7 +111,7 @@ export function trackMenu(
 export const TRACKS_MIME = "application/x-quackify-tracks";
 
 /** The menu for several selected songs at once. `allSaved`: whether every one is liked. */
-export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSaved: boolean | undefined, nav: Nav): MenuItem[] {
+export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSaved: boolean | undefined, _nav: Nav): MenuItem[] {
   // Every selected song goes to a playlist or Liked Songs; the queue only takes ones that play.
   const uris = tracks.map((t) => t.uri);
   const playable = tracks.filter((t) => t.playable !== false).map((t) => t.uri);
@@ -140,15 +134,7 @@ export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSav
       submenuHead: [
         {
           label: "New playlist",
-          onClick: () =>
-            createPlaylist("New playlist")
-              .then(async (created) => {
-                await addAll(created, uris);
-                notifyLibraryChanged();
-                toast(`Added ${n} to a new playlist`);
-                nav.open(created);
-              })
-              .catch(toast),
+          onClick: () => newPlaylist({ songs: async () => uris, label: n }),
         },
         "separator",
       ],
@@ -242,17 +228,7 @@ export function collectionMenu(o: {
       submenuHead: [
         {
           label: "New playlist",
-          onClick: () =>
-            o
-              .songs()
-              .then(async (uris) => {
-                const created = await createPlaylist(o.title);
-                await addAll(created, uris);
-                notifyLibraryChanged();
-                toast("Added to a new playlist");
-                o.nav.open(created);
-              })
-              .catch(toast),
+          onClick: () => newPlaylist({ songs: o.songs, label: o.title, name: o.title }),
         },
         "separator",
       ],

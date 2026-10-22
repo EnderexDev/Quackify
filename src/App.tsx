@@ -11,7 +11,9 @@ import { PeekLayer } from "./components/Peek";
 import { PlayerBar } from "./components/PlayerBar";
 import { OPEN_PALETTE_EVENT, Palette, type PaletteCommand } from "./components/Palette";
 import { QueuePanel } from "./components/Queue";
-import { NEW_PLAYLIST_EVENT, Sidebar, useNewPlaylist } from "./components/Sidebar";
+import { NewPlaylistHost } from "./components/NewPlaylist";
+import { Sidebar } from "./components/Sidebar";
+import { newPlaylist } from "./state/newPlaylist";
 import { ShortcutsDialog, useShortcuts } from "./components/Shortcuts";
 import { TopBar } from "./components/TopBar";
 import { NavProvider, useNav, type Nav } from "./state/nav";
@@ -164,7 +166,6 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
 
   const app = useMemo(() => ({ openPalette, toggleSidebar }), [route, collapsed, compact]);
   const shortcuts = useShortcuts(player, nav, panel, togglePanel, app);
-  useNewPlaylist();
   useEffect(() => {
     const open = () => setPalette("");
     window.addEventListener(OPEN_PALETTE_EVENT, open);
@@ -192,7 +193,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
     { label: "Settings", keys: "Ctrl P", run: () => nav.go({ page: "settings" }) },
     { label: "Your profile", run: () => nav.go({ page: "user", uri: "me" }) },
     { label: "Queue", keys: "Alt Shift Q", run: () => togglePanel("queue") },
-    { label: "New playlist", keys: "Ctrl N", run: () => window.dispatchEvent(new Event(NEW_PLAYLIST_EVENT)) },
+    { label: "New playlist", keys: "Ctrl N", run: () => newPlaylist() },
     { label: collapsed ? "Expand Your Library" : "Collapse Your Library", keys: "Ctrl B", run: toggleSidebar },
     { label: "Theme: System", run: () => setTheme("system") },
     { label: "Theme: Dark", run: () => setTheme("dark") },
@@ -227,6 +228,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
         {panel === "queue" && <QueuePanel onClose={() => setPanel(null)} />}
         <PlayerBar panel={panel} onPanel={togglePanel} />
         <PeekLayer />
+        <NewPlaylistHost />
         {shortcuts.listOpen && <ShortcutsDialog onClose={shortcuts.closeList} />}
       </div>
       {palette !== null && <Palette key="palette" initialTerm={palette} onClose={() => setPalette(null)} commands={commands} />}
