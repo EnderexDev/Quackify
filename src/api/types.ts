@@ -29,6 +29,8 @@ export type Track = {
   addedAt: string | null;
   /** Which row of a playlist this is (two copies of a song have different uids). */
   uid: string | null;
+  /** How many times it was played, for an artist's popular songs. */
+  plays?: number;
 };
 
 /** A row of cards. `uri` and `more` say whether "Show all" can open the whole section. */
@@ -95,6 +97,15 @@ export type Artist = {
   /** "Fans also like". */
   related: Card[];
   relatedCount: number;
+  verified: boolean;
+  followers: number | null;
+  worldRank: number | null;
+  bio: string;
+  /** The wide photo of the About tab. */
+  photo: string | null;
+  topCities: { city: string; country: string; listeners: number }[];
+  /** "Artist's pick", with the artist's own note. */
+  pick: { card: Card; comment: string } | null;
 };
 
 /** A song's lyrics. When `synced`, each line starts at `start_ms`. Colors are `#rrggbb`. */

@@ -9,6 +9,14 @@
   --cols: 40px minmax(0, 1fr) 100px;
 }
 
+.tracklist.with-plays {
+  --cols: 40px minmax(0, 2fr) minmax(90px, 1fr) 100px;
+}
+
+.track-plays {
+  font-variant-numeric: tabular-nums;
+}
+
 .track-row {
   display: grid;
   grid-template-columns: var(--cols);

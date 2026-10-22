@@ -4,7 +4,7 @@ import type { Track } from "../api/types";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
 import { useSaved } from "../state/saved";
-import { formatDuration } from "../util/format";
+import { formatCount, formatDuration } from "../util/format";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
 import { Cover } from "./Cover";
 import { ClockIcon, PauseIcon, PlayIcon } from "./icons";
@@ -26,6 +26,7 @@ export function TrackList({
   showAlbum = true,
   showCover = true,
   showHeader = true,
+  showPlays = false,
   onRemove,
   onMove,
   playlistName,
@@ -37,6 +38,8 @@ export function TrackList({
   showAlbum?: boolean;
   showCover?: boolean;
   showHeader?: boolean;
+  /** An artist's popular songs: how many times each was played, where the album would be. */
+  showPlays?: boolean;
   /** For the user's own playlists: remove rows, or move rows to just before row `to`. */
   onRemove?: (indices: number[]) => void;
   onMove?: (from: number[], to: number) => void;
@@ -127,7 +130,7 @@ export function TrackList({
   };
 
   return (
-    <div className={`tracklist ${showAlbum ? "" : "no-album"}`} tabIndex={-1} onKeyDown={onKeyDown}>
+    <div className={`tracklist ${showPlays ? "with-plays" : showAlbum ? "" : "no-album"}`} tabIndex={-1} onKeyDown={onKeyDown}>
       {showHeader && (
         <div className="track-row track-head">
           <span className="track-num">#</span>
@@ -146,6 +149,7 @@ export function TrackList({
           current={isCurrent(t, i)}
           selected={selected.has(i)}
           showAlbum={showAlbum}
+          showPlays={showPlays}
           showCover={showCover}
           onPlay={() => onPlay(i)}
           onSelect={(e) => select(i, e)}
@@ -191,6 +195,7 @@ function TrackRow({
   current,
   selected,
   showAlbum,
+  showPlays,
   showCover,
   onPlay,
   onSelect,
@@ -204,6 +209,7 @@ function TrackRow({
   current: boolean;
   selected: boolean;
   showAlbum: boolean;
+  showPlays: boolean;
   showCover: boolean;
   onPlay: () => void;
   onSelect: (e: React.MouseEvent) => void;
@@ -287,10 +293,14 @@ function TrackRow({
           </span>
         </span>
       </span>
-      {showAlbum && (
-        <span className="track-album">
-          {t.album && <a onClick={() => nav.open(t.album!.uri)}>{t.album.name}</a>}
-        </span>
+      {showPlays ? (
+        <span className="track-album track-plays">{t.plays !== undefined ? formatCount(t.plays) : ""}</span>
+      ) : (
+        showAlbum && (
+          <span className="track-album">
+            {t.album && <a onClick={() => nav.open(t.album!.uri)}>{t.album.name}</a>}
+          </span>
+        )
       )}
       <span className="track-time">
         <LikeButton uri={t.uri} size={16} className="row-like" />

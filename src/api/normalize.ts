@@ -53,6 +53,11 @@ function names(list: Raw): Named[] {
     .filter((a: Named) => a.name);
 }
 
+/** The character of a numeric HTML entity, or null when the number is not one. */
+function codePoint(n: number): string | null {
+  return Number.isInteger(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : null;
+}
+
 /** Spotify descriptions carry HTML links and entities; the app shows plain text. */
 export function plainText(html: string | null | undefined): string {
   if (!html) return "";
@@ -60,7 +65,8 @@ export function plainText(html: string | null | undefined): string {
     .replace(/<[^>]*>/g, "")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
-    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (m, h) => codePoint(parseInt(h, 16)) ?? m)
+    .replace(/&#([0-9]+);/g, (m, d) => codePoint(Number(d)) ?? m)
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .trim();
@@ -434,19 +440,37 @@ export function toArtist(data: Raw): Artist {
   const a = data?.artistUnion;
   const d = a?.discography;
   const related = a?.relatedContent?.relatedArtists;
+  const plays = new Map<string, number>();
+  for (const it of a?.discography?.topTracks?.items ?? []) {
+    const n = Number(it?.track?.playcount);
+    if (it?.track?.uri && Number.isFinite(n)) plays.set(it.track.uri, n);
+  }
+  const pinned = a?.profile?.pinnedItem;
+  const pickCard = pinned ? toCard(pinned.itemV2 ?? pinned.item ?? pinned) : null;
   return {
     uri: a?.uri ?? "",
     name: a?.profile?.name ?? "",
     image: imageOf(a, 300),
     header: pickImage(a?.headerImage?.data?.sources, 1500),
     monthlyListeners: a?.stats?.monthlyListeners ?? null,
-    topTracks: tracks(a?.discography?.topTracks?.items),
+    topTracks: tracks(a?.discography?.topTracks?.items).map((t) => ({ ...t, plays: plays.get(t.uri) })),
     albums: releases(d?.albums?.items),
     singles: releases(d?.singles?.items),
     releaseCount: (d?.albums?.totalCount ?? 0) + (d?.singles?.totalCount ?? 0) + (d?.compilations?.totalCount ?? 0),
     appearsOn: releases(a?.relatedContent?.appearsOn?.items),
     related: cards((related?.items ?? []).map((x: Raw) => ({ __typename: "Artist", ...x }))),
     relatedCount: related?.totalCount ?? 0,
+    verified: !!a?.onPlatformReputationTrait?.verification?.isVerified,
+    followers: a?.stats?.followers ?? null,
+    worldRank: a?.stats?.worldRank || null,
+    bio: plainText(a?.profile?.biography?.text),
+    photo: pickImage(a?.visuals?.gallery?.items?.[0]?.sources, 1000),
+    topCities: (a?.stats?.topCities?.items ?? []).map((c: Raw) => ({
+      city: c?.city ?? "",
+      country: c?.country ?? "",
+      listeners: c?.numberOfListeners ?? 0,
+    })),
+    pick: pickCard?.uri ? { card: pickCard, comment: plainText(pinned?.comment) } : null,
   };
 }
 

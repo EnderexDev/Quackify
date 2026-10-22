@@ -41,6 +41,22 @@ export function CardsView({ source, uri, title, from }: { source: Source; uri: s
 }
 
 function Pages({ first, load }: { first: CardPage; load: (offset: number) => Promise<CardPage> }) {
+  const { cards, more, sentinel } = usePaged(first, load);
+  return (
+    <>
+      <CardGrid cards={cards} />
+      {cards.length === 0 && <p className="muted">Nothing here yet.</p>}
+      {more && (
+        <div ref={sentinel} className="more">
+          <div className="spinner small" />
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Cards a page at a time: the next page loads when `sentinel` comes into view. */
+export function usePaged(first: CardPage, load: (offset: number) => Promise<CardPage>) {
   const [cards, setCards] = useState<Card[]>(first.cards);
   const [next, setNext] = useState<number | null>(first.next);
   const sentinel = useRef<HTMLDivElement>(null);
@@ -73,15 +89,5 @@ function Pages({ first, load }: { first: CardPage; load: (offset: number) => Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [next]);
 
-  return (
-    <>
-      <CardGrid cards={cards} />
-      {cards.length === 0 && <p className="muted">Nothing here yet.</p>}
-      {next !== null && (
-        <div ref={sentinel} className="more">
-          <div className="spinner small" />
-        </div>
-      )}
-    </>
-  );
+  return { cards, more: next !== null, sentinel };
 }
