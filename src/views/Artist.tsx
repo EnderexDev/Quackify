@@ -279,42 +279,44 @@ function Release({ card, artist: artistName }: { card: CardData; artist: string 
 /** About: the artist's photo, the numbers, the biography and where people listen. */
 function About({ data }: { data: Data }) {
   return (
-    <section className="artist-about">
+    <section className={`artist-about ${data.photo ? "with-photo" : ""}`}>
       {data.photo && <img className="about-photo" src={data.photo} alt="" draggable={false} />}
-      <div className="about-stats">
-        {data.worldRank && (
-          <div className="about-stat">
-            <b>#{data.worldRank}</b>
-            <span>in the world</span>
-          </div>
-        )}
-        {data.monthlyListeners !== null && (
-          <div className="about-stat">
-            <b>{formatCount(data.monthlyListeners)}</b>
-            <span>monthly listeners</span>
-          </div>
-        )}
-        {data.followers !== null && (
-          <div className="about-stat">
-            <b>{formatCount(data.followers)}</b>
-            <span>followers</span>
+      <div className="about-text">
+        <div className="about-stats">
+          {data.worldRank && (
+            <div className="about-stat">
+              <b>#{data.worldRank}</b>
+              <span>in the world</span>
+            </div>
+          )}
+          {data.monthlyListeners !== null && (
+            <div className="about-stat">
+              <b>{formatCount(data.monthlyListeners)}</b>
+              <span>monthly listeners</span>
+            </div>
+          )}
+          {data.followers !== null && (
+            <div className="about-stat">
+              <b>{formatCount(data.followers)}</b>
+              <span>followers</span>
+            </div>
+          )}
+        </div>
+        {data.bio && <p className="about-bio">{data.bio}</p>}
+        {data.topCities.length > 0 && (
+          <div className="about-cities">
+            <h3>Where people listen</h3>
+            {data.topCities.map((c) => (
+              <div key={`${c.city}:${c.country}`} className="about-city">
+                <span>
+                  {c.city}, {c.country}
+                </span>
+                <span className="muted">{formatCount(c.listeners)} listeners</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
-      {data.bio && <p className="about-bio">{data.bio}</p>}
-      {data.topCities.length > 0 && (
-        <div className="about-cities">
-          <h3>Where people listen</h3>
-          {data.topCities.map((c) => (
-            <div key={`${c.city}:${c.country}`} className="about-city">
-              <span>
-                {c.city}, {c.country}
-              </span>
-              <span className="muted">{formatCount(c.listeners)} listeners</span>
-            </div>
-          ))}
-        </div>
-      )}
     </section>
   );
 }

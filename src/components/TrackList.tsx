@@ -102,10 +102,27 @@ export function TrackList({
         return next;
       });
     } else {
-      setSelected(new Set([i]));
+      // A plain click on the only selected row takes it out again.
+      setSelected((prev) => (prev.size === 1 && prev.has(i) ? new Set() : new Set([i])));
     }
     anchor.current = i;
   };
+
+  // A click anywhere off the rows (the page, the sidebar) clears the selection; menus and the
+  // selection bar act on it, so they keep it.
+  const list = useRef<HTMLDivElement>(null);
+  const anySelected = selected.size > 0;
+  useEffect(() => {
+    if (!anySelected) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest(".menu, .selection-bar, .dialog") || list.current?.contains(t)) return;
+      setSelected(new Set());
+      anchor.current = null;
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [anySelected]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if ((e.target as HTMLElement).closest("input, textarea")) return;
@@ -136,6 +153,7 @@ export function TrackList({
 
   return (
     <div
+      ref={list}
       className={`tracklist ${showPlays ? "with-plays" : showAlbum ? (showAdded ? "with-added" : "") : "no-album"}`}
       tabIndex={-1}
       onKeyDown={onKeyDown}

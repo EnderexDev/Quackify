@@ -60,10 +60,11 @@
   margin-bottom: 32px;
 }
 
+/* The side cards take about a quarter of the width, so a wide window fills instead of
+   leaving an empty half. */
 .artist-overview.with-side {
   display: grid;
-  max-width: 1100px;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 27%, 520px);
   gap: 24px;
   align-items: start;
 }
@@ -234,17 +235,33 @@
 }
 
 /* About */
-.artist-about {
-  max-width: 820px;
+/* The biography keeps a readable line; the photo and numbers use the width. */
+.about-bio {
+  max-width: 90ch;
+}
+
+/* Photo and text side by side when there is room; one under the other below 1100px. */
+.artist-about.with-photo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
 }
 
 .about-photo {
   display: block;
   width: 100%;
-  max-height: 420px;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
+  object-position: center 20%;
   border-radius: var(--r-lg);
-  margin-bottom: 24px;
+}
+
+@media (max-width: 1099px) {
+  .artist-about.with-photo {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
 }
 
 .about-stats {

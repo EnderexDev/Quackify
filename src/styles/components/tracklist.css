@@ -26,7 +26,7 @@
 
 /* An artist's popular songs: the plays sit close to the names, as in the Figma. */
 .tracklist.with-plays {
-  --cols: 22px minmax(0, 1fr) 150px 112px;
+  --cols: 22px minmax(0, 3fr) minmax(110px, 1fr) 112px;
 }
 
 .track-plays {
