@@ -336,6 +336,8 @@ function ContinueTile({ episode: e }: { episode: Episode }) {
 }
 
 /** An album or playlist left halfway: the song it was on, of how many, and how far along.
+ * While shuffling, the row is not how far it got (Spotify sends the song's place in the
+ * list), so the tile only says it was shuffling.
  * Play picks up at that song and place. */
 function ContinueContext({ card, spot }: { card: ContextCard; spot: Spot }) {
   const nav = useNav();
@@ -350,10 +352,10 @@ function ContinueContext({ card, spot }: { card: ContextCard; spot: Spot }) {
       <Cover src={card.image} kind={card.kind} className="continue-cover" />
       <div className="continue-text">
         <div className={`continue-title ${isCurrent ? "accent" : ""}`}>{card.title}</div>
-        <div className="continue-sub">{`Track ${row.toLocaleString()} of ${total.toLocaleString()}`}</div>
+        <div className="continue-sub">{spot.shuffle ? `Shuffling • ${kindLabel(card)}` : `Track ${row.toLocaleString()} of ${total.toLocaleString()}`}</div>
       </div>
       <PlayButton size={32} className="continue-play" playing={isCurrent && player.playing} onClick={playThis} />
-      <div className="continue-progress" style={{ width: `${100 * done}%` }} />
+      {!spot.shuffle && <div className="continue-progress" style={{ width: `${100 * done}%` }} />}
     </div>
   );
 }
