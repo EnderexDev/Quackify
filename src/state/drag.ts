@@ -109,9 +109,10 @@ export function queueSongs(uris: string[], next: boolean, queue: () => QueuedTra
 
 async function addSongs(uris: string[], next: boolean, queue: () => QueuedTrack[]): Promise<"next" | "end"> {
   const before = queue().filter((q) => q.provider === "queue");
-  for (const u of uris) await play.addToQueue(u);
-  if (!next || before.length === 0) return before.length === 0 ? "next" : "end";
   const had = new Set(before.map((q) => q.uid));
+  for (const u of uris) await play.addToQueue(u);
+  // Every batch waits for its songs to show before the next one starts: a later batch of the
+  // same songs would otherwise take these for its own.
   const deadline = Date.now() + 6000;
   while (Date.now() < deadline) {
     const now = queue().filter((q) => q.provider === "queue");
@@ -125,12 +126,14 @@ async function addSongs(uris: string[], next: boolean, queue: () => QueuedTrack[
       return true;
     });
     if (batch.length >= uris.length) {
-      // The first older song still there: one that played meanwhile is gone.
+      if (!next) return "end";
+      // The first older song still there: one that played meanwhile is gone. None left: the
+      // new songs are next already.
       const anchor = now.find((q) => had.has(q.uid));
       if (anchor) await play.editQueue({ kind: "move", tracks: batch.map(ref), before: ref(anchor) });
       return "next";
     }
     await new Promise((r) => setTimeout(r, 200));
   }
-  return "end";
+  return next && before.length === 0 ? "next" : "end";
 }
