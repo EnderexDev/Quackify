@@ -183,7 +183,7 @@ export function leftHalfway(log: Log, now: number): [string, Spot][] {
 /** Whether a spot is at the very end of its context, once its length is known. Not told while
  * shuffling: the last row is not the last song heard then. */
 export const finished = (s: Spot, total: number) =>
-  !s.shuffle && s.index !== null && s.index >= total - 1 && s.pos >= s.dur - END_MS;
+  !s.shuffle && s.dur > 0 && s.index !== null && s.index >= total - 1 && s.pos >= s.dur - END_MS;
 
 // ---- The store ----
 

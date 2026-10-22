@@ -277,8 +277,8 @@ function useContinuing(enabled: boolean, log: Log): Halfway[] {
       live = false;
     };
   }, [enabled]);
-  // Twice the room: some turn out finished once their length is in, and drop out.
-  const spots = enabled ? leftHalfway(log, Date.now()).slice(0, 2 * CONTINUE_MAX) : [];
+  // All of them (a month, at most 60): some turn out finished once their length is in, and drop out.
+  const spots = enabled ? leftHalfway(log, Date.now()) : [];
   const cards = useContextCards(spots.map(([c]) => c));
   if (!enabled) return [];
   const contexts: Halfway[] = spots.flatMap(([uri, spot]) => {
