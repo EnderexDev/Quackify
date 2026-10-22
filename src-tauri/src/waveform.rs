@@ -77,7 +77,7 @@ impl Bins {
         let start = f64::from(start_ms);
         for (k, pair) in samples.chunks_exact(2).enumerate() {
             let ms = start + k as f64 * 1000.0 / f64::from(SAMPLE_RATE);
-            let i = ((ms as u64 * BINS as u64) / self.duration_ms).min(BINS as u64 - 1) as usize;
+            let i = ((ms * BINS as f64 / self.duration_ms as f64) as usize).min(BINS - 1);
             // The two channels' energy, so sound in opposite phase does not cancel out.
             self.sum[i] += (pair[0] * pair[0] + pair[1] * pair[1]) * 0.5;
             self.count[i] += 1;
@@ -113,7 +113,7 @@ impl<T: Seek> Seek for Subfile<T> {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         // Every target is worked out first, so a seek into the hidden header fails and moves nothing.
         let target = match pos {
-            SeekFrom::Start(n) => Some(n + self.offset),
+            SeekFrom::Start(n) => n.checked_add(self.offset),
             SeekFrom::End(n) => self.length.checked_add_signed(n),
             SeekFrom::Current(n) => self.stream.stream_position()?.checked_add_signed(n),
         };
@@ -153,6 +153,7 @@ mod tests {
         assert_eq!(f.seek(SeekFrom::End(0)).unwrap(), 9);
         f.seek(SeekFrom::Start(2)).unwrap();
         assert!(f.seek(SeekFrom::Current(-3)).is_err(), "into the header");
+        assert!(f.seek(SeekFrom::Start(u64::MAX)).is_err(), "past the end of numbers");
         assert_eq!(f.stream_position().unwrap(), 2, "a failed seek moves nothing");
     }
 
