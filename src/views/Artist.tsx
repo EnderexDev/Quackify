@@ -31,7 +31,7 @@ export function Artist({ uri }: { uri: string }) {
   const isCurrent = !!player.track && topUris.includes(player.track.uri);
   const shownReleases = data.albums.length + data.singles.length;
   const showDiscography =
-    data.releaseCount > shownReleases ? () => nav.go({ page: "cards", source: "discography", uri, title: data.name }) : undefined;
+    data.releaseCount > shownReleases ? () => nav.go({ page: "cards", source: "discography", uri, from: data.name }) : undefined;
 
   return (
     <div className="page artist">
@@ -86,7 +86,7 @@ export function Artist({ uri }: { uri: string }) {
       <Shelf
         title="Fans also like"
         cards={data.related}
-        onShowAll={data.relatedCount > data.related.length ? () => nav.go({ page: "cards", source: "related", uri, title: data.name }) : undefined}
+        onShowAll={data.relatedCount > data.related.length ? () => nav.go({ page: "cards", source: "related", uri, from: data.name }) : undefined}
       />
       <Shelf title="Appears On" cards={data.appearsOn} />
     </div>

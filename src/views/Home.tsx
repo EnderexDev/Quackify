@@ -99,7 +99,7 @@ export function Home({ name }: { name: string }) {
               title={r.title}
               onShowAll={
                 r.section.more && r.section.uri
-                  ? () => nav.go({ page: "cards", source: "home", uri: r.section.uri!, title: r.section.title })
+                  ? () => nav.go({ page: "cards", source: "home", uri: r.section.uri!, title: r.section.title, from: "Home" })
                   : undefined
               }
             >

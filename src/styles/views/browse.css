@@ -102,15 +102,27 @@
   background: #000;
 }
 
+/* Page titles: 30/750 at a fixed size, two lines at most (spec "Forma, espaço, tipo"). */
 .page-title {
-  font-size: 48px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
+  font-size: 30px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
   margin: 12px 0 20px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
-.page-subtitle {
-  margin: -12px 0 20px;
+/* Where a "Show all" page came from, above its title. */
+.page-eyebrow {
+  margin: 12px 0 -14px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .search-start .recent-searches {
@@ -119,15 +131,30 @@
 
 .category-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+/* Explore's sections show one row until "Show all". */
+.category-grid.one-row {
+  grid-template-rows: 1fr;
+  grid-auto-rows: 0;
+  row-gap: 0;
+  overflow: hidden;
+}
+
+.mood-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -6px 0 24px;
 }
 
 .category {
   position: relative;
-  aspect-ratio: 16 / 9;
-  min-height: 100px;
-  border-radius: 8px;
+  aspect-ratio: 1.45;
+  min-height: 90px;
+  border-radius: var(--r-md);
   overflow: hidden;
   text-align: left;
   color: #fff;
@@ -139,9 +166,10 @@
   top: 14px;
   left: 14px;
   right: 14px;
-  font-size: 20px;
-  font-weight: 800;
+  font-size: 17px;
+  font-weight: 750;
   line-height: 1.15;
+  overflow-wrap: break-word;
   z-index: 1;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
 }
@@ -149,15 +177,49 @@
 /* The tilted artwork in the corner, as on Spotify. */
 .category-art {
   position: absolute;
-  right: -14px;
-  bottom: -4px;
-  width: 42%;
+  right: -10px;
+  bottom: -6px;
+  width: 46%;
   aspect-ratio: 1;
   object-fit: cover;
-  transform: rotate(25deg);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  border-radius: var(--r-sm);
+  transform: rotate(22deg);
+  box-shadow: var(--shadow-cover);
+  transition: transform var(--t-mid) var(--ease-spring);
 }
 
 .category:hover .category-art {
-  transform: rotate(25deg) scale(1.05);
+  transform: rotate(16deg) scale(1.06);
+}
+
+/* A genre page: a band in the tile's color, with its cover tilted on the right. */
+.genre-band {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 150px;
+  margin: -20px -24px 24px;
+  padding: 0 24px 20px;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--tint), color-mix(in srgb, var(--tint) 35%, transparent));
+}
+
+.genre-band .page-title {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: #fff;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.25);
+}
+
+.genre-art {
+  position: absolute;
+  right: 40px;
+  top: 28px;
+  width: 140px;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  transform: rotate(18deg);
+  box-shadow: var(--shadow-popup);
 }

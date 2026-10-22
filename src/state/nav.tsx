@@ -17,7 +17,7 @@ export type Route =
   /** A genre or mood page from Browse all. */
   | { page: "browse"; uri: string }
   /** "Show all" of a row: a Home section, a genre page's section, a discography or related artists. */
-  | { page: "cards"; source: "home" | "browse" | "discography" | "related"; uri: string; title?: string };
+  | { page: "cards"; source: "home" | "browse" | "discography" | "related"; uri: string; title?: string; from?: string };
 
 export type Nav = {
   route: Route;

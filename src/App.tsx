@@ -209,7 +209,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
           {route.page === "show" && <ShowView uri={route.uri} />}
           {route.page === "episode" && <EpisodeView uri={route.uri} />}
           {route.page === "browse" && <BrowseView uri={route.uri} />}
-          {route.page === "cards" && <CardsView source={route.source} uri={route.uri} title={route.title} />}
+          {route.page === "cards" && <CardsView source={route.source} uri={route.uri} title={route.title} from={route.from} />}
         </main>
         <FloatingScrollbar target={main} />
         {overlay && <div className="panel-scrim" onMouseDown={() => setPanel(null)} />}
