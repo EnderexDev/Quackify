@@ -165,6 +165,7 @@
   padding: 0 8px;
   border-radius: var(--r-md);
   border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
   cursor: grab;
 }
 
@@ -183,6 +184,10 @@
 /* Where the dragged row lands: a white line above this one. */
 .customize-row.over {
   border-top-color: var(--text);
+}
+
+.customize-row.over-after {
+  border-bottom-color: var(--text);
 }
 
 .customize-grip {

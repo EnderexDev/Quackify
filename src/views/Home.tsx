@@ -30,6 +30,8 @@ type Row =
 const CONTINUE_ID = "continue";
 /** Continue shows at most two rows of four. */
 const CONTINUE_MAX = 8;
+/** The podcasts read for Continue: the most recent ones in Your Library. */
+const CONTINUE_SHOWS = 12;
 
 /**
  * Spotify's own home for this account, arranged the way the user left it: the shortcuts on
@@ -41,7 +43,7 @@ export function Home({ name }: { name: string }) {
   const nav = useNav();
   const layout = useHomeLayout();
   const { data, error, loading } = useAsync(getHome, "home");
-  const continuing = useContinuing();
+  const continuing = useContinuing(!layout.hidden.includes(CONTINUE_ID));
   const [editing, setEditing] = useState(false);
   if (error) return <Failed error={error} />;
   if (loading || !data) return <Loading />;
@@ -52,7 +54,8 @@ export function Home({ name }: { name: string }) {
   const sections = shortcuts.length ? rest : data.sections;
 
   const rows: Row[] = [
-    ...(continuing.length ? [{ id: CONTINUE_ID, title: "Continue", type: "continue" as const }] : []),
+    // A hidden Continue reads nothing, but stays listed so Customize can bring it back.
+    ...(continuing.length || layout.hidden.includes(CONTINUE_ID) ? [{ id: CONTINUE_ID, title: "Continue", type: "continue" as const }] : []),
     ...sections.map((s, i) => ({ id: s.uri ?? `${s.title}:${i}`, title: s.title, type: "spotify" as const, section: s })),
     ...layout.added.map((f) => ({
       id: libraryRowId(f),
@@ -133,12 +136,13 @@ function Shortcut({ card }: { card: CardData }) {
  * Library, which carry where the user stopped. Albums and playlists join once the local
  * history keeps their positions (phase 5).
  */
-function useContinuing(): Episode[] {
+function useContinuing(enabled: boolean): Episode[] {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   useEffect(() => {
+    if (!enabled) return;
     let live = true;
     (async () => {
-      const shows = (await library({ filter: "Podcasts & Shows" })).items.filter((c) => c.kind === "show");
+      const shows = (await library({ filter: "Podcasts & Shows" })).items.filter((c) => c.kind === "show").slice(0, CONTINUE_SHOWS);
       const pages = await Promise.all(shows.map((s) => showEpisodes(s.uri).catch(() => null)));
       const halfway = pages
         .flatMap((p) => p?.episodes ?? [])
@@ -150,8 +154,8 @@ function useContinuing(): Episode[] {
     return () => {
       live = false;
     };
-  }, []);
-  return episodes;
+  }, [enabled]);
+  return enabled ? episodes : [];
 }
 
 function ContinueGrid({ episodes }: { episodes: Episode[] }) {
@@ -210,7 +214,8 @@ function LibraryShelf({ title, filter }: { title: string; filter: (typeof LIBRAR
 function Customize({ rows, layout, onClose }: { rows: Row[]; layout: HomeLayout; onClose: () => void }) {
   const box = useRef<HTMLDivElement>(null);
   const [dragId, setDragId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
+  // Where the dragged row would land: before or after the row under the mouse.
+  const [over, setOver] = useState<{ id: string; after: boolean } | null>(null);
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
@@ -228,11 +233,15 @@ function Customize({ rows, layout, onClose }: { rows: Row[]; layout: HomeLayout;
 
   const toggleIn = (list: string[], id: string, on: boolean) => (on ? [...list.filter((x) => x !== id), id] : list.filter((x) => x !== id));
   const ids = rows.map((r) => r.id);
-  const drop = (target: string) => {
+  const drop = (target: string, after: boolean) => {
     if (!dragId || dragId === target) return;
     const next = ids.filter((id) => id !== dragId);
-    next.splice(next.indexOf(target), 0, dragId);
+    next.splice(next.indexOf(target) + (after ? 1 : 0), 0, dragId);
     setHomeLayout({ ...layout, order: next });
+  };
+  const half = (e: React.DragEvent) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return e.clientY > r.top + r.height / 2;
   };
   const addable = LIBRARY_ROWS.filter((r) => !layout.added.includes(r.filter));
 
@@ -251,7 +260,7 @@ function Customize({ rows, layout, onClose }: { rows: Row[]; layout: HomeLayout;
           return (
             <div
               key={r.id}
-              className={`customize-row ${shown ? "" : "off"} ${dragId === r.id ? "dragged" : ""} ${overId === r.id && dragId !== r.id ? "over" : ""}`}
+              className={`customize-row ${shown ? "" : "off"} ${dragId === r.id ? "dragged" : ""} ${over?.id === r.id && dragId !== r.id ? (over.after ? "over-after" : "over") : ""}`}
               draggable
               onDragStart={(e) => {
                 setDragId(r.id);
@@ -259,15 +268,15 @@ function Customize({ rows, layout, onClose }: { rows: Row[]; layout: HomeLayout;
               }}
               onDragOver={(e) => {
                 e.preventDefault();
-                setOverId(r.id);
+                setOver({ id: r.id, after: half(e) });
               }}
               onDrop={(e) => {
                 e.preventDefault();
-                drop(r.id);
+                drop(r.id, half(e));
               }}
               onDragEnd={() => {
                 setDragId(null);
-                setOverId(null);
+                setOver(null);
               }}
             >
               <span className="customize-grip" aria-hidden>

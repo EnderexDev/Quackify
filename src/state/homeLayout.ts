@@ -48,8 +48,12 @@ const listeners = new Set<() => void>();
 export function setHomeLayout(next: HomeLayout) {
   current = next;
   const empty = !next.order.length && !next.hidden.length && !next.pinned.length && !next.added.length;
-  if (empty) localStorage.removeItem(KEY);
-  else localStorage.setItem(KEY, JSON.stringify(next));
+  try {
+    if (empty) localStorage.removeItem(KEY);
+    else localStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    // Storage full or off: the change still shows, it just will not outlive the app.
+  }
   listeners.forEach((f) => f());
 }
 
