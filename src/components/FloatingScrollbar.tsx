@@ -18,8 +18,12 @@ export function FloatingScrollbar({ target }: { target: HTMLElement | null }) {
   const [active, setActive] = useState(false);
   const [dragging, setDragging] = useState(false);
   const placeRef = useRef<() => void>(() => {});
+  const targetRef = useRef(target);
+  targetRef.current = target;
 
   useEffect(() => {
+    // A new page (or none, between two) ends any drag of the old one: its pointerup may never come.
+    setDragging(false);
     if (!target) return;
     let timer = 0;
     const place = () => {
@@ -31,7 +35,7 @@ export function FloatingScrollbar({ target }: { target: HTMLElement | null }) {
       // Not drawn yet: the render that setFits causes draws it, and its layout effect places it.
       if (range <= 1 || !t || !tr) return;
       const room = tr.clientHeight;
-      const h = Math.max(MIN_THUMB, (room * clientHeight) / scrollHeight);
+      const h = Math.min(room, Math.max(MIN_THUMB, (room * clientHeight) / scrollHeight));
       t.style.height = `${h}px`;
       t.style.transform = `translateY(${((room - h) * scrollTop) / range}px)`;
     };
@@ -51,6 +55,8 @@ export function FloatingScrollbar({ target }: { target: HTMLElement | null }) {
         m.removedNodes.forEach((n) => n instanceof Element && sizes.unobserve(n));
         m.addedNodes.forEach((n) => n instanceof Element && sizes.observe(n));
       }
+      // A child removed changes the page's height without resizing anything still observed.
+      place();
     });
     children.observe(target, { childList: true });
     target.addEventListener("scroll", onScroll, { passive: true });
@@ -107,6 +113,8 @@ export function FloatingScrollbar({ target }: { target: HTMLElement | null }) {
           el.setPointerCapture(e.pointerId);
           setDragging(true);
           const move = (m: PointerEvent) => {
+            // The page changed mid-drag: this drag belonged to the old one.
+            if (targetRef.current !== target) return up();
             target.scrollTop = startTop + (m.clientY - startY) * k;
           };
           const up = () => {
