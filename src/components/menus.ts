@@ -28,6 +28,46 @@ export function embedCode(uri: string): string {
   return `<iframe style="border-radius:12px" src="https://open.spotify.com/embed/${kind}/${id}?utm_source=generator" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
 }
 
+/** "Add to playlist" for one song: New playlist on top at once, then the user's playlists, ✓ where it already is. */
+export function playlistPicker(track: { uri: string; name?: string }, nav: Nav): { submenuHead: MenuItem[]; submenu: () => Promise<MenuItem[]> } {
+  return {
+    submenuHead: [
+      {
+        label: "New playlist",
+        onClick: () =>
+          createPlaylist(track.name ?? "New playlist")
+            .then((uri) => addToPlaylist(uri, [track.uri]).then(() => uri))
+            .then((uri) => {
+              notifyLibraryChanged();
+              toast("Added to a new playlist");
+              nav.open(uri);
+            }, toast),
+      },
+      "separator",
+    ],
+    submenu: async () =>
+      (await editablePlaylists(track.uri)).map((p) => ({
+        label: p.name,
+        checked: p.contains,
+        onClick: () => addToPlaylist(p.uri, [track.uri]).then(() => toast(`Added to ${p.name}`), toast),
+      })),
+  };
+}
+
+/** Opens the "Add to playlist" list for one song as its own menu, under `anchor`. */
+export async function openPlaylistPicker(
+  anchor: HTMLElement,
+  track: { uri: string; name?: string },
+  nav: Nav,
+  open: (e: { clientX: number; clientY: number; preventDefault: () => void }, items: MenuItem[]) => void,
+) {
+  const picker = playlistPicker(track, nav);
+  const items = await picker.submenu().catch((e) => (toast(e), null));
+  if (!items) return;
+  const r = anchor.getBoundingClientRect();
+  open({ clientX: r.left, clientY: r.top, preventDefault: () => {} }, [...picker.submenuHead, ...items]);
+}
+
 export function trackMenu(
   track: { uri: string; name?: string; artists: Named[]; album: Named | null },
   saved: boolean | undefined,
@@ -38,30 +78,7 @@ export function trackMenu(
       label: "Add to queue",
       onClick: () => play.addToQueue(track.uri).then(() => toast("Added to queue"), toast),
     },
-    {
-      label: "Add to playlist",
-      submenuHead: [
-        {
-          label: "New playlist",
-          onClick: () =>
-            createPlaylist((track as { name?: string }).name ?? "New playlist")
-              .then((uri) => addToPlaylist(uri, [track.uri]).then(() => uri))
-              .then((uri) => {
-                notifyLibraryChanged();
-                toast("Added to a new playlist");
-                nav.open(uri);
-              }, toast),
-        },
-        "separator",
-      ],
-      submenu: async () => [
-        ...(await editablePlaylists(track.uri)).map((p) => ({
-          label: p.name,
-          checked: p.contains,
-          onClick: () => addToPlaylist(p.uri, [track.uri]).then(() => toast(`Added to ${p.name}`), toast),
-        })),
-      ],
-    },
+    { label: "Add to playlist", ...playlistPicker(track, nav) },
     {
       label: saved ? "Remove from Liked Songs" : "Save to Liked Songs",
       disabled: saved === undefined,

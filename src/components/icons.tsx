@@ -81,6 +81,28 @@ export const RepeatIcon = ({ one, ...p }: P & { one?: boolean }) => (
   </Icon>
 );
 
+/** Back 15 seconds: an open circle turning left with 15 inside (episodes). */
+export const Back15Icon = (p: P) => (
+  <Icon {...p}>
+    <path d="M5.2 9.2A7.6 7.6 0 1 1 4.6 14" />
+    <path d="M4.6 4.8v4.6h4.6" />
+    <text x="12.6" y="15.3" fontSize="7.2" fontWeight="700" textAnchor="middle" fill="currentColor" fillOpacity={1} stroke="none">
+      15
+    </text>
+  </Icon>
+);
+
+/** Forward 15 seconds: the mirror of Back15Icon. */
+export const Forward15Icon = (p: P) => (
+  <Icon {...p}>
+    <path d="M18.8 9.2A7.6 7.6 0 1 0 19.4 14" />
+    <path d="M19.4 4.8v4.6h-4.6" />
+    <text x="11.4" y="15.3" fontSize="7.2" fontWeight="700" textAnchor="middle" fill="currentColor" fillOpacity={1} stroke="none">
+      15
+    </text>
+  </Icon>
+);
+
 /** Muted at 0, one wave up to half, two above. */
 export const VolumeIcon = ({ level, ...p }: P & { level: number }) => (
   <Icon {...p}>
@@ -260,7 +282,7 @@ export const MicIcon = (p: P) => (
   </Icon>
 );
 
-/** A disc: the song page (today the Now playing panel). */
+/** A disc: an album (it was the Now playing button). */
 export const NowPlayingIcon = (p: P) => (
   <Icon {...p}>
     <circle cx="12" cy="12" r="8.5" />

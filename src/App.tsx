@@ -7,7 +7,6 @@ import { DuckIcon } from "./components/icons";
 import { ContextMenuProvider } from "./components/ContextMenu";
 import { CreditsHost } from "./components/Credits";
 import { PlayerBar } from "./components/PlayerBar";
-import { NowPlayingPanel } from "./components/NowPlaying";
 import { Palette, type PaletteCommand } from "./components/Palette";
 import { QueuePanel } from "./components/Queue";
 import { NEW_PLAYLIST_EVENT, Sidebar, useNewPlaylist } from "./components/Sidebar";
@@ -22,8 +21,8 @@ import { BrowseView, ExploreView } from "./views/Browse";
 import { CardsView } from "./views/Cards";
 import { Collection } from "./views/Collection";
 import { Home } from "./views/Home";
-import { LyricsView } from "./views/Lyrics";
 import { Search } from "./views/Search";
+import { SongView } from "./views/Song";
 import { SettingsView } from "./views/Settings";
 import { ProfileView } from "./views/Profile";
 import { EpisodeView, ShowView } from "./views/Show";
@@ -100,7 +99,8 @@ function App() {
   );
 }
 
-export type Panel = "queue" | "nowplaying" | null;
+/** The right-hand panel: only the queue (the Now playing panel became the song page). */
+export type Panel = "queue" | null;
 
 /** Whether a media query matches, kept up to date. */
 function useMedia(query: string): boolean {
@@ -125,11 +125,9 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
   const nav = useNav();
   const player = usePlayer();
   const route = nav.route;
-  // The right-hand panel. Which one was open is kept for the next start, like Spotify does.
-  const [panel, setPanelState] = useState<Panel>(() => {
-    const saved = localStorage.getItem("panel");
-    return saved === "queue" || saved === "nowplaying" ? saved : null;
-  });
+  // The right-hand panel. Whether it was open is kept for the next start, like Spotify does;
+  // a "nowplaying" saved before the song page existed reads as closed.
+  const [panel, setPanelState] = useState<Panel>(() => (localStorage.getItem("panel") === "queue" ? "queue" : null));
   const setPanel = (p: Panel) => {
     setPanelState(p);
     if (p) localStorage.setItem("panel", p);
@@ -202,7 +200,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
           {route.page === "search" && <Search term={route.term} tab={route.tab} />}
           {route.page === "collection" && <Collection uri={route.uri} />}
           {route.page === "artist" && <Artist uri={route.uri} />}
-          {route.page === "lyrics" && <LyricsView />}
+          {route.page === "song" && <SongView />}
           {route.page === "settings" && <SettingsView account={{ name, image, onLogout }} />}
           {route.page === "user" && <ProfileView uri={route.uri} />}
           {route.page === "show" && <ShowView uri={route.uri} />}
@@ -212,7 +210,6 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
         </main>
         {overlay && <div className="panel-scrim" onMouseDown={() => setPanel(null)} />}
         {panel === "queue" && <QueuePanel onClose={() => setPanel(null)} />}
-        {panel === "nowplaying" && <NowPlayingPanel onClose={() => setPanel(null)} onOpenQueue={() => setPanel("queue")} />}
         <PlayerBar panel={panel} onPanel={togglePanel} />
         {shortcuts.listOpen && <ShortcutsDialog onClose={shortcuts.closeList} />}
       </div>

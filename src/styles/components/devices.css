@@ -1,28 +1,60 @@
 /* Spotify Connect */
 
-.playerbar {
-  position: relative;
-}
-
-.playerbar.remote {
-  padding-bottom: 18px;
-}
-
-.remote-banner {
+/* Another device playing: a dark pill with a green border and dot over the player. */
+.remote-pill {
   position: absolute;
-  left: -8px;
-  right: -8px;
-  bottom: 0;
-  height: 22px;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  z-index: 6;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 0 24px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 12px;
+  gap: 8px;
+  height: 36px;
+  padding: 0 5px 0 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid color-mix(in srgb, var(--green) 55%, transparent);
+  background: rgba(12, 16, 14, 0.92);
+  -webkit-backdrop-filter: var(--blur-popup);
+  backdrop-filter: var(--blur-popup);
+  box-shadow: var(--shadow-popup);
+  color: #f6f4ee;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: pop-in var(--t-mid) var(--ease-spring);
+}
+
+.remote-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+
+.remote-name {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.remote-here {
+  height: 26px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: #f6f4ee;
+  color: #111;
+  font-size: 12.5px;
   font-weight: 700;
+}
+
+.remote-here:hover {
+  transform: scale(1.04);
+}
+
+.icon-btn.remote {
+  color: var(--green);
 }
 
 .devices {

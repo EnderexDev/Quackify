@@ -8,7 +8,8 @@ export type Route =
   | { page: "search"; term: string; tab?: import("../api/types").SearchTab }
   | { page: "collection"; uri: string }
   | { page: "artist"; uri: string }
-  | { page: "lyrics" }
+  /** The song playing, big, with its lyrics. */
+  | { page: "song" }
   | { page: "settings" }
   | { page: "user"; uri: string }
   | { page: "show"; uri: string }

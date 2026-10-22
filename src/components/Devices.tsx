@@ -32,7 +32,7 @@ export function DevicePicker() {
   return (
     <div className="devices" ref={box}>
       <button
-        className={`icon-btn ${player.remoteDevice ? "on" : ""}`}
+        className={`icon-btn ${player.remoteDevice ? "remote" : ""}`}
         onClick={() => setOpen(!open)}
         aria-label="Connect to a device"
         title="Connect to a device"
@@ -68,15 +68,22 @@ export function DevicePicker() {
   );
 }
 
-/** The yellow strip under the player when another device is the one playing. */
-export function RemoteBanner() {
+/** Over the player while another device is the one playing: its name and a way to bring the music here. */
+export function RemotePill() {
   const player = usePlayer();
   const d = player.remoteDevice;
+  const local = player.devices.find((x) => x.is_local);
   if (!d) return null;
   return (
-    <div className="remote-banner">
+    <div className="remote-pill" role="status">
+      <span className="remote-dot" />
       <DeviceIcon kind={d.kind} size={16} />
-      <span>Playing on {d.name}</span>
+      <span className="remote-name">Playing on {d.name}</span>
+      {local && (
+        <button className="remote-here" onClick={() => player.transfer(local.id)}>
+          Play here
+        </button>
+      )}
     </div>
   );
 }

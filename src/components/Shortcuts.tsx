@@ -3,13 +3,12 @@ import { useEffect, useState } from "react";
 import { play } from "../api/spotify";
 import { setSaved } from "../state/saved";
 import { areSaved } from "../api/library";
+import type { Panel } from "../App";
 import type { Nav } from "../state/nav";
 import type { Player } from "../state/player";
 import { toast } from "../state/toast";
 import { Dialog } from "./Dialog";
 import { NEW_PLAYLIST_EVENT } from "./Sidebar";
-
-type Panel = "queue" | "nowplaying" | null;
 
 const SEEK_STEP_MS = 5000;
 const VOLUME_STEP = 0.1;
@@ -30,8 +29,8 @@ export const SHORTCUTS: { keys: string; what: string }[] = [
   { keys: "Alt + ←  /  Alt + →", what: "Go back / forward" },
   { keys: "Alt + Shift + H", what: "Home" },
   { keys: "Alt + Shift + Q", what: "Queue" },
-  { keys: "Alt + Shift + R", what: "Now playing view" },
-  { keys: "Alt + Shift + J", what: "Lyrics" },
+  { keys: "Alt + Shift + R", what: "The song playing, with its lyrics" },
+  { keys: "Alt + Shift + J", what: "Lyrics (the song page)" },
   { keys: "Ctrl + P", what: "Settings" },
   { keys: "Ctrl + B", what: "Collapse or expand Your Library" },
   { keys: "Ctrl + A", what: "Select every song of a list" },
@@ -68,9 +67,9 @@ export function useShortcuts(
       if (ctrl && key === "n") return act(() => window.dispatchEvent(new Event(NEW_PLAYLIST_EVENT)));
       if (e.altKey && e.shiftKey) {
         if (e.code === "KeyQ") return act(() => togglePanel("queue"));
-        if (e.code === "KeyR") return act(() => togglePanel("nowplaying"));
+        // R and J both open the song page, where the lyrics now live; again goes back.
+        if (e.code === "KeyR" || e.code === "KeyJ") return act(() => (nav.route.page === "song" ? nav.back() : nav.go({ page: "song" })));
         if (e.code === "KeyH") return act(() => nav.go({ page: "home" }));
-        if (e.code === "KeyJ") return act(() => (nav.route.page === "lyrics" ? nav.back() : nav.go({ page: "lyrics" })));
         if (e.code === "KeyB" && player.track?.uri.startsWith("spotify:track:")) {
           const uri = player.track.uri;
           return act(() =>

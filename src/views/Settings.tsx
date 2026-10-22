@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
 import { Segmented } from "../components/Segmented";
+import { playerLyrics } from "../state/prefs";
 import { setTheme, useTheme } from "../state/theme";
 import { toast } from "../state/toast";
 import { Loading } from "./common";
@@ -59,6 +60,7 @@ export function SettingsView({ account }: { account: Account }) {
   const [moving, setMoving] = useState(false);
   const [linksHere, setLinksHere] = useState<boolean | null>(null);
   const theme = useTheme();
+  const lyricsInPlayer = playerLyrics.use();
   const readCache = () => {
     invoke<number>("settings_cache_size").then(setCacheBytes, () => {});
     invoke<CacheFolder>("settings_cache_folder").then(setFolder, () => {});
@@ -185,6 +187,19 @@ export function SettingsView({ account }: { account: Account }) {
             ]}
             value={theme}
             onChange={setTheme}
+          />
+        </Row>
+        <Row title="Lyrics in the player" note="The sung line under the song's name, a popup on the mic button, or both. Off, the mic opens the song page.">
+          <Segmented
+            label="Lyrics in the player"
+            options={[
+              { id: "off", label: "Off" },
+              { id: "line", label: "Line" },
+              { id: "popup", label: "Popup" },
+              { id: "both", label: "Both" },
+            ]}
+            value={lyricsInPlayer}
+            onChange={playerLyrics.set}
           />
         </Row>
       </section>
