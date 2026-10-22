@@ -16,7 +16,9 @@ export function Aura() {
   const player = usePlayer();
   const image = player.track?.image ?? null;
   const [colors, setColors] = useState<CoverColors>(IDLE);
-  const [still, setStill] = useState(() => document.hidden || !document.hasFocus());
+  const [unfocused, setStill] = useState(() => document.hidden || !document.hasFocus());
+  // Another device playing: this app does not hear that music, so the aura rests.
+  const still = unfocused || !!player.remoteDevice;
   const blobs = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
