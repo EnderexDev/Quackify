@@ -6,7 +6,7 @@ import type { Card as CardData, LibraryFilter, LibrarySort } from "../api/types"
 import { Card } from "../components/Card";
 import { Cover } from "../components/Cover";
 import { CompactIcon, GridIcon, GroupIcon, ListIcon, PinIcon, PlusIcon, SearchIcon, SortIcon } from "../components/icons";
-import { useLibraryActions, useLibraryPages, usePersisted } from "../components/libraryItems";
+import { pressable, useLibraryActions, useLibraryPages, usePersisted } from "../components/libraryItems";
 import { Segmented } from "../components/Segmented";
 import { NEW_PLAYLIST_EVENT } from "../components/Sidebar";
 import { useNav } from "../state/nav";
@@ -227,6 +227,7 @@ function Items({ view, items, actions }: { view: View; items: CardData[]; action
             className={`library-row ${actions.dropOn === c.uri ? "drop-target" : ""}`}
             title={c.title}
             onClick={() => nav.open(c.uri, c.title)}
+            {...pressable(() => nav.open(c.uri, c.title))}
             onContextMenu={(e) => actions.onMenu(e, c)}
             {...actions.dropProps(c)}
           >

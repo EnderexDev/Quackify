@@ -595,3 +595,12 @@ button.side-cat-toggle:hover {
     animation: none;
   }
 }
+
+/* Reached with Tab: the same ring as the other keyboard rows. */
+.side-cat:focus-visible,
+.side-leaf:focus-visible,
+.library-item:focus-visible,
+.library-row:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}

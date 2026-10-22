@@ -321,7 +321,7 @@ function Login({ onLoggedIn, onWebPlayer }: { onLoggedIn: (s: Status) => void; o
           {waiting ? "Waiting for the browser…" : "Log in with Spotify"}
         </button>
         {waiting && (
-          <button className="pill-button" onClick={() => invoke("spotify_cancel_login")}>
+          <button className="login-cancel" onClick={() => invoke("spotify_cancel_login")}>
             Cancel
           </button>
         )}

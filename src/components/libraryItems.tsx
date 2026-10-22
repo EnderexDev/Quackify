@@ -10,19 +10,49 @@ import { toast } from "../state/toast";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
 import { addAll, cardMenu, TRACKS_MIME } from "./menus";
 
-/** A setting of Your Library kept for the next start. */
+/** A setting of Your Library kept for the next start. Storage that fails only loses the
+ * memory: the choice still applies. */
 export function usePersisted<T extends string>(key: string, fallback: T, allowed: readonly T[]): [T, (v: T) => void] {
   const [value, setValue] = useState<T>(() => {
-    const saved = localStorage.getItem(key) as T | null;
+    const saved = readStored(key) as T | null;
     return saved && allowed.includes(saved) ? saved : fallback;
   });
   return [
     value,
     (v: T) => {
-      localStorage.setItem(key, v);
+      writeStored(key, v);
       setValue(v);
     },
   ];
+}
+
+export function readStored(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export function writeStored(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Full or unavailable: the setting lasts until the app closes.
+  }
+}
+
+/** A clickable row reached by Tab and run with Enter (Space is left to peek, on a card). */
+export function pressable(run: () => void) {
+  return {
+    role: "button",
+    tabIndex: 0,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key !== "Enter" || e.target !== e.currentTarget) return;
+      e.preventDefault();
+      run();
+    },
+  };
 }
 
 /** How many items a page of Your Library has. */

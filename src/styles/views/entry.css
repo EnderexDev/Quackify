@@ -65,10 +65,26 @@
   margin: 0;
 }
 
+/* The button stays centered; Cancel, while waiting, is a quiet link under it. */
 .login-actions {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   margin-top: 16px;
+}
+
+.login-cancel {
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  transition: color var(--t-fast);
+}
+
+.login-cancel:hover {
+  color: var(--text);
 }
 
 /* Its height is BAR_HEIGHT in webplayer.rs: the web player starts right below it. */

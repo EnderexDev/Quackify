@@ -9,7 +9,7 @@ import { toast } from "../state/toast";
 import { useAsync } from "../util/useAsync";
 import { Cover } from "./Cover";
 import { ChevronDownIcon, ChevronRightIcon, DiscIcon, HeartIcon, LibraryIcon, PinIcon, PlaylistIcon, PlusIcon, PodcastIcon, SearchIcon, UserIcon } from "./icons";
-import { LIBRARY_PAGE, librarySubtitle, useLibraryActions, useLibraryPages, usePersisted } from "./libraryItems";
+import { LIBRARY_PAGE, librarySubtitle, pressable, readStored, useLibraryActions, useLibraryPages, usePersisted, writeStored } from "./libraryItems";
 
 type Filter = Exclude<LibraryFilter, null>;
 
@@ -32,7 +32,7 @@ const OPEN_KEY = "libraryOpen";
 function useOpened(): [Set<string>, (id: string, open?: boolean) => void] {
   const [opened, setOpened] = useState<Set<string>>(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(OPEN_KEY) ?? "null");
+      const saved = JSON.parse(readStored(OPEN_KEY) ?? "null");
       if (Array.isArray(saved)) return new Set(saved.filter((x): x is string => typeof x === "string"));
     } catch {
       // A broken value starts over.
@@ -44,7 +44,7 @@ function useOpened(): [Set<string>, (id: string, open?: boolean) => void] {
       const next = new Set(prev);
       if (open ?? !next.has(id)) next.add(id);
       else next.delete(id);
-      localStorage.setItem(OPEN_KEY, JSON.stringify([...next]));
+      writeStored(OPEN_KEY, JSON.stringify([...next]));
       return next;
     });
   return [opened, toggle];
@@ -249,6 +249,10 @@ function Tree({
   const tree = useRef<HTMLDivElement>(null);
   const [bar, setBar] = useState<{ y: number; h: number } | null>(null);
   const likedOpen = openUri === LIKED.uri;
+  const openCategory = (f: Filter) => {
+    openKind(f);
+    toggle(f, true);
+  };
 
   // The bar follows the open row, and moves when a category above it opens or closes.
   useLayoutEffect(() => {
@@ -269,6 +273,7 @@ function Tree({
         className={`side-cat ${likedOpen ? "open" : ""} ${actions.dropOn === LIKED.uri ? "drop-target" : ""}`}
         style={{ "--kind": LIKED_TINT } as React.CSSProperties}
         onClick={() => nav.open(LIKED.uri)}
+        {...pressable(() => nav.open(LIKED.uri))}
         onContextMenu={(e) => actions.onMenu(e, LIKED)}
         {...actions.dropProps(LIKED)}
       >
@@ -287,10 +292,8 @@ function Tree({
             <div
               className={`side-cat ${openFilter === k.filter ? "open" : ""} ${isOpen ? "expanded" : ""}`}
               style={{ "--kind": k.tint } as React.CSSProperties}
-              onClick={() => {
-                openKind(k.filter);
-                toggle(k.filter, true);
-              }}
+              onClick={() => openCategory(k.filter)}
+              {...pressable(() => openCategory(k.filter))}
             >
               <span className="side-cat-icon">{k.icon}</span>
               <span className="side-cat-name">{k.label}</span>
@@ -371,6 +374,8 @@ function Branch({
               className={`side-leaf ${openUri === c.uri ? "open" : ""} ${playing ? "playing" : ""} ${actions.dropOn === c.uri ? "drop-target" : ""}`}
               title={c.title}
               onClick={() => (isFolder ? toggle(c.uri) : nav.open(c.uri, c.title))}
+              {...pressable(() => (isFolder ? toggle(c.uri) : nav.open(c.uri, c.title)))}
+              aria-expanded={isFolder ? folderOpen : undefined}
               onContextMenu={(e) => actions.onMenu(e, c)}
               {...actions.dropProps(c)}
             >
@@ -447,6 +452,7 @@ function LibrarySearch({
             key={c.uri}
             className={`library-item ${openUri === c.uri ? "open" : ""} ${actions.dropOn === c.uri ? "drop-target" : ""}`}
             onClick={() => nav.open(c.uri, c.title)}
+            {...pressable(() => nav.open(c.uri, c.title))}
             onContextMenu={(e) => actions.onMenu(e, c)}
             {...actions.dropProps(c)}
             title={c.title}
