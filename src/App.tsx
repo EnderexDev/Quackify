@@ -51,9 +51,11 @@ function App() {
 
   if (status === null) {
     return (
-      <div className="splash">
-        <DuckIcon size={72} />
-        <div className="spinner" />
+      <div className="splash" role="status">
+        <div className="splash-ring">
+          <DuckIcon size={56} />
+        </div>
+        <p className="muted small">Connecting to Spotify…</p>
       </div>
     );
   }
@@ -269,10 +271,11 @@ function WebPlayer({ onLeave }: { onLeave: () => void }) {
 
   return (
     <div className="web-player-bar">
-      <DuckIcon size={28} />
+      <DuckIcon size={26} />
       <strong>Quackify</strong>
-      <span className="muted small">Spotify Free, in Spotify's web player. Quackify's own player needs Premium.</span>
-      <button className="link" onClick={onLeave}>
+      <span className="web-player-pill">Spotify Free · Spotify's web player</span>
+      <span className="muted small web-player-note">Quackify's player needs Premium.</span>
+      <button className="pill-button" onClick={onLeave}>
         Log in with Premium
       </button>
     </div>
@@ -282,18 +285,22 @@ function WebPlayer({ onLeave }: { onLeave: () => void }) {
 function Login({ onLoggedIn, onWebPlayer }: { onLoggedIn: (s: Status) => void; onWebPlayer: () => void }) {
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState("");
+  // Spotify turned the account away for not being Premium: the Free card is the way in.
+  const [free, setFree] = useState(false);
 
   const login = async () => {
     setWaiting(true);
     setError("");
+    setFree(false);
     try {
       onLoggedIn(await invoke<Status>("spotify_login"));
     } catch (e) {
       const message = String(e);
+      setFree(notPremium(message));
       setError(
         notPremium(message)
           ? "Spotify didn't let this account in: Quackify's player needs Spotify Premium. With a Free account, use the web player below."
-          : message,
+          : message.replace(/^Error: /, ""),
       );
     } finally {
       setWaiting(false);
@@ -302,28 +309,34 @@ function Login({ onLoggedIn, onWebPlayer }: { onLoggedIn: (s: Status) => void; o
 
   return (
     <div className="login">
-      <DuckIcon size={96} />
+      <DuckIcon size={96} className="login-duck" />
       <h1>Quackify</h1>
-      <p className="muted">Your music, quacking fast.</p>
+      <p className="muted">Your music, in a quack.</p>
       <div className="login-actions">
-        <button className="primary" onClick={login} disabled={waiting}>
+        <button className="primary login-button" onClick={login} disabled={waiting}>
+          <span className="login-dot" aria-hidden />
           {waiting ? "Waiting for the browser…" : "Log in with Spotify"}
         </button>
         {waiting && (
-          <button className="secondary" onClick={() => invoke("spotify_cancel_login")}>
+          <button className="pill-button" onClick={() => invoke("spotify_cancel_login")}>
             Cancel
           </button>
         )}
       </div>
-      {error && <p className="error login-error">{error}</p>}
-      <div className="login-free">
-        <strong>Spotify Free?</strong>
-        <p className="muted">
-          Spotify only lets Premium accounts into apps like Quackify. With Free you can still listen here, with
-          Spotify's own web player inside Quackify. Quackify's player, queue, lyrics, media keys and the rest need
-          Spotify Premium.
+      {error ? (
+        <p className="error login-error" role="alert">
+          {error}
         </p>
-        <button className="secondary" onClick={onWebPlayer}>
+      ) : (
+        <p className="muted small">Needs Spotify Premium. The login opens in your browser.</p>
+      )}
+      <div className={`login-free ${free ? "highlight" : ""}`}>
+        <strong>Spotify Free?</strong>
+        <p className="muted small">
+          Spotify only lets Premium accounts into apps like Quackify. With Free you can still listen here, with
+          Spotify's own web player inside Quackify. Quackify's player, queue, lyrics and the rest need Premium.
+        </p>
+        <button className={free ? "pill-button white" : "pill-button"} onClick={onWebPlayer}>
           Open the web player
         </button>
       </div>
