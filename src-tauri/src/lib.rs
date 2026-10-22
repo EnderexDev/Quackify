@@ -7,6 +7,7 @@ mod pathfinder;
 mod settings;
 mod spotify;
 mod variant;
+mod waveform;
 mod webplayer;
 
 use tauri::Manager;
@@ -76,6 +77,7 @@ pub fn run() {
             spotify::spotify_rootlist_change,
             spotify::spotify_rootlist_has,
             spotify::spotify_lyrics,
+            spotify::spotify_waveform,
             settings::settings_get,
             settings::settings_set,
             settings::settings_set_start_with_windows,

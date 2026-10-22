@@ -4,12 +4,15 @@
 // on a canvas over the slider, which still takes the clicks and drags. While another device
 // plays, it is Simple: Quackify does not hear that device's sound.
 import { useEffect, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { level, meterNow, onMeter, type ProgressMode } from "../state/meter";
 import { Slider } from "./Slider";
 
 /** Bars of a waveform, across the whole song. */
 const WAVE_BINS = 120;
 const WAVE_PREFIX = "wave:";
+/** Starts a saved waveform measured from the whole file (not learned while playing). */
+const WAVE_FULL = "~";
 const WAVE_INDEX = "waveIndex";
 /** Songs whose waveform is kept; the least recently played goes first. */
 const WAVE_KEEP = 300;
@@ -59,9 +62,10 @@ export function ProgressBar({
   const live = useRef({ position, duration, playing });
   live.current = { position, duration, playing };
 
-  // The waveform of the song playing: loaded when it starts, grown while it plays (each bar the
-  // average loudness of its stretch of the song), saved when it changes, every few seconds, and
-  // when the window closes.
+  // The waveform of the song playing. A song's whole waveform is measured from its file before it
+  // plays (Rust waveform.rs, once, then kept), so the bar only lights up as the song goes. Until
+  // it arrives, or for an episode, or if it fails, the bar learns it while playing: each bar the
+  // average loudness of its stretch, saved every few seconds and when the window closes.
   const wave = useRef<Wave | null>(null);
   useEffect(() => {
     if (mode !== "wave" || !uri) {
@@ -69,9 +73,23 @@ export function ProgressBar({
       wave.current = null;
       return;
     }
-    const bins = loadWave(uri);
+    const { bins, full } = loadWave(uri);
     const w: Wave = { uri, bins, weight: bins.map((v) => (v > 0 ? WAVE_SAVED_WEIGHT : 0)), dirty: false, version: 0 };
     wave.current = w;
+    let whole = full;
+    if (!whole && uri.startsWith("spotify:track:"))
+      invoke<number[]>("spotify_waveform", { uri }).then(
+        (rms) => {
+          if (wave.current !== w || rms.length !== WAVE_BINS) return;
+          // Same scale as the bars learned while playing.
+          rms.forEach((r, i) => (w.bins[i] = r > 0 ? Math.max(1 / 35, level(r, -36, -6)) : 0));
+          whole = true;
+          w.version++;
+          w.dirty = false;
+          saveWave(uri, w.bins, true);
+        },
+        (e) => console.warn("waveform not measured", uri, e),
+      );
     const flush = () => {
       if (!w.dirty) return;
       saveWave(w.uri, w.bins);
@@ -79,7 +97,7 @@ export function ProgressBar({
     };
     const off = onMeter((f) => {
       const { position, duration, playing } = live.current;
-      if (!playing || !duration || f.rms <= 0) return;
+      if (whole || !playing || !duration || f.rms <= 0) return;
       const i = Math.min(WAVE_BINS - 1, Math.floor((position() / duration) * WAVE_BINS));
       // Music sits between about -36 and -6 dB; the drawing stretches each song to its own range.
       const v = level(f.rms, -36, -6);
@@ -165,18 +183,15 @@ export function ProgressBar({
 }
 
 /**
- * Thin bars as tall as the song is loud there, stretched to the song's own quietest and loudest
- * parts so its shape shows; a short stub where it has not been heard yet.
+ * Thin bars as tall as the song is loud there, stretched to the song's own range so its shape
+ * shows; a short stub where it has not been heard yet. The range runs from its 15% quietest to
+ * its 2% loudest stretches: a loud master varies only a dB or two after its intro, and a plain
+ * minimum to maximum would leave all of that at the top.
  */
 function drawWave(ctx: CanvasRenderingContext2D, w: number, h: number, played: number, bins: Float32Array | null) {
-  let lo = 1;
-  let hi = 0;
-  if (bins)
-    for (const v of bins)
-      if (v > 0) {
-        lo = Math.min(lo, v);
-        hi = Math.max(hi, v);
-      }
+  const heard = bins ? Array.from(bins).filter((v) => v > 0).sort((a, b) => a - b) : [];
+  const lo = heard.length ? heard[Math.floor(heard.length * 0.15)] : 0;
+  const hi = heard.length ? heard[Math.min(heard.length - 1, Math.floor(heard.length * 0.98))] : 0;
   const span = hi - lo;
   const step = w / WAVE_BINS;
   const bar = Math.max(1.5, step * 0.5);
@@ -185,7 +200,7 @@ function drawWave(ctx: CanvasRenderingContext2D, w: number, h: number, played: n
     const v = bins ? bins[i] : 0;
     let bh = 2;
     if (v > 0) {
-      const t = span > 0.04 ? (v - lo) / span : 0.6;
+      const t = span > 0.02 ? Math.min(1, Math.max(0, (v - lo) / span)) : 0.6;
       bh = Math.max(3, (0.14 + 0.86 * Math.pow(t, 1.6)) * (h - 2));
     }
     const x = i * step + (step - bar) / 2;
@@ -258,18 +273,21 @@ function roundBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number
 }
 
 /** A waveform saved as one base-36 digit per bar; a song played again moves to the front of the kept ones. */
-export function loadWave(uri: string): Float32Array {
+export function loadWave(uri: string): { bins: Float32Array; full: boolean } {
   const bins = new Float32Array(WAVE_BINS);
-  const saved = localStorage.getItem(WAVE_PREFIX + uri);
+  let saved = localStorage.getItem(WAVE_PREFIX + uri);
+  const full = !!saved?.startsWith(WAVE_FULL);
+  if (full) saved = saved!.slice(WAVE_FULL.length);
   if (saved && saved.length === WAVE_BINS) {
     for (let i = 0; i < WAVE_BINS; i++) bins[i] = parseInt(saved[i], 36) / 35 || 0;
     keepRecent(uri);
+    return { bins, full };
   }
-  return bins;
+  return { bins, full: false };
 }
 
-function saveWave(uri: string, bins: Float32Array) {
-  const text = Array.from(bins, (v) => Math.round(Math.min(1, v) * 35).toString(36)).join("");
+function saveWave(uri: string, bins: Float32Array, full = false) {
+  const text = (full ? WAVE_FULL : "") + Array.from(bins, (v) => Math.round(Math.min(1, v) * 35).toString(36)).join("");
   try {
     localStorage.setItem(WAVE_PREFIX + uri, text);
     keepRecent(uri);

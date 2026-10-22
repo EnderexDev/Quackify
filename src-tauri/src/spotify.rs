@@ -658,6 +658,13 @@ fn parse_lyrics(v: &Value) -> Option<Lyrics> {
 }
 
 /// The lyrics of a track, or nothing when Spotify has none for it.
+/// The loudness of each stretch of a song, before it plays (waveform.rs).
+#[tauri::command]
+pub async fn spotify_waveform(uri: String, state: State<'_, SpotifyState>) -> Result<Vec<f32>, String> {
+    let session = session(&state).await?;
+    crate::waveform::measure(&session, &uri).await
+}
+
 #[tauri::command]
 pub async fn spotify_lyrics(uri: String, state: State<'_, SpotifyState>) -> Result<Option<Lyrics>, String> {
     use http::{header, HeaderMap, HeaderValue, Method};

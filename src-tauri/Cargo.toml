@@ -25,6 +25,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 librespot-core = "0.8"
 librespot-playback = "0.8"
+librespot-audio = "0.8"
 librespot-oauth = "0.8"
 librespot-metadata = "0.8"
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "time"] }
@@ -39,6 +40,8 @@ souvlaki = { version = "0.8", default-features = false }
 auto-launch = "0.6"
 # The version rodio already pulls in through librespot: Quackify's own output (meter.rs).
 cpal = "0.16"
+# The decoder librespot already uses, with its features: the waveform ahead (waveform.rs).
+symphonia = { version = "0.5", default-features = false, features = ["mp3", "ogg", "vorbis", "flac"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
 
