@@ -459,3 +459,31 @@
     right: -60px;
   }
 }
+
+/* ---- Progress bar: Simple, Wave and Live (ProgressBar.tsx) ---- */
+
+.progress {
+  position: relative;
+  flex: 1;
+  height: 26px;
+  display: flex;
+  align-items: center;
+}
+
+.progress-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Wave: the bars are the bar; the slider keeps the clicks and shows its dot on hover. */
+.progress-wave .slider-track {
+  opacity: 0;
+}
+
+/* Live: the line stays under the bars, a little quieter. */
+.progress-live .slider-track {
+  opacity: 0.6;
+}

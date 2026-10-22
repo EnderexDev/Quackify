@@ -39,6 +39,20 @@ impl Loudness {
     }
 }
 
+/// How the player's progress bar looks. Wave and Live need Quackify's own audio output (meter.rs);
+/// Simple keeps librespot's.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ProgressMode {
+    /// The line.
+    #[default]
+    Simple,
+    /// The song's waveform, drawn as it plays and kept per song.
+    Wave,
+    /// Bars that move with the sound, low notes in the middle.
+    Live,
+}
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 #[serde(default)]
 pub struct Settings {
@@ -63,6 +77,7 @@ pub struct Settings {
     /// The folder the song cache goes in (its own subfolder is made there); none: the app's
     /// local data folder.
     pub cache_parent: Option<String>,
+    pub progress_mode: ProgressMode,
 }
 
 /// The cache's own folder inside a folder the user picks: only it is ever cleared.
@@ -86,6 +101,7 @@ impl Default for Settings {
             device_name: DEFAULT_DEVICE_NAME.to_string(),
             start_minimized: true,
             cache_parent: None,
+            progress_mode: ProgressMode::default(),
         }
     }
 }
@@ -102,6 +118,8 @@ impl Settings {
             || self.cache_size_gb != other.cache_size_gb
             || self.device_name() != other.device_name()
             || self.cache_parent != other.cache_parent
+            // Simple and the other two use different audio outputs.
+            || (self.progress_mode == ProgressMode::Simple) != (other.progress_mode == ProgressMode::Simple)
     }
 
     /// The device name to use: never empty, and short like Spotify's own.

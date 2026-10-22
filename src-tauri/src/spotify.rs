@@ -21,7 +21,7 @@ use tokio::sync::Mutex;
 
 use crate::connect::{ConnectView, Hub, NowPlaying, Repeat};
 use crate::pathfinder::Pathfinder;
-use crate::settings::Quality;
+use crate::settings::{ProgressMode, Quality};
 
 // The client id and redirect librespot itself logs in with; Spotify has this redirect registered.
 const CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
@@ -113,12 +113,17 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
         gapless: settings.gapless,
         ..Default::default()
     };
-    let player = Player::new(
-        player_config,
-        session.clone(),
-        mixer.get_soft_volume(),
-        move || backend(None, AudioFormat::default()),
-    );
+    // Wave and Live play through Quackify's own output, with the meter; if it cannot open, rodio.
+    let meter = (settings.progress_mode != ProgressMode::Simple).then(|| (app.clone(), mixer.get_soft_volume()));
+    let player = Player::new(player_config, session.clone(), mixer.get_soft_volume(), move || {
+        if let Some((app, volume)) = meter {
+            match crate::meter::OutputSink::open(app, volume) {
+                Ok(sink) => return Box::new(sink),
+                Err(e) => eprintln!("[output] falling back to rodio: {e}"),
+            }
+        }
+        backend(None, AudioFormat::default())
+    });
 
     let config = ConnectConfig {
         name: settings.device_name(),

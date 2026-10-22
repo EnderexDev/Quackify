@@ -110,6 +110,8 @@
   opacity: var(--aura-opacity);
   filter: blur(90px);
   will-change: transform;
+  /* The pulse with the low notes (Aura.tsx); the meter sends 30 frames a second. */
+  transition: transform 120ms ease-out;
 }
 
 .aura-blob {

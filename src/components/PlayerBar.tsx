@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { play } from "../api/spotify";
 import { activeLine, useLyrics } from "../state/lyrics";
+import { useProgressMode } from "../state/meter";
 import { useNav } from "../state/nav";
 import { usePlayer, type NowPlaying } from "../state/player";
 import { playerLyrics } from "../state/prefs";
@@ -35,6 +36,7 @@ import {
 } from "./icons";
 import { LikeButton } from "./LikeButton";
 import { openPlaylistPicker, trackMenu } from "./menus";
+import { ProgressBar } from "./ProgressBar";
 import { Slider } from "./Slider";
 
 /** How much one mouse wheel notch over the volume changes it. */
@@ -58,6 +60,7 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
   const [lastVolume, setLastVolume] = useState(0.5);
   const [lyricsPop, setLyricsPop] = useState(false);
   const lyricsPref = playerLyrics.use();
+  const progressMode = useProgressMode();
   const sleep = useSleep();
   useSleepTimer(p);
   const [saved] = useSaved(t?.uri.startsWith("spotify:track:") ? t.uri : null);
@@ -197,7 +200,15 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
         </div>
         <div className="pb-progress">
           <span className="time">{formatDuration(p.position())}</span>
-          <Slider value={duration ? p.position() / duration : 0} onCommit={(f) => p.seek(f * duration)} disabled={!t || !duration} />
+          <ProgressBar
+            uri={t?.uri ?? null}
+            duration={duration}
+            position={p.position}
+            playing={p.playing}
+            mode={p.remoteDevice ? "simple" : progressMode}
+            disabled={!t || !duration}
+            onSeek={p.seek}
+          />
           <span className="time">{formatDuration(duration)}</span>
         </div>
       </div>

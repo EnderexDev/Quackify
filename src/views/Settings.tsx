@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
 import { Segmented } from "../components/Segmented";
+import type { ProgressMode } from "../state/meter";
 import { playerLyrics } from "../state/prefs";
 import { setTheme, useTheme } from "../state/theme";
 import { toast } from "../state/toast";
@@ -23,6 +24,7 @@ type Settings = {
   device_name: string;
   start_minimized: boolean;
   cache_parent: string | null;
+  progress_mode: ProgressMode;
 };
 type CacheFolder = { folder: string; custom: boolean; problem: string | null };
 type View = { settings: Settings; start_with_windows: boolean };
@@ -200,6 +202,21 @@ export function SettingsView({ account }: { account: Account }) {
             ]}
             value={lyricsInPlayer}
             onChange={playerLyrics.set}
+          />
+        </Row>
+        <Row
+          title="Progress bar"
+          note="Wave draws the song's waveform as it plays; Live moves with the sound. Both play through Quackify's own audio output, so going between Simple and them reconnects for a moment."
+        >
+          <Segmented
+            label="Progress bar"
+            options={[
+              { id: "simple", label: "Simple" },
+              { id: "wave", label: "Wave" },
+              { id: "live", label: "Live" },
+            ]}
+            value={s.progress_mode ?? "simple"}
+            onChange={(m) => !applying && save({ progress_mode: m })}
           />
         </Row>
       </section>

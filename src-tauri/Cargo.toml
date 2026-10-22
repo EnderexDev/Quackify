@@ -37,6 +37,8 @@ http = "1"
 protobuf = "3.7"
 souvlaki = { version = "0.8", default-features = false }
 auto-launch = "0.6"
+# The version rodio already pulls in through librespot: Quackify's own output (meter.rs).
+cpal = "0.16"
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
 
