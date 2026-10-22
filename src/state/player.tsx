@@ -108,7 +108,9 @@ const HISTORY_KEY = "recentlyPlayed";
 const HISTORY_SIZE = 50;
 const MIN_PLAYED_MS = 3000;
 
-export function PlayerProvider({ children }: { children: ReactNode }) {
+/** `record` off (the mini player's window): this copy only shows and drives the player; the
+ * main window's keeps the history, so nothing is counted twice. */
+export function PlayerProvider({ children, record = true }: { children: ReactNode; record?: boolean }) {
   const [track, setTrack] = useState<NowPlaying | null>(null);
   // What played before, the latest first, kept across restarts: each song that gives way to
   // another goes on top. (Spotify's own list of previous tracks leaves out queued songs.)
@@ -123,7 +125,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const uri = track?.uri ?? null;
     const prev = lastTrack.current;
-    if (prev && prev.uri === uri) return;
+    if (!record || (prev && prev.uri === uri)) return;
     // A song goes on the list when it gives way: to another song, or to nothing playing (a
     // stop, the app closing). One swapped within seconds was not really played: Spotify relinks
     // a song to another version of it right as it starts, and a skip that fast is not a listen.
@@ -171,7 +173,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     // The local listening history hears each change of song, place or state (state/listening.ts).
     const sample = () => {
       const pb = viewRef.current?.playback;
-      if (!pb) return;
+      if (!pb || !record) return;
       const c = clock.current;
       observe({
         context: pageUri(pb.context_uri),
@@ -255,8 +257,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     // Listen first, then read the snapshot, so nothing slips between the two.
     Promise.all(offs).then(resync);
     // Closing to the tray hides the window without unloading it: both count what played so far.
-    const onLeave = () => flush();
-    const onHide = () => document.visibilityState === "hidden" && flush();
+    const onLeave = () => record && flush();
+    const onHide = () => record && document.visibilityState === "hidden" && flush();
     window.addEventListener("pagehide", onLeave);
     document.addEventListener("visibilitychange", onHide);
     return () => {

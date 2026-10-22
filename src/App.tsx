@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { clearCache } from "./api/spotify";
 import { Aura } from "./components/Aura";
+import { Cinema, useCinemaAuto } from "./components/Cinema";
 import { DuckIcon } from "./components/icons";
 import { FloatingScrollbar } from "./components/FloatingScrollbar";
 import { ContextMenuProvider } from "./components/ContextMenu";
@@ -19,6 +20,7 @@ import { TopBar } from "./components/TopBar";
 import { NavProvider, useNav, type Nav } from "./state/nav";
 import { PlayerProvider, usePlayer, type NowPlaying } from "./state/player";
 import { setTheme } from "./state/theme";
+import { setCinema, toggleCinema, toggleMini, useCinema } from "./state/windows";
 import { toast, Toasts } from "./state/toast";
 import { Artist } from "./views/Artist";
 import { BrowseView, ExploreView } from "./views/Browse";
@@ -173,6 +175,33 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
   }, []);
   useOpenLinks(nav);
 
+  // The cinema mode covers the shell; going to a page or opening the queue leaves it.
+  const cinema = useCinema();
+  useCinemaAuto(cinema);
+  useEffect(() => {
+    document.documentElement.classList.toggle("cinema-on", cinema);
+  }, [cinema]);
+  const cinemaRef = useRef(cinema);
+  cinemaRef.current = cinema;
+  const routeKey = JSON.stringify(route);
+  const firstRoute = useRef(true);
+  useEffect(() => {
+    if (firstRoute.current) return void (firstRoute.current = false);
+    if (cinemaRef.current) setCinema(false);
+  }, [routeKey, panel]);
+  // The mini player's lyrics button: the song page, here.
+  const navRef = useRef(nav);
+  navRef.current = nav;
+  useEffect(() => {
+    const off = listen<string>("mini-player-show", ({ payload }) => {
+      setCinema(false);
+      if (payload === "song" && navRef.current.route.page !== "song") navRef.current.go({ page: "song" });
+    });
+    return () => {
+      off.then((f) => f());
+    };
+  }, []);
+
   // Over the page, the panel closes with Escape like any overlay.
   const overlay = narrow && panel !== null;
   useEffect(() => {
@@ -195,6 +224,8 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
     { label: "Queue", keys: "Alt Shift Q", run: () => togglePanel("queue") },
     { label: "New playlist", keys: "Ctrl N", run: () => newPlaylist() },
     { label: collapsed ? "Expand Your Library" : "Collapse Your Library", keys: "Ctrl B", run: toggleSidebar },
+    { label: "Mini player", keys: "Ctrl M", run: toggleMini },
+    { label: "Cinema mode", keys: "F11", run: toggleCinema },
     { label: "Theme: System", run: () => setTheme("system") },
     { label: "Theme: Dark", run: () => setTheme("dark") },
     { label: "Theme: Light", run: () => setTheme("light") },
@@ -205,7 +236,9 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
   return (
     <>
       <Aura />
-      <div className={`shell ${panel && !narrow ? "with-queue" : ""} ${collapsed ? "side-collapsed" : ""} ${compact ? "compact" : ""}`}>
+      <div
+        className={`shell ${panel && !narrow ? "with-queue" : ""} ${collapsed ? "side-collapsed" : ""} ${compact ? "compact" : ""} ${cinema ? "under-cinema" : ""}`}
+      >
         <TopBar name={name} image={image} onLogout={onLogout} onSearch={openPalette} onShortcuts={shortcuts.openList} />
         <Sidebar collapsed={collapsed} onExpand={toggleSidebar} />
         <main ref={setMain} className="main panel" key={route.page === "search" ? "search" : key}>
@@ -231,6 +264,14 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
         <NewPlaylistHost />
         {shortcuts.listOpen && <ShortcutsDialog onClose={shortcuts.closeList} />}
       </div>
+      {cinema && (
+        <Cinema
+          onQueue={() => {
+            setCinema(false);
+            setPanel("queue");
+          }}
+        />
+      )}
       {palette !== null && <Palette key="palette" initialTerm={palette} onClose={() => setPalette(null)} commands={commands} />}
     </>
   );

@@ -12,6 +12,7 @@ import { SaveButton } from "../components/LikeButton";
 import { openPlaylistPicker, trackMenu } from "../components/menus";
 import { Segmented } from "../components/Segmented";
 import { activeLine, useLyrics } from "../state/lyrics";
+import { lyricsSize, type LyricsSize } from "../state/prefs";
 import { useNav } from "../state/nav";
 import { usePlayer, type NowPlaying } from "../state/player";
 import { useSaved } from "../state/saved";
@@ -20,8 +21,6 @@ import { formatCount, formatDuration } from "../util/format";
 /** After the user scrolls by hand, the view leaves the scroll alone for this long. */
 const MANUAL_SCROLL_MS = 3000;
 
-type LyricsSize = "s" | "m" | "l";
-const SIZE_KEY = "lyricsSize";
 const SIZES: { id: LyricsSize; label: string }[] = [
   { id: "s", label: "S" },
   { id: "m", label: "M" },
@@ -163,14 +162,8 @@ function SongInfo({ t }: { t: NowPlaying }) {
 function SongLyrics({ uri }: { uri: string }) {
   const p = usePlayer();
   const state = useLyrics(uri);
-  const [size, setSizeState] = useState<LyricsSize>(() => {
-    const saved = localStorage.getItem(SIZE_KEY);
-    return saved === "s" || saved === "l" ? saved : "m";
-  });
-  const setSize = (s: LyricsSize) => {
-    setSizeState(s);
-    localStorage.setItem(SIZE_KEY, s);
-  };
+  const size = lyricsSize.use();
+  const setSize = lyricsSize.set;
   const [, tick] = useState(0);
   const lines = useRef<(HTMLDivElement | null)[]>([]);
   const scrolledAt = useRef(0);

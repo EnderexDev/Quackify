@@ -3,9 +3,12 @@ mod desktop;
 mod links;
 mod media;
 mod meter;
+mod mini;
 mod pathfinder;
 mod settings;
 mod spotify;
+#[cfg(windows)]
+mod thumbbar;
 mod variant;
 mod waveform;
 mod webplayer;
@@ -36,6 +39,9 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_title(&variant::name(app.handle()));
             }
+            // Before the window first shows, so its taskbar button is heard being made.
+            #[cfg(windows)]
+            thumbbar::setup(app.handle());
             desktop::setup(app)?;
             links::setup(app);
             match media::Media::start(app.handle()) {
@@ -46,7 +52,10 @@ pub fn run() {
             }
             Ok(())
         })
-        .on_window_event(desktop::on_window_event)
+        .on_window_event(|window, event| match window.label() {
+            mini::LABEL => mini::on_window_event(window, event),
+            _ => desktop::on_window_event(window, event),
+        })
         .invoke_handler(tauri::generate_handler![
             spotify::spotify_status,
             spotify::spotify_restore,
@@ -91,6 +100,12 @@ pub fn run() {
             links::links_choose,
             webplayer::web_player_open,
             webplayer::web_player_close,
+            mini::mini_player_toggle,
+            mini::mini_player_open,
+            mini::mini_player_close,
+            mini::mini_player_is_open,
+            mini::mini_player_on_top,
+            mini::mini_player_show_main,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

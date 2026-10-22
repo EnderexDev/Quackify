@@ -30,3 +30,5 @@
 @import "./views/library.css";
 @import "./components/peek.css";
 @import "./components/shortcuts.css";
+@import "./components/mini.css";
+@import "./components/cinema.css";

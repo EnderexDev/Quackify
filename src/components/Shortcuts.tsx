@@ -9,6 +9,7 @@ import type { Player } from "../state/player";
 import { toast } from "../state/toast";
 import { Dialog } from "./Dialog";
 import { newPlaylist } from "../state/newPlaylist";
+import { toggleCinema, toggleMini } from "../state/windows";
 
 const SEEK_STEP_MS = 5000;
 const VOLUME_STEP = 0.1;
@@ -33,6 +34,8 @@ export const SHORTCUTS: { keys: string; what: string }[] = [
   { keys: "Alt + Shift + J", what: "Lyrics (the song page)" },
   { keys: "Ctrl + P", what: "Settings" },
   { keys: "Ctrl + B", what: "Collapse or expand Your Library" },
+  { keys: "F11", what: "Cinema mode" },
+  { keys: "Ctrl + M", what: "Mini player" },
   { keys: "Ctrl + A", what: "Select every song of a list" },
   { keys: "Delete", what: "Remove the selected songs from your playlist" },
   { keys: "Ctrl + /", what: "This list" },
@@ -65,6 +68,8 @@ export function useShortcuts(
       if (ctrl && !e.shiftKey && !e.altKey && key === "b") return act(app.toggleSidebar);
       if (ctrl && key === "p") return act(() => nav.go({ page: "settings" }));
       if (ctrl && key === "n") return act(() => newPlaylist());
+      if (ctrl && !e.shiftKey && !e.altKey && key === "m") return act(toggleMini);
+      if (e.key === "F11" && !ctrl && !e.altKey && !e.shiftKey) return act(toggleCinema);
       if (e.altKey && e.shiftKey) {
         if (e.code === "KeyQ") return act(() => togglePanel("queue"));
         // R and J both open the song page, where the lyrics now live; again goes back.

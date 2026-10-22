@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNav } from "../state/nav";
-import { BackIcon, DuckIcon, ForwardIcon, KeyboardIcon, LogOutIcon, SearchIcon, SettingsIcon } from "./icons";
+import { toggleCinema, toggleMini } from "../state/windows";
+import { BackIcon, DuckIcon, ExpandIcon, ForwardIcon, KeyboardIcon, LogOutIcon, MiniPlayerIcon, SearchIcon, SettingsIcon } from "./icons";
 import { Segmented } from "./Segmented";
 
 const TABS = [
@@ -81,7 +82,7 @@ function Avatar({ name, image, className = "" }: { name: string; image: string |
   );
 }
 
-/** Profile, Settings, the shortcuts and Log out. Esc or a click outside closes it. */
+/** Profile, Settings, the mini player, the cinema mode, the shortcuts and Log out. Esc or a click outside closes it. */
 function AvatarMenu({
   name,
   image,
@@ -150,6 +151,16 @@ function AvatarMenu({
         <SettingsIcon size={18} />
         <span>Settings</span>
         <kbd>Ctrl P</kbd>
+      </button>
+      <button className="avatar-menu-item" role="menuitem" onClick={pick(toggleMini)}>
+        <MiniPlayerIcon size={18} />
+        <span>Mini player</span>
+        <kbd>Ctrl M</kbd>
+      </button>
+      <button className="avatar-menu-item" role="menuitem" onClick={pick(toggleCinema)}>
+        <ExpandIcon size={18} />
+        <span>Cinema mode</span>
+        <kbd>F11</kbd>
       </button>
       <button className="avatar-menu-item" role="menuitem" onClick={pick(onShortcuts)}>
         <KeyboardIcon size={18} />

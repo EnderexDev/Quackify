@@ -9,7 +9,7 @@ import { Segmented } from "../components/Segmented";
 import { Toggle } from "../components/Toggle";
 import type { ProgressMode } from "../state/meter";
 import { useNav } from "../state/nav";
-import { playerLyrics } from "../state/prefs";
+import { cinemaAuto, playerLyrics } from "../state/prefs";
 import { setTheme, useTheme } from "../state/theme";
 import { toast } from "../state/toast";
 import { Loading } from "./common";
@@ -68,6 +68,7 @@ export function SettingsView({ account }: { account: Account }) {
   const theme = useTheme();
   const nav = useNav();
   const lyricsInPlayer = playerLyrics.use();
+  const cinemaOn = cinemaAuto.use() === "on";
   const readCache = () => {
     invoke<number>("settings_cache_size").then(setCacheBytes, () => {});
     invoke<CacheFolder>("settings_cache_folder").then(setFolder, () => {});
@@ -220,6 +221,9 @@ export function SettingsView({ account }: { account: Account }) {
                 value={lyricsInPlayer}
                 onChange={playerLyrics.set}
               />
+            </Row>
+            <Row title="Cinema mode by itself" note="After 5 minutes without touching Quackify while music plays, go full screen with the cover and the lyrics. F11 opens it any time.">
+              <Toggle on={cinemaOn} onChange={(on) => cinemaAuto.set(on ? "on" : "off")} />
             </Row>
           </Group>
 

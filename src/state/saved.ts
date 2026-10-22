@@ -2,8 +2,18 @@
 // artists). Every component asking about a URI in the same tick shares one lookup, in batches
 // of 50, and a toggle shows at once and rolls back if Spotify refuses it.
 import { useEffect, useState } from "react";
+import { emit, listen } from "@tauri-apps/api/event";
 import { areSaved, save, unsave } from "../api/library";
 import { toast } from "./toast";
+
+/** A heart changed in the other window (the main one or the mini player): this one follows. */
+const SAVED_EVENT = "saved-changed";
+listen<{ uri: string; value: boolean }>(SAVED_EVENT, ({ payload }) => {
+  if (known.get(payload.uri) === payload.value) return;
+  known.set(payload.uri, payload.value);
+  notify();
+  libraryListeners.forEach((l) => l());
+});
 
 const BATCH = 50;
 const known = new Map<string, boolean>();
@@ -51,6 +61,7 @@ export async function setSaved(uri: string, value: boolean) {
   try {
     await (value ? save([uri]) : unsave([uri]));
     libraryListeners.forEach((l) => l());
+    emit(SAVED_EVENT, { uri, value }).catch(() => {});
   } catch (e) {
     if (before === undefined) known.delete(uri);
     else known.set(uri, before);

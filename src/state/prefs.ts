@@ -29,3 +29,13 @@ function pref<T extends string>(key: string, values: readonly T[], fallback: T):
 /** Lyrics in the player: the sung line under the song's name, the popup of the mic button, both, or neither. */
 export type PlayerLyrics = "off" | "line" | "popup" | "both";
 export const playerLyrics = pref<PlayerLyrics>("playerLyrics", ["off", "line", "popup", "both"], "both");
+
+/** How big the lyrics are on the song page and in the cinema mode. */
+export type LyricsSize = "s" | "m" | "l";
+export const lyricsSize = pref<LyricsSize>("lyricsSize", ["s", "m", "l"], "m");
+
+/** The cinema mode opens by itself after 5 minutes without touching the app while music plays. */
+export const cinemaAuto = pref<"off" | "on">("cinemaAuto", ["off", "on"], "off");
+
+/** The lyrics in the cinema mode (the mic there turns them off, the cover goes to the middle). */
+export const cinemaLyrics = pref<"off" | "on">("cinemaLyrics", ["off", "on"], "on");

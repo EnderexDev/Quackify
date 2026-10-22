@@ -13,6 +13,7 @@ import { carriesSongs, droppedSongs, queueSongs, readDrop, useDrag } from "../st
 import { useSaved } from "../state/saved";
 import { sleepLabel, sleepMenu, useSleep, useSleepTimer } from "../state/sleep";
 import { toast } from "../state/toast";
+import { toggleMini, useMiniOpen } from "../state/windows";
 import { formatDuration } from "../util/format";
 import type { Panel } from "../App";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
@@ -25,6 +26,7 @@ import {
   ClockIcon,
   Forward15Icon,
   MicIcon,
+  MiniPlayerIcon,
   NextIcon,
   PauseIcon,
   PlayIcon,
@@ -62,6 +64,7 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
   const [lyricsPop, setLyricsPop] = useState(false);
   const lyricsPref = playerLyrics.use();
   const progressMode = useProgressMode();
+  const miniOpen = useMiniOpen();
   const sleep = useSleep();
   useSleepTimer(p);
   const [saved] = useSaved(t?.uri.startsWith("spotify:track:") ? t.uri : null);
@@ -256,13 +259,22 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
         </button>
         <Slider value={p.volume} onCommit={p.setVolume} live className="volume" onWheel={onVolumeWheel} />
         <VolumePercent value={p.volume} onCommit={p.setVolume} onWheel={onVolumeWheel} />
+        <button
+          className={`icon-btn pb-mini ${miniOpen ? "on" : ""}`}
+          onClick={toggleMini}
+          aria-label="Mini player"
+          aria-pressed={miniOpen}
+          title="Mini player (Ctrl M)"
+        >
+          <MiniPlayerIcon size={20} />
+        </button>
       </div>
     </footer>
   );
 }
 
 /** The line being sung, under the song's name; nothing when the song has no synced lyrics. */
-function LyricLine({ track }: { track: NowPlaying }) {
+export function LyricLine({ track }: { track: NowPlaying }) {
   const p = usePlayer();
   const state = useLyrics(track.uri);
   const l = state.status === "ready" ? state.lyrics : null;
@@ -341,7 +353,7 @@ function LyricsPopup({ track, onClose, onOpenPage }: { track: NowPlaying; onClos
 }
 
 /** The volume as a percentage; click it to type one. Enter or leaving sets it, Escape cancels. */
-function VolumePercent({
+export function VolumePercent({
   value,
   onCommit,
   onWheel,

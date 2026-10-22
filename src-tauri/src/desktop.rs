@@ -64,6 +64,7 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
     let toggle = MenuItem::with_id(app, "toggle", "Play / Pause", true, None::<&str>)?;
     let next = MenuItem::with_id(app, "next", "Next", true, None::<&str>)?;
     let previous = MenuItem::with_id(app, "previous", "Previous", true, None::<&str>)?;
+    let mini = MenuItem::with_id(app, "mini", "Mini player", true, None::<&str>)?;
     let close_to_tray =
         CheckMenuItem::with_id(app, "close_to_tray", "Close to tray", true, settings.close_to_tray, None::<&str>)?;
     let autostart_on = start_with_windows(app.handle());
@@ -77,6 +78,7 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
             &toggle,
             &next,
             &previous,
+            &mini,
             &PredefinedMenuItem::separator(app)?,
             &close_to_tray,
             &autostart,
@@ -101,6 +103,7 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
             "toggle" => media::run(app, Action::Toggle),
             "next" => media::run(app, Action::Next),
             "previous" => media::run(app, Action::Previous),
+            "mini" => crate::mini::toggle(app),
             "close_to_tray" => {
                 // The item has already flipped its own check mark.
                 let on = app.state::<Desktop>().close_item.is_checked().unwrap_or(true);
