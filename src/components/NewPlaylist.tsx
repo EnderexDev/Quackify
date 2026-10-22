@@ -113,6 +113,7 @@ function NewPlaylistDialog({ from, onClose }: { from?: NewPlaylistFrom; onClose:
           await editPlaylist(step.uri, wantName, wantDescription);
           step.name = wantName;
           step.description = wantDescription;
+          madeHere.add(wantName);
         }
         step.described = true;
         let added = 0;
