@@ -67,18 +67,21 @@ export function Card({ card, onPick, onRemove }: { card: CardData; onPick?: () =
 /** One row of cards that scrolls sideways, with arrows and by dragging; "Show all" appears when `onShowAll` is given. */
 export function Shelf({
   title,
+  note,
   cards,
   onShowAll,
   onPick,
 }: {
   title: string;
+  /** A small line after the title ("only you see this"). */
+  note?: string;
   cards: CardData[];
   onShowAll?: () => void;
   onPick?: (card: CardData) => void;
 }) {
   if (cards.length === 0) return null;
   return (
-    <ShelfRow title={title} onShowAll={onShowAll}>
+    <ShelfRow title={title} note={note} onShowAll={onShowAll}>
       {cards.map((c) => (
         <Card key={c.uri} card={c} onPick={onPick && (() => onPick(c))} />
       ))}

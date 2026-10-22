@@ -24,17 +24,34 @@
   background: var(--panel-2);
 }
 
-.profile-hero {
-  display: flex;
-  align-items: flex-end;
-  gap: 24px;
-  padding: 24px 0 20px;
+/* The account's colour glow behind the header, as on the other pages. */
+.profile {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--aura) 45%, transparent) 0, transparent 420px);
 }
 
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 8px 0 28px;
+}
+
+.profile-text {
+  min-width: 0;
+}
+
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+/* 150px at the Figma's 1280, growing with the window. */
 .profile-hero .avatar,
 .profile-avatar {
-  width: 180px;
-  height: 180px;
+  width: clamp(150px, 12vw, 260px);
+  height: clamp(150px, 12vw, 260px);
   flex: none;
   border-radius: 50%;
   object-fit: cover;
@@ -48,9 +65,13 @@
 }
 
 .profile-name {
-  font-size: 64px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
+  font-size: clamp(40px, 3.6vw, 72px);
+  font-weight: 800;
+  letter-spacing: -1px;
   line-height: 1.05;
-  margin: 4px 0 10px;
+  margin: 6px 0 10px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
