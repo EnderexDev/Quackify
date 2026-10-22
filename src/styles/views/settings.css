@@ -1,13 +1,67 @@
 /* Settings */
 
+/* The index of the sections beside the cards; both use the window's width. */
+.settings-layout {
+  display: grid;
+  grid-template-columns: clamp(160px, 13%, 240px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.settings-index {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-index button {
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.settings-index button:hover {
+  color: var(--text);
+}
+
+.settings-index button.on {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.settings-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Each group is a glass card. */
 .settings-group {
-  max-width: 820px;
-  margin-bottom: 36px;
+  padding: 16px 20px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  scroll-margin-top: 12px;
 }
 
 .settings-group h2 {
-  font-size: 20px;
-  margin-bottom: 8px;
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+
+.settings-group-note {
+  margin: 0 0 12px;
 }
 
 .settings-row {
@@ -15,8 +69,150 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.settings-group h2 + .settings-row {
+  border-top: 0;
+}
+
+/* A setting that only applies with another one on: faded. */
+.settings-row.off > div:first-child {
+  opacity: 0.5;
+}
+
+.segmented.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--green) 16%, transparent);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.settings-about {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 0 8px;
+  color: var(--accent);
+}
+
+.settings-about .settings-title {
+  color: var(--text);
+}
+
+/* Progress bar: three cards with a preview each; the one in use has a white ring. */
+.progress-choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding-bottom: 12px;
+}
+
+.progress-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  text-align: left;
+  transition:
+    border-color var(--t-fast),
+    background var(--t-fast);
+}
+
+.progress-choice:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.progress-choice.on {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+
+.progress-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: clamp(40px, 3vw, 64px);
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  background: linear-gradient(135deg, var(--aura), var(--aura-2));
+  overflow: hidden;
+}
+
+.progress-preview.simple::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 50%;
+  height: 3px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, #fff 40%, rgba(255, 255, 255, 0.35) 40%);
+}
+
+.progress-preview i {
+  flex: 1;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.progress-preview.wave i:nth-child(n + 11) {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Live grows from the middle, mirrored. */
+.progress-preview.live {
+  align-items: center;
+}
+
+.progress-choice-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.progress-check {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+}
+
+@media (max-width: 1099px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-index {
+    display: none;
+  }
 }
 
 .settings-title {
