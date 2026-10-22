@@ -117,8 +117,14 @@
   transition: opacity var(--t-fast);
 }
 
-.episode-row:hover .episode-actions .icon-btn {
+.episode-row:hover .episode-actions .icon-btn,
+.episode-row:focus-within .episode-actions .icon-btn {
   opacity: 1;
+}
+
+.episode-row:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
 }
 
 .episode-play {
@@ -175,6 +181,9 @@
 }
 
 .episode-show {
+  display: block;
+  width: 100%;
+  text-align: left;
   cursor: pointer;
 }
 

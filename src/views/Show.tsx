@@ -100,6 +100,8 @@ export function ShowView({ uri }: { uri: string }) {
 function Episodes({ showUri, first, filter, text }: { showUri: string; first: EpisodePage; filter: EpisodeFilter; text: string }) {
   const [episodes, setEpisodes] = useState<Episode[]>(first.episodes);
   const [next, setNext] = useState<number | null>(first.next);
+  // A page that failed: the list stops there until Try again, the cursor kept.
+  const [failed, setFailed] = useState(false);
   const sentinel = useRef<HTMLDivElement>(null);
   const loadingMore = useRef(false);
   const shown = episodes.filter((e) => matches(e, filter, text));
@@ -108,7 +110,7 @@ function Episodes({ showUri, first, filter, text }: { showUri: string; first: Ep
   // that hides most of a page still reaches the older episodes.
   useEffect(() => {
     const el = sentinel.current;
-    if (!el || next === null) return;
+    if (!el || next === null || failed) return;
     const io = new IntersectionObserver(
       (entries) => {
         if (!entries[0].isIntersecting || loadingMore.current) return;
@@ -120,7 +122,7 @@ function Episodes({ showUri, first, filter, text }: { showUri: string; first: Ep
           })
           .catch((e) => {
             toast(e);
-            setNext(null);
+            setFailed(true);
           })
           .finally(() => (loadingMore.current = false));
       },
@@ -128,7 +130,7 @@ function Episodes({ showUri, first, filter, text }: { showUri: string; first: Ep
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [next, showUri]);
+  }, [next, showUri, failed]);
 
   if (episodes.length === 0) return <p className="muted">No episodes yet.</p>;
   return (
@@ -137,11 +139,19 @@ function Episodes({ showUri, first, filter, text }: { showUri: string; first: Ep
         <EpisodeRow key={e.uri} episode={e} contextUri={showUri} />
       ))}
       {shown.length === 0 && next === null && <p className="muted pad">No episodes here.</p>}
-      {next !== null && (
-        <div ref={sentinel} className="more">
-          <div className="spinner small" />
-        </div>
-      )}
+      {next !== null &&
+        (failed ? (
+          <p className="muted pad">
+            Could not load more episodes.{" "}
+            <button className="link" onClick={() => setFailed(false)}>
+              Try again
+            </button>
+          </p>
+        ) : (
+          <div ref={sentinel} className="more">
+            <div className="spinner small" />
+          </div>
+        ))}
     </div>
   );
 }
@@ -156,9 +166,9 @@ function episodeWhen(e: Episode) {
   return [formatDay(e.released), formatLength(e.durationMs)].filter(Boolean).join(" • ");
 }
 
-function episodeMenu(e: Episode, playThis: () => void, nav: ReturnType<typeof useNav>): MenuItem[] {
+function episodeMenu(e: Episode, playThis: () => void, nav: ReturnType<typeof useNav>, playing = false): MenuItem[] {
   return [
-    { label: "Play", onClick: playThis },
+    { label: playing ? "Pause" : "Play", onClick: playThis },
     { label: "Add to queue", onClick: () => play.addToQueue(e.uri).then(() => toast("Added to queue"), toast) },
     "separator",
     { label: "Go to podcast", onClick: () => e.show.uri && nav.open(e.show.uri), disabled: !e.show.uri },
@@ -173,14 +183,19 @@ function EpisodeRow({ episode: e, contextUri }: { episode: Episode; contextUri: 
   const isCurrent = player.track?.uri === e.uri;
   const at = isCurrent ? player.position() : e.playedMs;
   const halfway = !e.finished && at > 0 && e.durationMs > at;
-  const isNew = !e.finished && e.playedMs === 0 && !!e.released && Date.now() - new Date(e.released).getTime() < NEW_MS;
+  const age = e.released ? Date.now() - new Date(e.released).getTime() : -1;
+  const isNew = !e.finished && e.playedMs === 0 && age >= 0 && age < NEW_MS;
   const playThis = () => (isCurrent ? player.toggle() : play.context(contextUri, e.uri).catch(toast));
-  const menu = episodeMenu(e, playThis, nav);
+  const menu = episodeMenu(e, playThis, nav, isCurrent && player.playing);
 
   return (
     <div
       className={`episode-row ${isCurrent ? "current" : ""} ${e.finished ? "played" : ""}`}
+      role="link"
+      tabIndex={0}
+      aria-label={e.name}
       onClick={() => nav.open(e.uri)}
+      onKeyDown={(ev) => ev.key === "Enter" && ev.target === ev.currentTarget && nav.open(e.uri)}
       onContextMenu={(ev) => openMenu(ev, menu)}
     >
       <Cover src={e.image} kind="show" className="episode-cover" />
@@ -243,9 +258,9 @@ export function EpisodeView({ uri }: { uri: string }) {
           <h1 className={`hero-title ${e.name.length > 40 ? "long" : ""}`}>{e.name}</h1>
           {e.show.name && (
             <p className="hero-desc">
-              <a className="hero-owner" onClick={() => e.show.uri && nav.open(e.show.uri)}>
+              <button className="hero-owner" disabled={!e.show.uri} onClick={() => nav.open(e.show.uri)}>
                 {e.show.name}
-              </a>
+              </button>
             </p>
           )}
           <p className="hero-meta">
@@ -266,7 +281,7 @@ export function EpisodeView({ uri }: { uri: string }) {
       <div className="actions">
         <PlayButton size={56} playing={isCurrent && player.playing} onClick={playThis} />
         {halfway && !isCurrent && <span className="muted">Continue where you stopped</span>}
-        <button className="more-btn" aria-label={`More options for ${e.name}`} title="More options" onClick={(ev) => openMenu(ev, episodeMenu(e, playThis, nav))}>
+        <button className="more-btn" aria-label={`More options for ${e.name}`} title="More options" onClick={(ev) => openMenu(ev, episodeMenu(e, playThis, nav, isCurrent && player.playing))}>
           •••
         </button>
       </div>
@@ -276,7 +291,7 @@ export function EpisodeView({ uri }: { uri: string }) {
           <p className="muted">{e.description || "No description."}</p>
         </section>
         {e.show.uri && (
-          <aside className="side-card episode-show" onClick={() => nav.open(e.show.uri)}>
+          <button className="side-card episode-show" onClick={() => nav.open(e.show.uri)}>
             <h3>Podcast</h3>
             <div className="pick">
               <Cover src={e.image} kind="show" className="pick-cover" />
@@ -285,7 +300,7 @@ export function EpisodeView({ uri }: { uri: string }) {
                 <div className="pick-sub">See all episodes</div>
               </div>
             </div>
-          </aside>
+          </button>
         )}
       </div>
     </div>
