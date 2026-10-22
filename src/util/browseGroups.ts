@@ -1,6 +1,7 @@
 // Explore's sections (spec "Explorar"). Spotify sends Browse all as one list with no groups,
 // so the app groups it by page id: the ids are the same in every language, and a tile Spotify
 // adds later lands in Discover until it is placed here.
+import { t } from "../i18n";
 
 /** Genre pages. */
 const GENRES = new Set([
@@ -67,10 +68,11 @@ export const MOOD_CHIPS = [
 
 export type BrowseGroup = "genres" | "moods" | "discover";
 
-export const BROWSE_GROUPS: { id: BrowseGroup; title: string }[] = [
-  { id: "genres", title: "Genres" },
-  { id: "moods", title: "Mood and moment" },
-  { id: "discover", title: "Discover" },
+// The titles are getters: read when a section is drawn, in the language shown then.
+export const BROWSE_GROUPS: { id: BrowseGroup; readonly title: string }[] = [
+  { id: "genres", get title() { return t("Genres"); } },
+  { id: "moods", get title() { return t("Mood and moment"); } },
+  { id: "discover", get title() { return t("Discover"); } },
 ];
 
 export function browseGroup(uri: string): BrowseGroup {

@@ -7,8 +7,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { play, type Repeat } from "../api/spotify";
 import type { Named } from "../api/types";
+import { t } from "../i18n";
 import { flush, observe } from "./listening";
 import { notify, toast  } from "./toast";
+
+/** The repeat button's name for the mode it is in now. */
+export const repeatLabel = (r: Repeat) => (r === "off" ? t("Repeat off") : r === "one" ? t("Repeat one") : t("Repeat all"));
 
 export type NowPlaying = {
   uri: string;
@@ -225,7 +229,7 @@ export function PlayerProvider({ children, record = true }: { children: ReactNod
       listen<LocalEvent>("player-event", ({ payload: e }) => {
         viewVersion.current++;
         if (e.kind === "unavailable") {
-          notify("A track is not available, skipping it.", { kind: "info" });
+          notify(t("A track is not available, skipping it."), { kind: "info" });
           return;
         }
         if (!localIsActive()) return;

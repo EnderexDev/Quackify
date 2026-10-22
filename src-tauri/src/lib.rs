@@ -90,6 +90,7 @@ pub fn run() {
             settings::settings_get,
             settings::settings_set,
             settings::settings_set_start_with_windows,
+            settings::settings_set_language,
             settings::settings_cache_size,
             settings::settings_clear_cache,
             settings::settings_cache_folder,

@@ -7,6 +7,7 @@ import type { Panel } from "../App";
 import type { Nav } from "../state/nav";
 import type { Player } from "../state/player";
 import { notify, toast  } from "../state/toast";
+import { t } from "../i18n";
 import { Dialog } from "./Dialog";
 import { newPlaylist } from "../state/newPlaylist";
 import { toggleCinema, toggleMini } from "../state/windows";
@@ -14,31 +15,32 @@ import { toggleCinema, toggleMini } from "../state/windows";
 const SEEK_STEP_MS = 5000;
 const VOLUME_STEP = 0.1;
 
-export const SHORTCUTS: { keys: string; what: string }[] = [
-  { keys: "Space", what: "Play / pause" },
-  { keys: "Ctrl + →", what: "Next" },
-  { keys: "Ctrl + ←", what: "Previous" },
-  { keys: "Shift + →", what: "Seek forward 5 seconds" },
-  { keys: "Shift + ←", what: "Seek back 5 seconds" },
-  { keys: "Ctrl + ↑", what: "Volume up" },
-  { keys: "Ctrl + ↓", what: "Volume down" },
-  { keys: "Ctrl + S", what: "Shuffle" },
-  { keys: "Ctrl + R", what: "Repeat" },
-  { keys: "Alt + Shift + B", what: "Like the song playing" },
-  { keys: "Ctrl + N", what: "New playlist" },
-  { keys: "Ctrl + K  or  Ctrl + L  or  Ctrl + T", what: "Search" },
-  { keys: "Alt + ←  /  Alt + →", what: "Go back / forward" },
-  { keys: "Alt + Shift + H", what: "Home" },
-  { keys: "Alt + Shift + Q", what: "Queue" },
-  { keys: "Alt + Shift + R", what: "The song playing, with its lyrics" },
-  { keys: "Alt + Shift + J", what: "Lyrics (the song page)" },
-  { keys: "Ctrl + P", what: "Settings" },
-  { keys: "Ctrl + B", what: "Collapse or expand Your Library" },
-  { keys: "F11", what: "Cinema mode" },
-  { keys: "Ctrl + M", what: "Mini player" },
-  { keys: "Ctrl + A", what: "Select every song of a list" },
-  { keys: "Delete", what: "Remove the selected songs from your playlist" },
-  { keys: "Ctrl + /", what: "This list" },
+// A function, not a constant: the text is picked when the list is shown, in the language of the moment.
+export const shortcutList = (): { keys: string; what: string }[] => [
+  { keys: t("Space"), what: t("Play / pause") },
+  { keys: "Ctrl + →", what: t("Next") },
+  { keys: "Ctrl + ←", what: t("Previous") },
+  { keys: "Shift + →", what: t("Seek forward 5 seconds") },
+  { keys: "Shift + ←", what: t("Seek back 5 seconds") },
+  { keys: "Ctrl + ↑", what: t("Volume up") },
+  { keys: "Ctrl + ↓", what: t("Volume down") },
+  { keys: "Ctrl + S", what: t("Shuffle") },
+  { keys: "Ctrl + R", what: t("Repeat") },
+  { keys: "Alt + Shift + B", what: t("Like the song playing") },
+  { keys: "Ctrl + N", what: t("New playlist") },
+  { keys: t("Ctrl + K  or  Ctrl + L  or  Ctrl + T"), what: t("Search") },
+  { keys: "Alt + ←  /  Alt + →", what: t("Go back / forward") },
+  { keys: "Alt + Shift + H", what: t("Home") },
+  { keys: "Alt + Shift + Q", what: t("Queue") },
+  { keys: "Alt + Shift + R", what: t("The song playing, with its lyrics") },
+  { keys: "Alt + Shift + J", what: t("Lyrics (the song page)") },
+  { keys: "Ctrl + P", what: t("Settings") },
+  { keys: "Ctrl + B", what: t("Collapse or expand Your Library") },
+  { keys: "F11", what: t("Cinema mode") },
+  { keys: "Ctrl + M", what: t("Mini player") },
+  { keys: "Ctrl + A", what: t("Select every song of a list") },
+  { keys: "Delete", what: t("Remove the selected songs from your playlist") },
+  { keys: "Ctrl + /", what: t("This list") },
 ];
 
 /** Listens for the shortcuts; returns whether the list is open and how to close it. */
@@ -80,7 +82,7 @@ export function useShortcuts(
           return act(() =>
             areSaved([uri]).then(([saved]) => {
               setSaved(uri, !saved);
-              notify(saved ? "Removed from Liked Songs" : "Added to Liked Songs");
+              notify(saved ? t("Removed from Liked Songs") : t("Added to Liked Songs"));
             }, toast),
           );
         }
@@ -108,9 +110,9 @@ export function useShortcuts(
 
 export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   return (
-    <Dialog title="Keyboard shortcuts" onClose={onClose}>
+    <Dialog title={t("Keyboard shortcuts")} onClose={onClose}>
       <div className="shortcuts-list">
-        {SHORTCUTS.map((s) => (
+        {shortcutList().map((s) => (
           <div key={s.keys} className="shortcut-row">
             <span>{s.what}</span>
             <kbd>{s.keys}</kbd>
@@ -119,7 +121,7 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
       </div>
       <div className="dialog-actions">
         <button className="secondary" onClick={onClose}>
-          Close
+          {t("Close")}
         </button>
       </div>
     </Dialog>

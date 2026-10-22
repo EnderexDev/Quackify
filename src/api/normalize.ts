@@ -1,5 +1,6 @@
 // Spotify's GraphQL (pathfinder) responses into the app's shapes. Every reader is defensive:
 // the same entity comes back with different fields depending on the operation that sent it.
+import { locale, t } from "../i18n";
 import type {
   Artist,
   BrowsePage,
@@ -85,21 +86,21 @@ export function toCard(x: Raw): Card | null {
     case "Playlist": {
       // Recently played lists Liked Songs as a playlist with a stand-in URI.
       if (d.format === "liked-songs") {
-        return { uri: "spotify:collection:tracks", kind: "liked", title: d.name ?? "Liked Songs", subtitle: "Playlist", image: imageOf(d) };
+        return { uri: "spotify:collection:tracks", kind: "liked", title: t("Liked Songs"), subtitle: t("Playlist"), image: imageOf(d) };
       }
       const owner = d.ownerV2?.data?.name;
       return {
         uri,
         kind: "playlist",
         title: d.name ?? "",
-        subtitle: plainText(d.description) || (owner ? `By ${owner}` : "Playlist"),
+        subtitle: plainText(d.description) || (owner ? t("By {name}", { name: owner }) : t("Playlist")),
         image: imageOf(d),
       };
     }
     case "Album": {
       const year = d.date?.isoString?.slice(0, 4) ?? d.date?.year;
       const type = d.albumType ?? d.type;
-      const lead = type === "SINGLE" ? "Single" : type === "EP" ? "EP" : year ?? "Album";
+      const lead = type === "SINGLE" ? t("Single") : type === "EP" ? "EP" : year ?? t("Album");
       return {
         uri,
         kind: "album",
@@ -110,13 +111,13 @@ export function toCard(x: Raw): Card | null {
       };
     }
     case "Artist":
-      return { uri, kind: "artist", title: d.profile?.name ?? "", subtitle: "Artist", image: imageOf(d) };
+      return { uri, kind: "artist", title: d.profile?.name ?? "", subtitle: t("Artist"), image: imageOf(d) };
     case "User":
       return {
         uri,
         kind: "user",
         title: d.displayName || d.name || d.username || "",
-        subtitle: "Profile",
+        subtitle: t("Profile"),
         image: imageOf(d),
       };
     case "Podcast":
@@ -125,7 +126,7 @@ export function toCard(x: Raw): Card | null {
         uri,
         kind: "show",
         title: d.name ?? "",
-        subtitle: d.publisher?.name ?? "Podcast",
+        subtitle: d.publisher?.name ?? t("Podcast"),
         image: imageOf(d),
       };
     case "Episode": {
@@ -135,7 +136,7 @@ export function toCard(x: Raw): Card | null {
         uri,
         kind: "episode",
         title: d.name ?? "",
-        subtitle: [date, show].filter(Boolean).join(" • ") || "Episode",
+        subtitle: [date, show].filter(Boolean).join(" • ") || t("Episode"),
         image: imageOf(d),
       };
     }
@@ -144,15 +145,15 @@ export function toCard(x: Raw): Card | null {
         uri,
         kind: "track",
         title: d.name ?? "",
-        subtitle: ["Song", names(d.artists).map((a) => a.name).join(", ")].filter(Boolean).join(" • "),
+        subtitle: [t("Song"), names(d.artists).map((a) => a.name).join(", ")].filter(Boolean).join(" • "),
         image: imageOf(d.albumOfTrack),
       };
     case "PseudoPlaylist":
       return {
         uri: uri || "spotify:collection:tracks",
         kind: "liked",
-        title: d.name ?? "Liked Songs",
-        subtitle: `${d.count ?? 0} songs`,
+        title: t("Liked Songs"),
+        subtitle: (d.count ?? 0) === 1 ? t("1 song") : t("{n} songs", { n: d.count ?? 0 }),
         image: imageOf(d),
       };
     default:
@@ -299,7 +300,7 @@ export function formatDay(iso: string | null | undefined): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
   const dayOnly = !iso.includes("T") || /T00:00(:00(.0+)?)?Z$/.test(iso);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", ...(dayOnly ? { timeZone: "UTC" } : {}) });
+  return d.toLocaleDateString(locale(), { month: "short", day: "numeric", year: "numeric", ...(dayOnly ? { timeZone: "UTC" } : {}) });
 }
 
 export function toEpisode(x: Raw): Episode | null {
@@ -444,7 +445,7 @@ export function toAlbum(data: Raw): Collection {
   };
 }
 
-export function toLiked(data: Raw, title = "Liked Songs"): Collection {
+export function toLiked(data: Raw, title = t("Liked Songs")): Collection {
   const l = data?.me?.library?.tracks;
   return {
     uri: "spotify:collection:tracks",

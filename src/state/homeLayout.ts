@@ -2,6 +2,7 @@
 // reordered, and rows of their own library added. Kept on this computer, by section id.
 import { useSyncExternalStore } from "react";
 import type { LibraryFilter } from "../api/types";
+import { t } from "../i18n";
 
 export type HomeLayout = {
   /** Row ids in the order the user left them; rows not listed keep Spotify's order after them. */
@@ -15,12 +16,12 @@ export type HomeLayout = {
 const KEY = "homeLayout";
 const EMPTY: HomeLayout = { order: [], hidden: [], pinned: [], added: [] };
 
-/** The library rows a user can add, with their titles. */
-export const LIBRARY_ROWS: { filter: Exclude<LibraryFilter, null>; title: string }[] = [
-  { filter: "Playlists", title: "Your playlists" },
-  { filter: "Albums", title: "Your albums" },
-  { filter: "Artists", title: "Your artists" },
-  { filter: "Podcasts & Shows", title: "Your podcasts" },
+/** The library rows a user can add, with their titles (getters: read when drawn, in the language shown then). */
+export const LIBRARY_ROWS: { filter: Exclude<LibraryFilter, null>; readonly title: string }[] = [
+  { filter: "Playlists", get title() { return t("Your playlists"); } },
+  { filter: "Albums", get title() { return t("Your albums"); } },
+  { filter: "Artists", get title() { return t("Your artists"); } },
+  { filter: "Podcasts & Shows", get title() { return t("Your podcasts"); } },
 ];
 
 export const libraryRowId = (filter: string) => `library:${filter}`;

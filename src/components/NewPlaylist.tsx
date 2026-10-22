@@ -8,6 +8,7 @@ import { useNav } from "../state/nav";
 import { NEW_PLAYLIST_EVENT, type NewPlaylistFrom } from "../state/newPlaylist";
 import { notifyLibraryChanged } from "../state/saved";
 import { notify, toast } from "../state/toast";
+import { t } from "../i18n";
 import { Dialog } from "./Dialog";
 import { CheckIcon } from "./icons";
 import { LIBRARY_PAGE } from "./libraryItems";
@@ -123,7 +124,7 @@ function NewPlaylistDialog({ from, onClose }: { from?: NewPlaylistFrom; onClose:
           added = uris.length;
         }
         step.filled = true;
-        if (added) notify(`Added ${added === 1 ? "1 song" : `${added} songs`} to ${step.name}`);
+        if (added) notify(added === 1 ? t("Added 1 song to {name}", { name: step.name }) : t("Added {n} songs to {name}", { n: added, name: step.name }));
         onClose();
         nav.open(step.uri);
       } catch (e) {
@@ -135,7 +136,7 @@ function NewPlaylistDialog({ from, onClose }: { from?: NewPlaylistFrom; onClose:
   };
 
   return (
-    <Dialog title="New playlist" onClose={onClose} busy={busy}>
+    <Dialog title={t("New playlist")} onClose={onClose} busy={busy}>
       <div className="new-playlist">
         <div className="new-playlist-fields">
           <input
@@ -144,8 +145,8 @@ function NewPlaylistDialog({ from, onClose }: { from?: NewPlaylistFrom; onClose:
             value={name}
             maxLength={100}
             disabled={busy}
-            placeholder={suggested || "Name"}
-            aria-label="Name"
+            placeholder={suggested || t("Name")}
+            aria-label={t("Name")}
             onChange={(e) => {
               touched.current = true;
               setName(e.currentTarget.value);
@@ -158,8 +159,8 @@ function NewPlaylistDialog({ from, onClose }: { from?: NewPlaylistFrom; onClose:
             maxLength={300}
             rows={2}
             disabled={busy}
-            placeholder="Description (optional)"
-            aria-label="Description"
+            placeholder={t("Description (optional)")}
+            aria-label={t("Description")}
             onChange={(e) => setDescription(e.currentTarget.value)}
           />
         </div>
@@ -174,14 +175,14 @@ function NewPlaylistDialog({ from, onClose }: { from?: NewPlaylistFrom; onClose:
             onClick={() => setAddSongs(!addSongs)}
           >
             <span className="box">{addSongs && <CheckIcon size={12} />}</span>
-            Also add “{from.label}”
+            {t("Also add “{label}”", { label: from.label })}
           </button>
         )}
         <button className="secondary" onClick={onClose} disabled={busy}>
-          Cancel
+          {t("Cancel")}
         </button>
         <button className="primary new-playlist-create" onClick={create} disabled={busy || !finalName}>
-          Create
+          {t("Create")}
         </button>
       </div>
     </Dialog>

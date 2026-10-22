@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../i18n";
 import { usePlayer, type Device } from "../state/player";
 import { DeviceIcon, DevicesIcon } from "./icons";
 
@@ -34,34 +35,34 @@ export function DevicePicker() {
       <button
         className={`icon-btn ${player.remoteDevice ? "remote" : ""}`}
         onClick={() => setOpen(!open)}
-        aria-label="Connect to a device"
-        title="Connect to a device"
+        aria-label={t("Connect to a device")}
+        title={t("Connect to a device")}
       >
         <DevicesIcon size={20} />
       </button>
       {open && (
         <div className="devices-pop">
-          <div className="devices-title">Connect to a device</div>
+          <div className="devices-title">{t("Connect to a device")}</div>
           {current && (
             <div className="device current">
               <DeviceIcon kind={current.kind} size={28} />
               <div>
-                <div className="device-name">{current.is_local ? "This computer" : current.name}</div>
-                <div className="device-sub">{player.remoteDevice ? "Listening on" : "Quackify"}</div>
+                <div className="device-name">{current.is_local ? t("This computer") : current.name}</div>
+                <div className="device-sub">{player.remoteDevice ? t("Listening on") : "Quackify"}</div>
               </div>
             </div>
           )}
-          {others.length > 0 && <div className="devices-sub">Select another device</div>}
+          {others.length > 0 && <div className="devices-sub">{t("Select another device")}</div>}
           {others.map((d) => (
             <button key={d.id} className="device" onClick={() => pick(d)}>
               <DeviceIcon kind={d.kind} size={24} />
               <div>
-                <div className="device-name">{d.is_local ? "This computer" : d.name}</div>
+                <div className="device-name">{d.is_local ? t("This computer") : d.name}</div>
                 <div className="device-sub">{d.is_local ? "Quackify" : kindLabel(d.kind)}</div>
               </div>
             </button>
           ))}
-          {player.devices.length === 0 && <div className="muted small pad">Looking for devices…</div>}
+          {player.devices.length === 0 && <div className="muted small pad">{t("Looking for devices…")}</div>}
         </div>
       )}
     </div>
@@ -78,10 +79,10 @@ export function RemotePill() {
     <div className="remote-pill" role="status">
       <span className="remote-dot" />
       <DeviceIcon kind={d.kind} size={16} />
-      <span className="remote-name">Playing on {d.name}</span>
+      <span className="remote-name">{t("Playing on {name}", { name: d.name })}</span>
       {local && (
         <button className="remote-here" onClick={() => player.transfer(local.id)}>
-          Play here
+          {t("Play here")}
         </button>
       )}
     </div>
@@ -90,5 +91,13 @@ export function RemotePill() {
 
 function kindLabel(kind: string): string {
   const k = kind.toLowerCase().replace(/_/g, " ");
+  // The kinds that show up most; any other keeps Spotify's own word.
+  if (k === "computer") return t("Computer");
+  if (k === "smartphone") return t("Smartphone");
+  if (k === "tablet") return t("Tablet");
+  if (k === "speaker") return t("Speaker");
+  if (k === "tv") return t("TV");
+  if (k === "game console") return t("Game console");
+  if (k === "automobile") return t("Car");
   return k.charAt(0).toUpperCase() + k.slice(1);
 }

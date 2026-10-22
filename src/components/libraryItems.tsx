@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { areSaved, save } from "../api/library";
 import { library, pinInLibrary, type LibraryQuery } from "../api/spotify";
 import type { Card } from "../api/types";
+import { t } from "../i18n";
 import { useNav } from "../state/nav";
 import { markSaved, notifyLibraryChanged, onLibraryChanged } from "../state/saved";
 import { notify, toast } from "../state/toast";
@@ -156,13 +157,13 @@ export function useLibraryPages(query: LibraryQuery, all = false) {
 /** The line under an item's name in the sidebar. */
 export function librarySubtitle(c: Card): string {
   return c.kind === "liked"
-    ? `Playlist • ${c.subtitle}`
+    ? `${t("Playlist")} • ${c.subtitle}`
     : c.kind === "artist"
-      ? "Artist"
+      ? t("Artist")
       : c.kind === "show"
-        ? `Podcast • ${c.subtitle}`
+        ? `${t("Podcast")} • ${c.subtitle}`
         : c.kind === "folder"
-          ? `Folder • ${c.subtitle}`
+          ? `${t("Folder")} • ${c.subtitle}`
           : c.subtitle;
 }
 
@@ -180,10 +181,10 @@ export function useLibraryActions(onPinned?: () => void) {
       ? [
           "separator",
           {
-            label: c.pinned ? (c.kind === "folder" ? "Unpin folder" : "Unpin") : c.kind === "folder" ? "Pin folder" : "Pin",
+            label: c.pinned ? (c.kind === "folder" ? t("Unpin folder") : t("Unpin")) : c.kind === "folder" ? t("Pin folder") : t("Pin"),
             onClick: () =>
               pinInLibrary(c.uri, !c.pinned).then(() => {
-                notify(c.pinned ? "Unpinned" : "Pinned to the top of Your Library");
+                notify(c.pinned ? t("Unpinned") : t("Pinned to the top of Your Library"));
                 notifyLibraryChanged();
                 onPinned?.();
               }, toast),
@@ -195,7 +196,7 @@ export function useLibraryActions(onPinned?: () => void) {
     e.preventDefault();
     e.stopPropagation();
     const at = { clientX: e.clientX, clientY: e.clientY, preventDefault: () => {} };
-    if (c.kind === "folder") return openMenu(at, [{ label: "Open", onClick: () => nav.open(c.uri, c.title) }, ...pinItem(c)]);
+    if (c.kind === "folder") return openMenu(at, [{ label: t("Open"), onClick: () => nav.open(c.uri, c.title) }, ...pinItem(c)]);
     if (c.kind === "liked") return openMenu(at, [...cardMenu(c, undefined, nav), ...pinItem(c)]);
     areSaved([c.uri]).then(
       ([saved]) => openMenu(at, [...cardMenu(c, saved, nav), ...pinItem(c)]),
@@ -211,16 +212,17 @@ export function useLibraryActions(onPinned?: () => void) {
     try {
       const uris = await droppedSongs(e, Number.POSITIVE_INFINITY);
       if (!uris.length) return;
-      const n = uris.length === 1 ? "1 song" : `${uris.length} songs`;
       if (c.kind === "liked") {
         await save(uris);
         uris.forEach((u) => markSaved(u, true));
         notifyLibraryChanged();
-        notify(`Saved ${n} to Liked Songs`);
+        notify(uris.length === 1 ? t("Saved 1 song to Liked Songs") : t("Saved {n} songs to Liked Songs", { n: uris.length }));
       } else {
         // Spotify refuses it for a playlist that is not yours; the toast says so.
         await addAll(c.uri, uris);
-        notify(`Added ${n} to ${c.title}`, { action: { label: "Open", run: () => nav.open(c.uri, c.title) } });
+        notify(uris.length === 1 ? t("Added 1 song to {name}", { name: c.title }) : t("Added {n} songs to {name}", { n: uris.length, name: c.title }), {
+          action: { label: t("Open"), run: () => nav.open(c.uri, c.title) },
+        });
       }
     } catch (err) {
       toast(err);

@@ -7,7 +7,8 @@ import { play } from "../api/spotify";
 import { activeLine, useLyrics } from "../state/lyrics";
 import { useProgressMode } from "../state/meter";
 import { useNav } from "../state/nav";
-import { currentQueue, usePlayer, type NowPlaying } from "../state/player";
+import { t } from "../i18n";
+import { currentQueue, repeatLabel, usePlayer, type NowPlaying } from "../state/player";
 import { playerLyrics } from "../state/prefs";
 import { carriesSongs, droppedSongs, queueSongs, readDrop, useDrag } from "../state/drag";
 import { useSaved } from "../state/saved";
@@ -57,8 +58,8 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
   const p = usePlayer();
   const nav = useNav();
   const openMenu = useContextMenu();
-  const t = p.track;
-  const episode = !!t?.uri.startsWith("spotify:episode:");
+  const song = p.track;
+  const episode = !!song?.uri.startsWith("spotify:episode:");
   const [, tick] = useState(0);
   const [lastVolume, setLastVolume] = useState(0.5);
   const [lyricsPop, setLyricsPop] = useState(false);
@@ -67,7 +68,7 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
   const miniOpen = useMiniOpen();
   const sleep = useSleep();
   useSleepTimer(p);
-  const [saved] = useSaved(t?.uri.startsWith("spotify:track:") ? t.uri : null);
+  const [saved] = useSaved(song?.uri.startsWith("spotify:track:") ? song.uri : null);
   // The volume as last set here, so several wheel notches between renders add up.
   const volume = useRef(p.volume);
   volume.current = p.volume;
@@ -85,7 +86,7 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
     return () => clearInterval(id);
   }, [p.playing]);
 
-  const duration = t?.duration_ms ?? 0;
+  const duration = song?.duration_ms ?? 0;
   const songOpen = nav.route.page === "song";
   const toggleSong = () => (songOpen ? nav.back() : nav.go({ page: "song" }));
   const withPopup = lyricsPref === "popup" || lyricsPref === "both";
@@ -94,51 +95,51 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
 
   const sleepAt = (e: React.MouseEvent) => {
     const r = e.currentTarget.getBoundingClientRect();
-    openMenu({ clientX: r.left, clientY: r.top, preventDefault: () => {} }, sleepMenu(t?.uri ?? null, episode));
+    openMenu({ clientX: r.left, clientY: r.top, preventDefault: () => {} }, sleepMenu(song?.uri ?? null, episode));
   };
   // Right click on the song: its menu, with the sleep timer at the end.
   const songMenu = (e: React.MouseEvent) => {
-    if (!t) return;
-    const sleepItem: MenuItem = { label: "Sleep timer", submenu: () => sleepMenu(t.uri, episode) };
+    if (!song) return;
+    const sleepItem: MenuItem = { label: t("Sleep timer"), submenu: () => sleepMenu(song.uri, episode) };
     const items: MenuItem[] = episode
-      ? [{ label: "Go to episode", onClick: () => nav.open(t.uri) }, "separator", sleepItem]
-      : [...trackMenu(t, saved, nav), "separator", sleepItem];
+      ? [{ label: t("Go to episode"), onClick: () => nav.open(song.uri) }, "separator", sleepItem]
+      : [...trackMenu(song, saved, nav), "separator", sleepItem];
     openMenu(e, items);
   };
 
   return (
-    <footer className={`playerbar ${p.remoteDevice ? "remote" : ""} ${t && !p.playing ? "paused" : ""} ${t ? "" : "idle"} ${episode ? "episode" : ""}`}>
+    <footer className={`playerbar ${p.remoteDevice ? "remote" : ""} ${song && !p.playing ? "paused" : ""} ${song ? "" : "idle"} ${episode ? "episode" : ""}`}>
       <RemotePill />
       <QueueDrop />
       <div className="pb-left" onContextMenu={songMenu}>
-        {t && (
+        {song && (
           <>
-            <button className="pb-cover-btn" onClick={toggleSong} aria-label={songOpen ? "Close the song page" : "Open the song page"}>
-              <Cover src={t.image} className="pb-cover" />
+            <button className="pb-cover-btn" onClick={toggleSong} aria-label={songOpen ? t("Close the song page") : t("Open the song page")}>
+              <Cover src={song.image} className="pb-cover" />
               <span className="pb-cover-hover">{songOpen ? <ChevronDownIcon size={22} /> : <ChevronUpIcon size={22} />}</span>
             </button>
             <div className="pb-text">
-              <a className="pb-title" onClick={() => (episode ? nav.open(t.uri) : t.album.uri && nav.open(t.album.uri))} title={t.name}>
-                {t.name}
+              <a className="pb-title" onClick={() => (episode ? nav.open(song.uri) : song.album.uri && nav.open(song.album.uri))} title={song.name}>
+                {song.name}
               </a>
               <div className="pb-artists">
-                {t.artists.map((a, i) => (
+                {song.artists.map((a, i) => (
                   <span key={a.uri || i}>
                     {i > 0 && ", "}
-                    <a onClick={() => (a.uri ? nav.open(a.uri) : episode && nav.open(t.uri))}>{a.name}</a>
+                    <a onClick={() => (a.uri ? nav.open(a.uri) : episode && nav.open(song.uri))}>{a.name}</a>
                   </span>
                 ))}
               </div>
-              {withLine && !episode && <LyricLine track={t} />}
+              {withLine && !episode && <LyricLine track={song} />}
             </div>
-            {t.uri.startsWith("spotify:track:") && (
+            {song.uri.startsWith("spotify:track:") && (
               <>
-                <LikeButton uri={t.uri} className="pb-like" />
+                <LikeButton uri={song.uri} className="pb-like" />
                 <button
                   className="icon-btn pb-add"
-                  aria-label="Add to playlist"
-                  title="Add to playlist"
-                  onClick={(e) => openPlaylistPicker(e.currentTarget, t, nav, openMenu)}
+                  aria-label={t("Add to playlist")}
+                  title={t("Add to playlist")}
+                  onClick={(e) => openPlaylistPicker(e.currentTarget, song, nav, openMenu)}
                 >
                   <PlaylistAddIcon size={18} />
                 </button>
@@ -152,11 +153,11 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
         <div className="pb-buttons">
           {episode ? (
             <>
-              <button className={`pb-chip pb-sleep ${sleep ? "on" : ""}`} onClick={sleepAt} title="Sleep timer">
+              <button className={`pb-chip pb-sleep ${sleep ? "on" : ""}`} onClick={sleepAt} title={t("Sleep timer")}>
                 <ClockIcon size={14} />
-                {sleep ? sleepLabel(sleep) : "Sleep"}
+                {sleep ? sleepLabel(sleep) : t("Sleep")}
               </button>
-              <button className="icon-btn" onClick={() => jump(-EPISODE_JUMP_MS)} aria-label="Back 15 seconds" title="Back 15 seconds">
+              <button className="icon-btn" onClick={() => jump(-EPISODE_JUMP_MS)} aria-label={t("Back 15 seconds")} title={t("Back 15 seconds")}>
                 <Back15Icon size={20} />
               </button>
             </>
@@ -165,38 +166,38 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
               <button
                 className={`icon-btn pb-shuffle ${p.shuffle ? "on" : ""}`}
                 onClick={() => p.setShuffle(!p.shuffle)}
-                disabled={!t}
-                aria-label="Shuffle"
-                title={p.shuffle ? "Shuffle on" : "Shuffle off"}
+                disabled={!song}
+                aria-label={t("Shuffle")}
+                title={p.shuffle ? t("Shuffle on") : t("Shuffle off")}
               >
                 <ShuffleIcon size={18} />
               </button>
-              <button className="icon-btn" onClick={() => play.previous().catch(toast)} disabled={!t} aria-label="Previous">
+              <button className="icon-btn" onClick={() => play.previous().catch(toast)} disabled={!song} aria-label={t("Previous")}>
                 <PrevIcon size={20} />
               </button>
             </>
           )}
-          <button className="pb-play" onClick={p.toggle} disabled={!t} aria-label={p.playing ? "Pause" : "Play"}>
+          <button className="pb-play" onClick={p.toggle} disabled={!song} aria-label={p.playing ? t("Pause") : t("Play")}>
             {p.playing ? <PauseIcon size={20} /> : <PlayIcon size={20} />}
           </button>
           {episode ? (
             <>
-              <button className="icon-btn" onClick={() => jump(EPISODE_JUMP_MS)} aria-label="Forward 15 seconds" title="Forward 15 seconds">
+              <button className="icon-btn" onClick={() => jump(EPISODE_JUMP_MS)} aria-label={t("Forward 15 seconds")} title={t("Forward 15 seconds")}>
                 <Forward15Icon size={20} />
               </button>
               {EPISODE_SPEED ? <button className="pb-chip">1×</button> : <span className="pb-chip-space" />}
             </>
           ) : (
             <>
-              <button className="icon-btn" onClick={() => play.next().catch(toast)} disabled={!t} aria-label="Next">
+              <button className="icon-btn" onClick={() => play.next().catch(toast)} disabled={!song} aria-label={t("Next")}>
                 <NextIcon size={20} />
               </button>
               <button
                 className={`icon-btn pb-repeat ${p.repeat !== "off" ? "on" : ""}`}
                 onClick={p.cycleRepeat}
-                disabled={!t}
-                aria-label="Repeat"
-                title={`Repeat ${p.repeat}`}
+                disabled={!song}
+                aria-label={t("Repeat")}
+                title={repeatLabel(p.repeat)}
               >
                 <RepeatIcon size={18} one={p.repeat === "one"} />
               </button>
@@ -206,12 +207,12 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
         <div className="pb-progress">
           <span className="time">{formatDuration(p.position())}</span>
           <ProgressBar
-            uri={t?.uri ?? null}
+            uri={song?.uri ?? null}
             duration={duration}
             position={p.position}
             playing={p.playing}
             mode={p.remoteDevice ? "simple" : progressMode}
-            disabled={!t || !duration}
+            disabled={!song || !duration}
             onSeek={p.seek}
           />
           <span className="time">{formatDuration(duration)}</span>
@@ -223,15 +224,15 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
           <button
             className={`icon-btn ${(withPopup ? lyricsPop : songOpen) ? "on" : ""}`}
             onClick={() => (withPopup ? setLyricsPop(!lyricsPop) : toggleSong())}
-            disabled={!t && !songOpen}
-            aria-label="Lyrics"
-            title="Lyrics"
+            disabled={!song && !songOpen}
+            aria-label={t("Lyrics")}
+            title={t("Lyrics")}
           >
             <MicIcon size={20} />
           </button>
-          {withPopup && lyricsPop && t && (
+          {withPopup && lyricsPop && song && (
             <LyricsPopup
-              track={t}
+              track={song}
               onClose={() => setLyricsPop(false)}
               onOpenPage={() => {
                 setLyricsPop(false);
@@ -240,14 +241,14 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
             />
           )}
         </div>
-        <button className={`icon-btn ${panel === "queue" ? "on" : ""}`} onClick={() => onPanel("queue")} aria-label="Queue" title="Queue">
+        <button className={`icon-btn ${panel === "queue" ? "on" : ""}`} onClick={() => onPanel("queue")} aria-label={t("Queue")} title={t("Queue")}>
           <QueueIcon size={20} />
         </button>
         <DevicePicker />
         <button
           className="icon-btn"
           onWheel={onVolumeWheel}
-          aria-label={p.volume === 0 ? "Unmute" : "Mute"}
+          aria-label={p.volume === 0 ? t("Unmute") : t("Mute")}
           onClick={() => {
             if (p.volume > 0) {
               setLastVolume(p.volume);
@@ -262,9 +263,9 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
         <button
           className={`icon-btn pb-mini ${miniOpen ? "on" : ""}`}
           onClick={toggleMini}
-          aria-label="Mini player"
+          aria-label={t("Mini player")}
           aria-pressed={miniOpen}
-          title="Mini player (Ctrl M)"
+          title={t("Mini player (Ctrl M)")}
         >
           <MiniPlayerIcon size={20} />
         </button>
@@ -320,24 +321,24 @@ function LyricsPopup({ track, onClose, onOpenPage }: { track: NowPlaying; onClos
   const shown = l ? l.lines.slice(start, start + 4) : [];
 
   return (
-    <div className="lyrics-pop" ref={box} role="dialog" aria-label="Lyrics">
+    <div className="lyrics-pop" ref={box} role="dialog" aria-label={t("Lyrics")}>
       <div className="lyrics-pop-head">
-        <span>{l?.synced ? "Lyrics · synced" : "Lyrics"}</span>
+        <span>{l?.synced ? t("Lyrics · synced") : t("Lyrics")}</span>
         <button className="link" onClick={onOpenPage}>
-          Open page
+          {t("Open page")}
         </button>
       </div>
       {state.status === "loading" && <div className="spinner small" />}
       {state.status === "failed" && (
         <p className="lyrics-pop-msg">
-          Couldn't load the lyrics.{" "}
+          {t("Couldn't load the lyrics.")}{" "}
           <button className="link" onClick={state.retry}>
-            Try again
+            {t("Try again")}
           </button>
         </p>
       )}
       {state.status === "ready" && !l && (
-        <p className="lyrics-pop-msg">{track.uri.startsWith("spotify:track:") ? "This song has no lyrics on Spotify." : "Episodes have no lyrics."}</p>
+        <p className="lyrics-pop-msg">{track.uri.startsWith("spotify:track:") ? t("This song has no lyrics on Spotify.") : t("Episodes have no lyrics.")}</p>
       )}
       {shown.map((line, k) => (
         <div
@@ -373,12 +374,12 @@ export function VolumePercent({
   };
 
   return (
-    <label className="volume-pct" onWheel={text === null ? onWheel : undefined} title="Volume">
+    <label className="volume-pct" onWheel={text === null ? onWheel : undefined} title={t("Volume")}>
       <input
         value={text ?? shown}
         inputMode="numeric"
         maxLength={4}
-        aria-label="Volume percent"
+        aria-label={t("Volume percent")}
         onFocus={(e) => {
           setText(shown);
           e.currentTarget.select();
@@ -420,10 +421,14 @@ function QueueDrop() {
     const data = readDrop(e);
     try {
       const uris = await droppedSongs(data);
-      if (!uris.length) return notify("Nothing there to add to the queue", { kind: "info" });
+      if (!uris.length) return notify(t("Nothing there to add to the queue"), { kind: "info" });
       const went = await queueSongs(uris, where === "next", currentQueue);
-      const n = uris.length === 1 ? "1 song" : `${uris.length} songs`;
-      notify(went === "next" ? `${n} will play next` : `Added ${n} to the queue`);
+      const one = uris.length === 1;
+      notify(
+        went === "next"
+          ? one ? t("1 song will play next") : t("{n} songs will play next", { n: uris.length })
+          : one ? t("Added 1 song to the queue") : t("Added {n} songs to the queue", { n: uris.length }),
+      );
     } catch (err) {
       toast(err);
     }
@@ -449,12 +454,12 @@ function QueueDrop() {
   );
   return (
     <div className="pb-drop">
-      {zone("next", <NextIcon size={20} />, "Play next", p.track ? `Right after ${p.track.name}` : "Before the rest of the queue")}
+      {zone("next", <NextIcon size={20} />, t("Play next"), p.track ? t("Right after {name}", { name: p.track.name }) : t("Before the rest of the queue"))}
       {zone(
         "end",
         <QueueIcon size={20} />,
-        "Add to the end of the queue",
-        queued ? `After the ${queued === 1 ? "song" : `${queued} songs`} already there` : "Your queue is empty",
+        t("Add to the end of the queue"),
+        queued ? (queued === 1 ? t("After the song already there") : t("After the {n} songs already there", { n: queued })) : t("Your queue is empty"),
       )}
     </div>
   );

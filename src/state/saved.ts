@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
 import { areSaved, save, unsave } from "../api/library";
+import { t } from "../i18n";
 import { toast } from "./toast";
 
 /** A heart changed in the other window (the main one or the mini player): this one follows. */
@@ -66,7 +67,7 @@ export async function setSaved(uri: string, value: boolean) {
     if (before === undefined) known.delete(uri);
     else known.set(uri, before);
     notify();
-    toast(e, { label: "Try again", run: () => setSaved(uri, value) });
+    toast(e, { label: t("Try again"), run: () => setSaved(uri, value) });
   }
 }
 

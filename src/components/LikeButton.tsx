@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../i18n";
 import { useSaved } from "../state/saved";
 import { HeartIcon, HeartOutlineIcon } from "./icons";
 
@@ -11,8 +12,8 @@ export function LikeButton({ uri, size = 18, className = "" }: { uri: string; si
   return (
     <button
       className={`like-btn ${saved ? "on" : ""} ${burst && saved ? "pop" : ""} ${className}`}
-      aria-label={saved ? "Remove from Liked Songs" : "Save to Liked Songs"}
-      title={saved ? "Remove from Liked Songs" : "Save to Liked Songs"}
+      aria-label={saved ? t("Remove from Liked Songs") : t("Save to Liked Songs")}
+      title={saved ? t("Remove from Liked Songs") : t("Save to Liked Songs")}
       disabled={saved === undefined}
       onClick={(e) => {
         e.stopPropagation();
@@ -36,10 +37,10 @@ export function LikeButton({ uri, size = 18, className = "" }: { uri: string; si
 export function SaveButton({ uri, kind }: { uri: string; kind: "album" | "playlist" | "artist" | "show" }) {
   const [saved, toggle] = useSaved(uri);
   const follows = kind === "artist" || kind === "show";
-  const label = follows ? (saved ? "Following" : "Follow") : saved ? "Saved" : "Save";
+  const label = follows ? (saved ? t("Following") : t("Follow")) : saved ? t("Saved") : t("Save");
   // Albums and playlists save with a heart, white (yellow stays for liked songs).
   if (!follows) {
-    const name = saved ? "Remove from Your Library" : "Save to Your Library";
+    const name = saved ? t("Remove from Your Library") : t("Save to Your Library");
     return (
       <button className={`icon-btn big save-heart ${saved ? "on" : ""}`} disabled={saved === undefined} onClick={toggle} aria-label={name} title={name}>
         {saved ? <HeartIcon size={24} /> : <HeartOutlineIcon size={24} />}

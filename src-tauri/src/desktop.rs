@@ -19,13 +19,46 @@ pub struct Desktop {
     // The tray's check marks, kept in step with the Settings page.
     close_item: CheckMenuItem<tauri::Wry>,
     autostart_item: CheckMenuItem<tauri::Wry>,
+    /// The plain items, retitled when the language changes.
+    items: Vec<(&'static str, MenuItem<tauri::Wry>)>,
 }
 
-/// Puts the tray's check marks back in line with the settings and Windows' startup entry.
+/// The tray menu's words, in the app's language ("en" or "pt"). `name` is Quackify or Quackify Dev.
+fn tray_text(id: &str, language: &str, name: &str) -> String {
+    let pt = language == "pt";
+    match id {
+        "show" if pt => format!("Mostrar o {name}"),
+        "show" => format!("Show {name}"),
+        "toggle" if pt => "Tocar e pausar".into(),
+        "toggle" => "Play / Pause".into(),
+        "next" if pt => "Próxima".into(),
+        "next" => "Next".into(),
+        "previous" if pt => "Anterior".into(),
+        "previous" => "Previous".into(),
+        "mini" => "Mini player".into(),
+        "close_to_tray" if pt => "Fechar pra bandeja".into(),
+        "close_to_tray" => "Close to tray".into(),
+        "autostart" if pt => "Iniciar com o Windows".into(),
+        "autostart" => "Start with Windows".into(),
+        "quit" if pt => format!("Sair do {name}"),
+        "quit" => format!("Quit {name}"),
+        _ => id.into(),
+    }
+}
+
+/// Puts the tray's check marks back in line with the settings and Windows' startup entry, and
+/// its words in the app's language.
 pub fn sync_tray(app: &AppHandle) {
     if let Some(desktop) = app.try_state::<Desktop>() {
-        let _ = desktop.close_item.set_checked(settings::current(app).close_to_tray);
+        let settings = settings::current(app);
+        let name = crate::variant::name(app);
+        let _ = desktop.close_item.set_checked(settings.close_to_tray);
         let _ = desktop.autostart_item.set_checked(start_with_windows(app));
+        let _ = desktop.close_item.set_text(tray_text("close_to_tray", &settings.language, &name));
+        let _ = desktop.autostart_item.set_text(tray_text("autostart", &settings.language, &name));
+        for (id, item) in &desktop.items {
+            let _ = item.set_text(tray_text(id, &settings.language, &name));
+        }
     }
 }
 
@@ -60,16 +93,25 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
     let settings = settings::current(app.handle());
     let name = crate::variant::name(app.handle());
 
-    let show = MenuItem::with_id(app, "show", format!("Show {name}"), true, None::<&str>)?;
-    let toggle = MenuItem::with_id(app, "toggle", "Play / Pause", true, None::<&str>)?;
-    let next = MenuItem::with_id(app, "next", "Next", true, None::<&str>)?;
-    let previous = MenuItem::with_id(app, "previous", "Previous", true, None::<&str>)?;
-    let mini = MenuItem::with_id(app, "mini", "Mini player", true, None::<&str>)?;
-    let close_to_tray =
-        CheckMenuItem::with_id(app, "close_to_tray", "Close to tray", true, settings.close_to_tray, None::<&str>)?;
+    let lang = settings.language.as_str();
+    let item = |id: &'static str| MenuItem::with_id(app, id, tray_text(id, lang, &name), true, None::<&str>);
+    let show = item("show")?;
+    let toggle = item("toggle")?;
+    let next = item("next")?;
+    let previous = item("previous")?;
+    let mini = item("mini")?;
+    let close_to_tray = CheckMenuItem::with_id(
+        app,
+        "close_to_tray",
+        tray_text("close_to_tray", lang, &name),
+        true,
+        settings.close_to_tray,
+        None::<&str>,
+    )?;
     let autostart_on = start_with_windows(app.handle());
-    let autostart = CheckMenuItem::with_id(app, "autostart", "Start with Windows", true, autostart_on, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", format!("Quit {name}"), true, None::<&str>)?;
+    let autostart =
+        CheckMenuItem::with_id(app, "autostart", tray_text("autostart", lang, &name), true, autostart_on, None::<&str>)?;
+    let quit_item = item("quit")?;
     let menu = Menu::with_items(
         app,
         &[
@@ -91,6 +133,14 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
         quitting: AtomicBool::new(false),
         close_item: close_to_tray.clone(),
         autostart_item: autostart.clone(),
+        items: vec![
+            ("show", show.clone()),
+            ("toggle", toggle.clone()),
+            ("next", next.clone()),
+            ("previous", previous.clone()),
+            ("mini", mini.clone()),
+            ("quit", quit_item.clone()),
+        ],
     });
 
     TrayIconBuilder::with_id(TRAY_ID)

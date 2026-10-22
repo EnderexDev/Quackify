@@ -6,6 +6,7 @@ import { play, recentSearches, removeRecentSearches, saveRecentSearch, search } 
 import type { Card, SearchResults, Track } from "../api/types";
 import { useNav } from "../state/nav";
 import { notify, toast  } from "../state/toast";
+import { t } from "../i18n";
 import { formatDuration } from "../util/format";
 import { kindLabel } from "../util/kinds";
 import { useContextMenu } from "./ContextMenu";
@@ -263,13 +264,13 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
 
   return (
     <div className="palette-backdrop" onMouseDown={close}>
-      <div className="palette" role="dialog" aria-label="Search" onMouseDown={(e) => e.stopPropagation()} onKeyDown={onKey}>
+      <div className="palette" role="dialog" aria-label={t("Search")} onMouseDown={(e) => e.stopPropagation()} onKeyDown={onKey}>
         <label className="palette-input">
           <SearchIcon size={18} />
           <input
             ref={input}
             value={term}
-            placeholder="What do you want to play?  ( > for commands )"
+            placeholder={t("What do you want to play?  ( > for commands )")}
             onChange={(e) => setTerm(e.currentTarget.value)}
             spellCheck={false}
             role="combobox"
@@ -280,13 +281,13 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
         </label>
         {!term.trim() && recent && recent.length > 0 && (
           <div className="palette-head">
-            <span>Recent searches</span>
+            <span>{t("Recent searches")}</span>
             <button className="link small" onClick={() => removeRecent(recent.map((c) => c.uri))}>
-              Clear
+              {t("Clear")}
             </button>
           </div>
         )}
-        {isCommand && <div className="palette-head">Commands</div>}
+        {isCommand && <div className="palette-head">{t("Commands")}</div>}
         <div className="palette-list" id="palette-list" role="listbox" ref={list}>
           {items.map((item, i) => {
             const on = i === at;
@@ -316,8 +317,8 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
                     {card.kind !== "user" && card.kind !== "folder" && (
                       <button
                         className="palette-act"
-                        aria-label="Play"
-                        title="Play"
+                        aria-label={t("Play")}
+                        title={t("Play")}
                         onClick={(e) => {
                           e.stopPropagation();
                           playCard(card, item.tracks);
@@ -329,17 +330,17 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
                     {isSong && (
                       <button
                         className="palette-act"
-                        aria-label="Add to queue"
-                        title="Add to queue"
+                        aria-label={t("Add to queue")}
+                        title={t("Add to queue")}
                         onClick={(e) => {
                           e.stopPropagation();
-                          play.addToQueue(card.uri).then(() => notify("Added to queue"), toast);
+                          play.addToQueue(card.uri).then(() => notify(t("Added to queue")), toast);
                         }}
                       >
                         <QueueIcon size={16} />
                       </button>
                     )}
-                    <button className="palette-act" aria-label="More" title="More" onClick={(e) => more(e, item)}>
+                    <button className="palette-act" aria-label={t("More")} title={t("More")} onClick={(e) => more(e, item)}>
                       <MoreIcon size={16} />
                     </button>
                     <span className="palette-enter" aria-hidden>
@@ -350,8 +351,8 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
                 {!term.trim() && card && (
                   <button
                     className="palette-remove"
-                    aria-label="Remove from recent searches"
-                    title="Remove"
+                    aria-label={t("Remove from recent searches")}
+                    title={t("Remove")}
                     onClick={(e) => {
                       e.stopPropagation();
                       removeRecent([card.uri]);
@@ -371,8 +372,8 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
           {error && searching && <div className="palette-empty error">{error}</div>}
           {nothing && (
             <div className="palette-empty">
-              <strong>Nothing for “{term.trim()}”</strong>
-              <span className="muted small">Check the spelling, or try fewer words.</span>
+              <strong>{t("Nothing for “{term}”", { term: term.trim() })}</strong>
+              <span className="muted small">{t("Check the spelling, or try fewer words.")}</span>
               <button
                 className="link small"
                 onClick={() => {
@@ -380,17 +381,17 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
                   nav.go({ page: "explore" });
                 }}
               >
-                Go to Explore
+                {t("Go to Explore")}
               </button>
             </div>
           )}
           {!term.trim() && recent && recent.length === 0 && (
-            <div className="palette-empty muted small">Search for songs, artists, albums, podcasts and more. Type &gt; for commands.</div>
+            <div className="palette-empty muted small">{t("Search for songs, artists, albums, podcasts and more. Type > for commands.")}</div>
           )}
         </div>
         {searching && items.length > 0 && (
           <button className="palette-all" onClick={seeAll}>
-            See all results for “{term.trim()}” <kbd>Ctrl ↵</kbd>
+            {t("See all results for “{term}”", { term: term.trim() })} <kbd>Ctrl ↵</kbd>
           </button>
         )}
       </div>

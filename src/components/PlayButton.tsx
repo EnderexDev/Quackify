@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { PauseIcon, PlayIcon } from "./icons";
 
 /** The round yellow play button. */
@@ -16,7 +17,7 @@ export function PlayButton({
     <button
       className={`play-button ${className}`}
       style={{ width: size, height: size }}
-      aria-label={playing ? "Pause" : "Play"}
+      aria-label={playing ? t("Pause") : t("Play")}
       onClick={(e) => {
         e.stopPropagation();
         onClick();

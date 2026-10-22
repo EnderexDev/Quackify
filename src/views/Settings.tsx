@@ -13,6 +13,7 @@ import { cinemaAuto, playerLyrics } from "../state/prefs";
 import { setTheme, useTheme } from "../state/theme";
 import { setMotion, useMotion } from "../state/motion";
 import { notify, toast  } from "../state/toast";
+import { locale, setLang, t, useLangChoice } from "../i18n";
 import { Loading } from "./common";
 
 type Quality = "normal" | "high" | "very_high";
@@ -34,25 +35,26 @@ type Settings = {
 type CacheFolder = { folder: string; custom: boolean; problem: string | null };
 type View = { settings: Settings; start_with_windows: boolean };
 
-const QUALITIES: { value: Quality; label: string }[] = [
-  { value: "normal", label: "Normal (96 kbps)" },
-  { value: "high", label: "High (160 kbps)" },
-  { value: "very_high", label: "Very high (320 kbps)" },
+// Lists of labels are functions: the text is picked when it is shown, in the language of the moment.
+const qualities = (): { value: Quality; label: string }[] => [
+  { value: "normal", label: t("Normal (96 kbps)") },
+  { value: "high", label: t("High (160 kbps)") },
+  { value: "very_high", label: t("Very high (320 kbps)") },
 ];
 
 const CACHE_SIZES = [1, 2, 5, 10, 20];
 
 /** "1.4 GB", "230 MB". */
 function formatBytes(n: number): string {
-  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} GB`;
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toLocaleString(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })} GB`;
   if (n >= 1024 ** 2) return `${Math.round(n / 1024 ** 2)} MB`;
-  return n > 0 ? `${Math.max(1, Math.round(n / 1024))} KB` : "Empty";
+  return n > 0 ? `${Math.max(1, Math.round(n / 1024))} KB` : t("Empty");
 }
 
-const LOUDNESS: { value: Loudness; label: string }[] = [
-  { value: "loud", label: "Loud" },
-  { value: "normal", label: "Normal" },
-  { value: "quiet", label: "Quiet" },
+const loudness = (): { value: Loudness; label: string }[] => [
+  { value: "loud", label: t("Loud") },
+  { value: "normal", label: t("Normal") },
+  { value: "quiet", label: t("Quiet") },
 ];
 
 type Account = { name: string; image: string | null; onLogout: () => void };
@@ -71,6 +73,7 @@ export function SettingsView({ account }: { account: Account }) {
   const lyricsInPlayer = playerLyrics.use();
   const cinemaOn = cinemaAuto.use() === "on";
   const motion = useMotion();
+  const language = useLangChoice();
   const readCache = () => {
     invoke<number>("settings_cache_size").then(setCacheBytes, () => {});
     invoke<CacheFolder>("settings_cache_folder").then(setFolder, () => {});
@@ -134,7 +137,7 @@ export function SettingsView({ account }: { account: Account }) {
     setClearing(true);
     try {
       setCacheBytes(await invoke<number>("settings_clear_cache"));
-      notify("Cache cleared");
+      notify(t("Cache cleared"));
     } catch (e) {
       toast(e);
       readCache();
@@ -149,7 +152,7 @@ export function SettingsView({ account }: { account: Account }) {
     setMoving(true);
     try {
       setFolder(await invoke<CacheFolder>("settings_set_cache_folder", { parent }));
-      notify(pick ? "Song cache moved" : "Song cache back in its default folder");
+      notify(pick ? t("Song cache moved") : t("Song cache back in its default folder"));
     } catch (e) {
       toast(e);
     } finally {
@@ -169,80 +172,93 @@ export function SettingsView({ account }: { account: Account }) {
     linksHere === null
       ? "…"
       : linksHere
-        ? "Quackify opens spotify: links, like the Open Spotify buttons on web pages. To give them back, pick Spotify under SPOTIFY in Windows' Settings."
-        : "Windows asks you to choose the app yourself: pick Quackify under SPOTIFY on the page this opens.";
+        ? t("Quackify opens spotify: links, like the Open Spotify buttons on web pages. To give them back, pick Spotify under SPOTIFY in Windows' Settings.")
+        : t("Windows asks you to choose the app yourself: pick Quackify under SPOTIFY on the page this opens.");
 
   return (
     <div className="page settings">
-      <h1 className="page-title">Settings</h1>
+      <h1 className="page-title">{t("Settings")}</h1>
       <div className="settings-layout">
         <SettingsIndex />
         <div className="settings-cards">
-          <Group id="account" title="Account">
+          <Group id="account" title={t("Account")}>
             <div className="settings-row">
               <div className="settings-account">
                 {account.image ? <img className="avatar" src={account.image} alt="" /> : <span className="avatar">{account.name.slice(0, 1)}</span>}
                 <div>
                   <div className="settings-title">{account.name}</div>
-                  <div className="muted small">Connected with Spotify Premium</div>
+                  <div className="muted small">{t("Connected with Spotify Premium")}</div>
                 </div>
               </div>
               <div className="settings-buttons">
                 <button className="pill-button" onClick={() => nav.go({ page: "user", uri: "me" })}>
-                  View profile
+                  {t("View profile")}
                 </button>
                 <button className="pill-button" onClick={account.onLogout}>
-                  Log out
+                  {t("Log out")}
                 </button>
               </div>
             </div>
           </Group>
 
-          <Group id="appearance" title="Appearance">
-            <Row title="Theme" note="System follows Windows' light or dark mode.">
+          <Group id="appearance" title={t("Appearance")}>
+            <Row title={t("Theme")} note={t("System follows Windows' light or dark mode.")}>
               <Segmented
-                label="Theme"
+                label={t("Theme")}
                 options={[
-                  { id: "system", label: "System" },
-                  { id: "dark", label: "Dark" },
-                  { id: "light", label: "Light" },
+                  { id: "system", label: t("System") },
+                  { id: "dark", label: t("Dark") },
+                  { id: "light", label: t("Light") },
                 ]}
                 value={theme}
                 onChange={setTheme}
               />
             </Row>
-            <Row title="Lyrics in the player" note="The sung line under the song's name, a popup on the mic button, or both. Off, the mic opens the song page.">
+            <Row title={t("Language")} note={t("System follows Windows' language. Names from Spotify come in your account's language.")}>
               <Segmented
-                label="Lyrics in the player"
+                label={t("Language")}
                 options={[
-                  { id: "off", label: "Off" },
-                  { id: "line", label: "Line" },
-                  { id: "popup", label: "Popup" },
-                  { id: "both", label: "Both" },
+                  { id: "system", label: t("System") },
+                  // Each language in its own name, so it can be found from the other one.
+                  { id: "en", label: "English" },
+                  { id: "pt", label: "Português" },
+                ]}
+                value={language}
+                onChange={setLang}
+              />
+            </Row>
+            <Row title={t("Lyrics in the player")} note={t("The sung line under the song's name, a popup on the mic button, or both. Off, the mic opens the song page.")}>
+              <Segmented
+                label={t("Lyrics in the player")}
+                options={[
+                  { id: "off", label: t("Off") },
+                  { id: "line", label: t("Line") },
+                  { id: "popup", label: t("Popup") },
+                  { id: "both", label: t("Both") },
                 ]}
                 value={lyricsInPlayer}
                 onChange={playerLyrics.set}
               />
             </Row>
-            <Row title="Reduce animations" note="System follows Windows' animation effects. On, nothing loops and moves become a quick fade.">
+            <Row title={t("Reduce animations")} note={t("System follows Windows' animation effects. On, nothing loops and moves become a quick fade.")}>
               <Segmented
-                label="Reduce animations"
+                label={t("Reduce animations")}
                 options={[
-                  { id: "system", label: "System" },
-                  { id: "on", label: "On" },
+                  { id: "system", label: t("System") },
+                  { id: "on", label: t("On") },
                 ]}
                 value={motion}
                 onChange={setMotion}
               />
             </Row>
-            <Row title="Cinema mode by itself" note="After 5 minutes without touching Quackify while music plays, go full screen with the cover and the lyrics. F11 opens it any time.">
+            <Row title={t("Cinema mode by itself")} note={t("After 5 minutes without touching Quackify while music plays, go full screen with the cover and the lyrics. F11 opens it any time.")}>
               <Toggle on={cinemaOn} onChange={(on) => cinemaAuto.set(on ? "on" : "off")} />
             </Row>
           </Group>
 
-          <Group id="progress" title="Progress bar" note="How the player's bar shows the song. Wave and Live play through Quackify's own audio output, so going between Simple and them reconnects for a moment.">
-            <div className="progress-choices" role="group" aria-label="Progress bar">
-              {PROGRESS_MODES.map((m) => {
+          <Group id="progress" title={t("Progress bar")} note={t("How the player's bar shows the song. Wave and Live play through Quackify's own audio output, so going between Simple and them reconnects for a moment.")}>
+            <div className="progress-choices" role="group" aria-label={t("Progress bar")}>
+              {progressModes().map((m) => {
                 const on = (s.progress_mode ?? "simple") === m.id;
                 return (
                   <button
@@ -271,54 +287,54 @@ export function SettingsView({ account }: { account: Account }) {
             </div>
           </Group>
 
-          <Group id="audio" title="Audio">
-            <Row title="Streaming quality" note="Lossless is only played by Spotify's own apps: 320 kbps is the best Quackify can get.">
-              <select aria-label="Streaming quality" value={s.quality} disabled={applying} onChange={(e) => save({ quality: e.currentTarget.value as Quality })}>
-                {QUALITIES.map((q) => (
+          <Group id="audio" title={t("Audio")}>
+            <Row title={t("Streaming quality")} note={t("Lossless is only played by Spotify's own apps: 320 kbps is the best Quackify can get.")}>
+              <select aria-label={t("Streaming quality")} value={s.quality} disabled={applying} onChange={(e) => save({ quality: e.currentTarget.value as Quality })}>
+                {qualities().map((q) => (
                   <option key={q.value} value={q.value}>
                     {q.label}
                   </option>
                 ))}
               </select>
             </Row>
-            <Row title="Normalize volume" note="Set the same volume level for all songs.">
+            <Row title={t("Normalize volume")} note={t("Set the same volume level for all songs.")}>
               <Toggle on={s.normalize} disabled={applying} onChange={(on) => save({ normalize: on })} />
             </Row>
-            <Row title="Volume level" note="Adjust the volume for your environment. Loud may lower the dynamics. Only with Normalize volume on." off={!s.normalize}>
+            <Row title={t("Volume level")} note={t("Adjust the volume for your environment. Loud may lower the dynamics. Only with Normalize volume on.")} off={!s.normalize}>
               <Segmented
-                label="Volume level"
+                label={t("Volume level")}
                 className={applying || !s.normalize ? "disabled" : ""}
-                options={LOUDNESS.map((l) => ({ id: l.value, label: l.label }))}
+                options={loudness().map((l) => ({ id: l.value, label: l.label }))}
                 value={s.loudness}
                 onChange={(l) => !applying && s.normalize && save({ loudness: l })}
               />
             </Row>
           </Group>
 
-          <Group id="playback" title="Playback">
-            <Row title="Autoplay" note="When your music ends, keep playing similar songs.">
+          <Group id="playback" title={t("Playback")}>
+            <Row title={t("Autoplay")} note={t("When your music ends, keep playing similar songs.")}>
               <Toggle on={s.autoplay} disabled={applying} onChange={(on) => save({ autoplay: on })} />
             </Row>
-            <Row title="Gapless playback" note="Start the next song with no silence after the one ending, as albums are meant to be heard.">
+            <Row title={t("Gapless playback")} note={t("Start the next song with no silence after the one ending, as albums are meant to be heard.")}>
               <Toggle on={s.gapless} disabled={applying} onChange={(on) => save({ gapless: on })} />
             </Row>
             <p className="muted small settings-note">
               {applying
-                ? "Applying… Quackify reconnects to Spotify for this."
-                : "Changing these reconnects Quackify for a moment. Music playing here picks up again by itself."}
+                ? t("Applying… Quackify reconnects to Spotify for this.")
+                : t("Changing these reconnects Quackify for a moment. Music playing here picks up again by itself.")}
             </p>
           </Group>
 
-          <Group id="storage" title="Storage">
+          <Group id="storage" title={t("Storage")}>
             <Row
-              title="Cache songs"
-              note="Songs you play are kept on this computer, so playing them again starts at once and uses no data. The oldest go first when the cache is full."
+              title={t("Cache songs")}
+              note={t("Songs you play are kept on this computer, so playing them again starts at once and uses no data. The oldest go first when the cache is full.")}
             >
               <Toggle on={s.audio_cache} disabled={applying} onChange={(on) => save({ audio_cache: on })} />
             </Row>
-            <Row title="Cache size" note="The most the cache may take on disk." off={!s.audio_cache}>
+            <Row title={t("Cache size")} note={t("The most the cache may take on disk.")} off={!s.audio_cache}>
               <select
-                aria-label="Cache size"
+                aria-label={t("Cache size")}
                 value={s.cache_size_gb}
                 disabled={applying || !s.audio_cache}
                 onChange={(e) => save({ cache_size_gb: Number(e.currentTarget.value) })}
@@ -331,35 +347,41 @@ export function SettingsView({ account }: { account: Account }) {
               </select>
             </Row>
             <Row
-              title="Cache folder"
-              note={folder ? `${folder.folder}${folder.custom ? "" : " (default)"}. Changing it deletes the cache in the old folder.` : "…"}
+              title={t("Cache folder")}
+              note={
+                folder
+                  ? folder.custom
+                    ? t("{folder}. Changing it deletes the cache in the old folder.", { folder: folder.folder })
+                    : t("{folder} (default). Changing it deletes the cache in the old folder.", { folder: folder.folder })
+                  : "…"
+              }
             >
               <div className="settings-buttons">
                 {folder?.custom && (
                   <button className="pill-button" disabled={moving || applying} onClick={() => moveCache(false)}>
-                    Use default
+                    {t("Use default")}
                   </button>
                 )}
                 <button className="pill-button" disabled={moving || applying || !s.audio_cache} onClick={() => moveCache(true)}>
-                  {moving ? "Moving…" : "Change folder…"}
+                  {moving ? t("Moving…") : t("Change folder…")}
                 </button>
               </div>
             </Row>
             {folder?.problem && s.audio_cache && (
-              <p className="settings-warning">Songs are not being cached: {folder.problem}. Pick another folder or use the default.</p>
+              <p className="settings-warning">{t("Songs are not being cached: {problem}. Pick another folder or use the default.", { problem: folder.problem })}</p>
             )}
-            <Row title="Cache in use" note={cacheBytes === null ? "Measuring…" : formatBytes(cacheBytes)}>
+            <Row title={t("Cache in use")} note={cacheBytes === null ? t("Measuring…") : formatBytes(cacheBytes)}>
               <button className="pill-button" disabled={clearing || applying || !cacheBytes} onClick={clearCache}>
-                {clearing ? "Clearing…" : "Clear cache"}
+                {clearing ? t("Clearing…") : t("Clear cache")}
               </button>
             </Row>
           </Group>
 
-          <Group id="connect" title="Spotify Connect">
-            <Row title="Device name" note="How this computer shows up in your other Spotify apps.">
+          <Group id="connect" title={t("Spotify Connect")}>
+            <Row title={t("Device name")} note={t("How this computer shows up in your other Spotify apps.")}>
               <input
                 className="settings-input"
-                aria-label="Device name"
+                aria-label={t("Device name")}
                 value={nameDraft}
                 maxLength={40}
                 disabled={applying}
@@ -370,44 +392,43 @@ export function SettingsView({ account }: { account: Account }) {
             </Row>
           </Group>
 
-          <Group id="links" title="Spotify links">
-            <Row title="Open Spotify links in Quackify" note={linksNote}>
+          <Group id="links" title={t("Spotify links")}>
+            <Row title={t("Open Spotify links in Quackify")} note={linksNote}>
               <div className="settings-buttons">
-                {linksHere && <span className="status-pill">Active</span>}
+                {linksHere && <span className="status-pill">{t("Active")}</span>}
                 <button className="pill-button" onClick={() => invoke("links_choose").catch(toast)}>
-                  {linksHere ? "Change in Windows…" : "Choose in Windows…"}
+                  {linksHere ? t("Change in Windows…") : t("Choose in Windows…")}
                 </button>
               </div>
             </Row>
           </Group>
 
-          <Group id="window" title="Window">
-            <Row title="Close button keeps Quackify in the tray" note="The music keeps playing; quit from the tray icon.">
+          <Group id="window" title={t("Window")}>
+            <Row title={t("Close button keeps Quackify in the tray")} note={t("The music keeps playing; quit from the tray icon.")}>
               <Toggle on={s.close_to_tray} disabled={applying} onChange={(on) => save({ close_to_tray: on })} />
             </Row>
-            <Row title="Start with Windows" note="Open Quackify when you log in to the computer.">
+            <Row title={t("Start with Windows")} note={t("Open Quackify when you log in to the computer.")}>
               <Toggle on={view.start_with_windows} onChange={setStartup} />
             </Row>
             <Row
-              title="Start minimized"
-              note="When it starts with Windows, Quackify waits in the tray instead of opening its window."
+              title={t("Start minimized")}
+              note={t("When it starts with Windows, Quackify waits in the tray instead of opening its window.")}
               off={!view.start_with_windows}
             >
               <Toggle on={s.start_minimized} disabled={applying || !view.start_with_windows} onChange={(on) => save({ start_minimized: on })} />
             </Row>
           </Group>
 
-          <Group id="about" title="About">
+          <Group id="about" title={t("About")}>
             <div className="settings-about">
               <DuckIcon size={40} />
               <div>
                 <div className="settings-title">Quackify {appVersion}</div>
-                <div className="muted small">A Spotify player, yellow, with a duck's taste.</div>
+                <div className="muted small">{t("A Spotify player, yellow, with a duck's taste.")}</div>
               </div>
             </div>
             <p className="muted small settings-note">
-              Not in Quackify yet: crossfade, the equalizer and mono audio (its player has none of them). Lossless audio and
-              downloads for offline listening are only allowed in Spotify&apos;s own apps.
+              {t("Not in Quackify yet: crossfade, the equalizer and mono audio (its player has none of them). Lossless audio and downloads for offline listening are only allowed in Spotify's own apps.")}
             </p>
           </Group>
         </div>
@@ -417,23 +438,23 @@ export function SettingsView({ account }: { account: Account }) {
 }
 
 /** The sections, in order, for the index and for scrolling to them. */
-const SECTIONS = [
-  { id: "account", label: "Account" },
-  { id: "appearance", label: "Appearance" },
-  { id: "progress", label: "Progress bar" },
-  { id: "audio", label: "Audio" },
-  { id: "playback", label: "Playback" },
-  { id: "storage", label: "Storage" },
-  { id: "connect", label: "Spotify Connect" },
-  { id: "links", label: "Spotify links" },
-  { id: "window", label: "Window" },
-  { id: "about", label: "About" },
+const sections = () => [
+  { id: "account", label: t("Account") },
+  { id: "appearance", label: t("Appearance") },
+  { id: "progress", label: t("Progress bar") },
+  { id: "audio", label: t("Audio") },
+  { id: "playback", label: t("Playback") },
+  { id: "storage", label: t("Storage") },
+  { id: "connect", label: t("Spotify Connect") },
+  { id: "links", label: t("Spotify links") },
+  { id: "window", label: t("Window") },
+  { id: "about", label: t("About") },
 ];
 
-const PROGRESS_MODES: { id: ProgressMode; label: string; note: string }[] = [
-  { id: "simple", label: "Simple", note: "The plain line." },
-  { id: "wave", label: "Wave", note: "The song's real waveform: you can see and skip the silence." },
-  { id: "live", label: "Live", note: "Bars that grow from the middle and move with the sound." },
+const progressModes = (): { id: ProgressMode; label: string; note: string }[] => [
+  { id: "simple", label: t("Simple"), note: t("The plain line.") },
+  { id: "wave", label: t("Wave"), note: t("The song's real waveform: you can see and skip the silence.") },
+  { id: "live", label: t("Live"), note: t("Bars that grow from the middle and move with the sound.") },
 ];
 
 /** Heights of the little bars in the Wave and Live previews. */
@@ -454,8 +475,8 @@ function SettingsIndex() {
     const update = () => {
       // The last section whose top has come within 120px of the panel's top.
       const line = main.getBoundingClientRect().top + 120;
-      let at = SECTIONS[0].id;
-      for (const s of SECTIONS) {
+      let at = "account";
+      for (const s of sections()) {
         const el = document.getElementById(`settings-${s.id}`);
         if (el && el.getBoundingClientRect().top <= line) at = s.id;
       }
@@ -471,8 +492,8 @@ function SettingsIndex() {
     return () => main.removeEventListener("scroll", update);
   }, []);
   return (
-    <nav className="settings-index" aria-label="Settings sections">
-      {SECTIONS.map((s) => (
+    <nav className="settings-index" aria-label={t("Settings sections")}>
+      {sections().map((s) => (
         <button
           key={s.id}
           className={active === s.id ? "on" : ""}

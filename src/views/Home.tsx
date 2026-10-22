@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { kindOf } from "../api/normalize";
+import { locale, t } from "../i18n";
 import { artist, collection, getHome, library, play, show, showEpisodes } from "../api/spotify";
 import type { Card as CardData, Episode, Section } from "../api/types";
 import { Card, ShelfRow } from "../components/Card";
@@ -19,6 +20,7 @@ import {
 import { useNav } from "../state/nav";
 import {
   dayPart,
+  type DayPart,
   finished,
   FOR_NOW_MAX,
   FOR_NOW_MIN,
@@ -31,6 +33,7 @@ import {
 } from "../state/listening";
 import { usePlayer } from "../state/player";
 import { toast } from "../state/toast";
+import { formatCount } from "../util/format";
 import { kindLabel } from "../util/kinds";
 import { useAsync } from "../util/useAsync";
 import { Failed, Loading } from "./common";
@@ -43,6 +46,34 @@ type Row =
   | { id: string; title: string; type: "spotify"; section: Section }
   | { id: string; title: string; type: "continue" }
   | { id: string; title: string; type: "library"; filter: (typeof LIBRARY_ROWS)[number]["filter"] };
+
+/** Spotify's greeting comes in English here: shown in the language of the app, its name apart. */
+const greet = (raw: string, name: string) =>
+  raw === "Good morning"
+    ? name ? t("Good morning, {name}", { name }) : t("Good morning")
+    : raw === "Good afternoon"
+      ? name ? t("Good afternoon, {name}", { name }) : t("Good afternoon")
+      : raw === "Good evening"
+        ? name ? t("Good evening, {name}", { name }) : t("Good evening")
+        : name ? `${raw}, ${name}` : raw;
+
+/** Why For now shows these: the kind of day and the part of it, written whole for each. */
+const forNowWhy = (weekend: boolean, part: DayPart) =>
+  weekend
+    ? part === "morning"
+      ? t("You usually play these on weekend mornings")
+      : part === "afternoon"
+        ? t("You usually play these on weekend afternoons")
+        : part === "evening"
+          ? t("You usually play these on weekend evenings")
+          : t("You usually play these on weekend nights")
+    : part === "morning"
+      ? t("You usually play these on weekday mornings")
+      : part === "afternoon"
+        ? t("You usually play these on weekday afternoons")
+        : part === "evening"
+          ? t("You usually play these on weekday evenings")
+          : t("You usually play these on weekday nights");
 
 const FOR_NOW_ID = "forNow";
 const SHORTCUTS_ID = "shortcuts";
@@ -80,10 +111,10 @@ export function Home({ name }: { name: string }) {
   const hasForNow = forNowUris.filter((u) => forNowCards.get(u) !== null).length >= FOR_NOW_MIN;
 
   const rows: Row[] = [
-    ...(hasForNow ? [{ id: FOR_NOW_ID, title: "For now", type: "forNow" as const }] : []),
+    ...(hasForNow ? [{ id: FOR_NOW_ID, title: t("For now"), type: "forNow" as const }] : []),
     // A hidden Continue reads nothing, but stays listed so Customize can bring it back.
-    ...(continuing.length || layout.hidden.includes(CONTINUE_ID) ? [{ id: CONTINUE_ID, title: "Continue", type: "continue" as const }] : []),
-    ...(hasForNow && shortcuts.length ? [{ id: SHORTCUTS_ID, title: "Your shortcuts", type: "shortcuts" as const }] : []),
+    ...(continuing.length || layout.hidden.includes(CONTINUE_ID) ? [{ id: CONTINUE_ID, title: t("Continue"), type: "continue" as const }] : []),
+    ...(hasForNow && shortcuts.length ? [{ id: SHORTCUTS_ID, title: t("Your shortcuts"), type: "shortcuts" as const }] : []),
     ...sections.map((s, i) => ({ id: s.uri ?? `${s.title}:${i}`, title: s.title, type: "spotify" as const, section: s })),
     ...layout.added.map((f) => ({
       id: libraryRowId(f),
@@ -98,11 +129,11 @@ export function Home({ name }: { name: string }) {
   return (
     <div className="page home">
       <div className="home-head">
-        <h1 className="greeting">{firstName ? `${data.greeting}, ${firstName}` : data.greeting}</h1>
+        <h1 className="greeting">{greet(data.greeting, firstName)}</h1>
         <div className="home-customize">
           <button className={`pill-button ${editing ? "on" : ""}`} onClick={() => setEditing((v) => !v)} aria-expanded={editing}>
             <EditIcon size={14} />
-            Customize home
+            {t("Customize home")}
           </button>
           {editing && <Customize rows={arranged} layout={layout} onClose={() => setEditing(false)} />}
         </div>
@@ -120,7 +151,7 @@ export function Home({ name }: { name: string }) {
           r.type === "forNow" ? (
             <ForNow key={r.id} at={slot} cards={forNowUris.map((u) => forNowCards.get(u)).filter((c): c is ContextCard => !!c).slice(0, FOR_NOW_MAX)} />
           ) : r.type === "shortcuts" ? (
-            <ShelfRow key={r.id} title={r.title} note="picked by Spotify" rowClass="tiles">
+            <ShelfRow key={r.id} title={r.title} note={t("picked by Spotify")} rowClass="tiles">
               {shortcuts.map((c) => (
                 <Shortcut key={c.uri} card={c} />
               ))}
@@ -189,7 +220,7 @@ async function contextCard(uri: string): Promise<ContextCard> {
   const kind = kindOf(uri);
   if (kind === "artist") {
     const a = await artist(uri);
-    return { uri, kind, title: a.name, subtitle: "Artist", image: a.image, total: null };
+    return { uri, kind, title: a.name, subtitle: t("Artist"), image: a.image, total: null };
   }
   if (kind === "show") {
     const p = await show(uri);
@@ -228,7 +259,7 @@ function useContextCards(uris: string[]): Map<string, ContextCard | null> {
 /** "For now": what the user usually plays at this hour on this kind of day. */
 function ForNow({ at, cards }: { at: number; cards: ContextCard[] }) {
   const d = new Date(at);
-  const when = `${d.toLocaleString("en-US", { weekday: "short" })} · ${d.toLocaleString("en-US", { hour: "numeric" })}`;
+  const when = `${d.toLocaleString(locale(), { weekday: "short" })} · ${d.toLocaleString(locale(), { hour: "numeric" })}`;
   const weekend = d.getDay() === 0 || d.getDay() === 6;
   return (
     <ShelfRow
@@ -236,11 +267,11 @@ function ForNow({ at, cards }: { at: number; cards: ContextCard[] }) {
       title={
         <>
           <ClockIcon size={18} />
-          For now
+          {t("For now")}
           <span className="for-now-when">{when}</span>
         </>
       }
-      aside={<span className="for-now-why">{`You usually play these on ${weekend ? "weekend" : "weekday"} ${dayPart(d.getHours())}s`}</span>}
+      aside={<span className="for-now-why">{forNowWhy(weekend, dayPart(d.getHours()))}</span>}
     >
       {cards.map((c) => (
         <Card key={c.uri} card={c} />
@@ -297,7 +328,7 @@ function ContinueGrid({ items }: { items: Halfway[] }) {
   return (
     <section className="shelf">
       <div className="shelf-head">
-        <h2>Continue</h2>
+        <h2>{t("Continue")}</h2>
       </div>
       <div className="continue-grid">
         {items.map((h) =>
@@ -326,7 +357,7 @@ function ContinueTile({ episode: e }: { episode: Episode }) {
         <div className={`continue-title ${isCurrent ? "accent" : ""}`}>{e.name}</div>
         <div className="continue-sub">
           {e.show.name ? `${e.show.name} • ` : ""}
-          {left} min left
+          {t("{n} min left", { n: left })}
         </div>
       </div>
       <PlayButton size={32} className="continue-play" playing={isCurrent && player.playing} onClick={playThis} />
@@ -352,7 +383,7 @@ function ContinueContext({ card, spot }: { card: ContextCard; spot: Spot }) {
       <Cover src={card.image} kind={card.kind} className="continue-cover" />
       <div className="continue-text">
         <div className={`continue-title ${isCurrent ? "accent" : ""}`}>{card.title}</div>
-        <div className="continue-sub">{spot.shuffle ? `Shuffling • ${kindLabel(card)}` : `Track ${row.toLocaleString()} of ${total.toLocaleString()}`}</div>
+        <div className="continue-sub">{spot.shuffle ? t("Shuffling • {kind}", { kind: kindLabel(card) }) : t("Track {n} of {total}", { n: formatCount(row), total: formatCount(total) })}</div>
       </div>
       <PlayButton size={32} className="continue-play" playing={isCurrent && player.playing} onClick={playThis} />
       {!spot.shuffle && <div className="continue-progress" style={{ width: `${100 * done}%` }} />}
@@ -410,11 +441,11 @@ function Customize({ rows, layout, onClose }: { rows: Row[]; layout: HomeLayout;
   const addable = LIBRARY_ROWS.filter((r) => !layout.added.includes(r.filter));
 
   return (
-    <div className="customize" ref={box} role="dialog" aria-label="Customize home">
+    <div className="customize" ref={box} role="dialog" aria-label={t("Customize home")}>
       <div className="customize-head">
-        <span>Customize home</span>
+        <span>{t("Customize home")}</span>
         <button className="link" onClick={resetHomeLayout}>
-          Restore
+          {t("Restore")}
         </button>
       </div>
       <div className="customize-list">
@@ -449,8 +480,8 @@ function Customize({ rows, layout, onClose }: { rows: Row[]; layout: HomeLayout;
               <span className="customize-title">{r.title}</span>
               <button
                 className={`customize-pin ${pinned ? "on" : ""}`}
-                aria-label={pinned ? "Unpin row" : "Pin row to the top"}
-                title={pinned ? "Unpin" : "Pin to the top"}
+                aria-label={pinned ? t("Unpin row") : t("Pin row to the top")}
+                title={pinned ? t("Unpin") : t("Pin to the top")}
                 onClick={() => setHomeLayout({ ...layout, pinned: toggleIn(layout.pinned, r.id, !pinned) })}
               >
                 <PinIcon size={13} />
@@ -458,8 +489,8 @@ function Customize({ rows, layout, onClose }: { rows: Row[]; layout: HomeLayout;
               {r.type === "library" && (
                 <button
                   className="customize-pin"
-                  aria-label="Remove row"
-                  title="Remove"
+                  aria-label={t("Remove row")}
+                  title={t("Remove")}
                   onClick={() =>
                     setHomeLayout({
                       ...layout,
@@ -495,7 +526,7 @@ function Customize({ rows, layout, onClose }: { rows: Row[]; layout: HomeLayout;
           ) : (
             <button className="customize-add-item" onClick={() => setAdding(true)}>
               <PlusIcon size={14} />
-              Add a row from your library
+              {t("Add a row from your library")}
             </button>
           )}
         </div>

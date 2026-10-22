@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { artist, collection, play, show, type QueueEdit } from "../api/spotify";
 import { useNav } from "../state/nav";
-import { usePlayer, type NowPlaying, type QueuedTrack } from "../state/player";
+import { t } from "../i18n";
+import { repeatLabel, usePlayer, type NowPlaying, type QueuedTrack } from "../state/player";
 import { useSaved } from "../state/saved";
 import { toast } from "../state/toast";
 import { formatDuration } from "../util/format";
@@ -55,11 +56,11 @@ function useSource(uri: string | null): Source | null {
     const kind = uri.split(":")[1];
     const load: Promise<Source> | null =
       kind === "album" || kind === "playlist" || kind === "collection"
-        ? collection(uri).then((c) => ({ kind: kind === "album" ? "Album" : "Playlist", name: c.title, total: c.total }))
+        ? collection(uri).then((c) => ({ kind: kind === "album" ? t("Album") : t("Playlist"), name: c.title, total: c.total }))
         : kind === "artist"
-          ? artist(uri).then((a) => ({ kind: "Artist", name: a.name, total: null }))
+          ? artist(uri).then((a) => ({ kind: t("Artist"), name: a.name, total: null }))
           : kind === "show"
-            ? show(uri).then((s) => ({ kind: "Podcast", name: s.name, total: null }))
+            ? show(uri).then((s) => ({ kind: t("Podcast"), name: s.name, total: null }))
             : null;
     load?.then(
       (s) => alive && setSource(s),
@@ -170,50 +171,50 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
 
   // "Album · track 2 of 9": the row is only a place in the context when it plays in order.
   const place =
-    source && player.index != null && source.total && !player.shuffle ? ` · track ${player.index + 1} of ${source.total}` : "";
-  const n = (count: number) => (count === 1 ? "1 song" : `${count} songs`);
+    source && player.index != null && source.total && !player.shuffle ? ` · ${t("track {n} of {total}", { n: player.index + 1, total: source.total })}` : "";
+  const n = (count: number) => (count === 1 ? t("1 song") : t("{n} songs", { n: count }));
 
   return (
     <aside className="queue panel">
       <div className="queue-head">
-        <h2>Queue</h2>
+        <h2>{t("Queue")}</h2>
         <Segmented
           className="queue-tabs"
-          label="Queue or history"
+          label={t("Queue or history")}
           options={[
-            { id: "queue", label: "Queue" },
-            { id: "history", label: "History" },
+            { id: "queue", label: t("Queue") },
+            { id: "history", label: t("History") },
           ]}
           value={tab}
           onChange={setTab}
         />
-        <button className="icon-btn queue-close" aria-label="Close queue" title="Close" onClick={onClose}>
+        <button className="icon-btn queue-close" aria-label={t("Close queue")} title={t("Close")} onClick={onClose}>
           <CloseIcon size={16} />
         </button>
       </div>
       <div className="queue-body">
-        {tab === "queue" && !player.track && <p className="muted pad">Nothing is playing.</p>}
+        {tab === "queue" && !player.track && <p className="muted pad">{t("Nothing is playing.")}</p>}
         {tab === "queue" && player.track && (
           <>
             <div className="queue-group-head">
               <div className="queue-group-title">
-                <h3>Now playing</h3>
+                <h3>{t("Now playing")}</h3>
               </div>
             </div>
             <QueueRow track={player.track} current />
             {queued.length > 0 && (
               <div className="queue-group-head">
                 <div className="queue-group-title">
-                  <h3>From your queue</h3>
+                  <h3>{t("From your queue")}</h3>
                   <span>{n(allQueued.length)}</span>
                 </div>
                 {canShuffle && (
-                  <button className="icon-btn queue-group-btn" aria-label="Shuffle your queue" title="Shuffle your queue" onClick={shuffleAdded}>
+                  <button className="icon-btn queue-group-btn" aria-label={t("Shuffle your queue")} title={t("Shuffle your queue")} onClick={shuffleAdded}>
                     <ShuffleIcon size={16} />
                   </button>
                 )}
                 <button className="queue-pill" onClick={clear}>
-                  Clear
+                  {t("Clear")}
                 </button>
               </div>
             )}
@@ -233,13 +234,13 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
                   dropOn(null);
                 }}
               >
-                Drop here to add to the queue
+                {t("Drop here to add to the queue")}
               </div>
             )}
             {fromContext.length > 0 && (
               <div className="queue-group-head">
                 <div className="queue-group-title">
-                  <h3>{source ? `From ${source.name}` : "Next up"}</h3>
+                  <h3>{source ? t("From {name}", { name: source.name }) : t("Next up")}</h3>
                   {source && (
                     <span>
                       {source.kind}
@@ -249,16 +250,16 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
                 </div>
                 <button
                   className={`icon-btn queue-group-btn ${player.shuffle ? "on" : ""}`}
-                  aria-label={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
-                  title={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
+                  aria-label={player.shuffle ? t("Disable shuffle") : t("Enable shuffle")}
+                  title={player.shuffle ? t("Disable shuffle") : t("Enable shuffle")}
                   onClick={() => player.setShuffle(!player.shuffle)}
                 >
                   <ShuffleIcon size={16} />
                 </button>
                 <button
                   className={`icon-btn queue-group-btn ${player.repeat !== "off" ? "on" : ""}`}
-                  aria-label="Repeat"
-                  title={`Repeat ${player.repeat}`}
+                  aria-label={t("Repeat")}
+                  title={repeatLabel(player.repeat)}
                   onClick={player.cycleRepeat}
                 >
                   <RepeatIcon size={16} one={player.repeat === "one"} />
@@ -266,10 +267,10 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
                 {autoplay.length > 0 && (
                   <button
                     className="queue-pill"
-                    title="Skip to what plays after it"
+                    title={t("Skip to what plays after it")}
                     onClick={() => play.skipTo(autoplay[0].uri, autoplay[0].uid).catch(toast)}
                   >
-                    Skip
+                    {t("Skip")}
                   </button>
                 )}
               </div>
@@ -280,8 +281,8 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
             {autoplay.length > 0 && (
               <div className="queue-group-head">
                 <div className="queue-group-title">
-                  <h3>After</h3>
-                  <span>Autoplay{source ? `: similar to ${source.name}` : ""}</span>
+                  <h3>{t("After")}</h3>
+                  <span>{source ? t("Autoplay: similar to {name}", { name: source.name }) : t("Autoplay")}</span>
                 </div>
               </div>
             )}
@@ -290,7 +291,7 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
             ))}
           </>
         )}
-        {tab === "history" && history.length === 0 && <Empty title="Nothing here yet" text="Songs you play show up here." icon={<ClockIcon size={20} />} />}
+        {tab === "history" && history.length === 0 && <Empty title={t("Nothing here yet")} text={t("Songs you play show up here.")} icon={<ClockIcon size={20} />} />}
         {tab === "history" &&
           history.map((q, i) => (
             <QueueRow key={rowKey(q, i)} track={info.get(q.uri)} onPlay={() => play.tracks([q.uri], 0).catch(toast)} />
@@ -323,7 +324,7 @@ export function QueueRow({
   return (
     <div
       className={`queue-row ${current ? "current" : ""} ${drag?.marker ? "drop-before" : ""} ${drag?.dragging ? "dragging" : ""}`}
-      title={current ? undefined : "Double-click to play"}
+      title={current ? undefined : t("Double-click to play")}
       onDoubleClick={() => !current && playIt()}
       draggable={!!drag}
       onDragStart={(e) => {
@@ -344,7 +345,7 @@ export function QueueRow({
       onContextMenu={(e) => {
         if (!track) return;
         const items: MenuItem[] = [...trackMenu({ ...track, album: track.album.uri ? track.album : null }, saved, nav)];
-        if (onRemove) items.unshift({ label: "Remove from queue", onClick: onRemove }, "separator");
+        if (onRemove) items.unshift({ label: t("Remove from queue"), onClick: onRemove }, "separator");
         openMenu(e, items);
       }}
     >
@@ -362,8 +363,8 @@ export function QueueRow({
       {onRemove && (
         <button
           className="queue-remove"
-          aria-label="Remove from queue"
-          title="Remove from queue"
+          aria-label={t("Remove from queue")}
+          title={t("Remove from queue")}
           onClick={(e) => {
             e.stopPropagation();
             onRemove();

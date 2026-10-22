@@ -1,6 +1,7 @@
 // Browse all (genres and moods, on the search page), Explore, and a genre's own page.
 import { useState } from "react";
 import { browseAll, browsePage } from "../api/spotify";
+import { t } from "../i18n";
 import type { Category } from "../api/types";
 import { Shelf } from "../components/Card";
 import { useNav } from "../state/nav";
@@ -26,11 +27,11 @@ function CategoryTile({ c }: { c: Category }) {
 /** The colored tiles of every genre and mood. */
 export function BrowseAll() {
   const { data, error } = useAsync(browseAll, "browseAll");
-  if (error) return <p className="muted">Could not load Browse all.</p>;
+  if (error) return <p className="muted">{t("Could not load Browse all.")}</p>;
   if (!data) return <div className="spinner" />;
   return (
     <section className="browse-all">
-      <h2>Browse all</h2>
+      <h2>{t("Browse all")}</h2>
       <div className="category-grid">
         {data.map((c) => (
           <CategoryTile key={c.uri} c={c} />
@@ -49,7 +50,7 @@ export function ExploreView() {
   const chips = MOOD_CHIPS.map((uri) => data.find((c) => c.uri === uri)).filter((c): c is Category => !!c);
   return (
     <div className="page explore">
-      <h1 className="page-title">Explore</h1>
+      <h1 className="page-title">{t("Explore")}</h1>
       {chips.length > 0 && (
         <div className="mood-chips">
           {chips.map((c) => (
@@ -75,7 +76,7 @@ function CategorySection({ title, tiles }: { title: string; tiles: Category[] })
       <div className="shelf-head">
         <h2>{title}</h2>
         <button className="link show-all" onClick={() => setAll((v) => !v)}>
-          {all ? "Show less" : "Show all"}
+          {all ? t("Show less") : t("Show all")}
         </button>
       </div>
       <div className={`category-grid ${all ? "" : "one-row"}`}>
@@ -110,7 +111,7 @@ export function BrowseView({ uri }: { uri: string }) {
           onShowAll={s.more && s.uri ? () => nav.go({ page: "cards", source: "browse", uri: s.uri!, title: s.title, from: data.title }) : undefined}
         />
       ))}
-      {data.sections.length === 0 && <Empty title="Nothing here yet" />}
+      {data.sections.length === 0 && <Empty title={t("Nothing here yet")} />}
     </div>
   );
 }

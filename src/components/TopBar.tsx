@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../i18n";
 import { useNav } from "../state/nav";
 import { toggleCinema, toggleMini } from "../state/windows";
 import { BackIcon, DuckIcon, ExpandIcon, ForwardIcon, KeyboardIcon, LogOutIcon, MiniPlayerIcon, SearchIcon, SettingsIcon } from "./icons";
 import { Segmented } from "./Segmented";
 
-const TABS = [
-  { id: "home" as const, label: "Home" },
-  { id: "explore" as const, label: "Explore" },
+// Labels read at render, so they follow the language.
+const tabs = () => [
+  { id: "home" as const, label: t("Home") },
+  { id: "explore" as const, label: t("Explore") },
 ];
 
 /** The duck, back and forward, the Home and Explore tabs, the magnifier that opens the palette, and the avatar menu. */
@@ -34,28 +36,28 @@ export function TopBar({
         <span className="brand-name">Quackify</span>
       </div>
       <div className="nav-arrows">
-        <button className="round-btn" disabled={!nav.canBack} onClick={nav.back} aria-label="Back" title="Back">
+        <button className="round-btn" disabled={!nav.canBack} onClick={nav.back} aria-label={t("Back")} title={t("Back")}>
           <BackIcon size={18} />
         </button>
-        <button className="round-btn" disabled={!nav.canForward} onClick={nav.forward} aria-label="Forward" title="Forward">
+        <button className="round-btn" disabled={!nav.canForward} onClick={nav.forward} aria-label={t("Forward")} title={t("Forward")}>
           <ForwardIcon size={18} />
         </button>
       </div>
       <Segmented
         className="topbar-tabs"
-        label="Pages"
-        options={TABS}
+        label={t("Pages")}
+        options={tabs()}
         value={page === "home" || page === "explore" ? page : null}
         onChange={(id) => nav.go({ page: id })}
       />
-      <button className="round-btn topbar-search" onClick={onSearch} aria-label="Search" title="Search (Ctrl K)">
+      <button className="round-btn topbar-search" onClick={onSearch} aria-label={t("Search")} title={t("Search (Ctrl K)")}>
         <SearchIcon size={18} />
       </button>
       <div className="topbar-end">
         <button className="topbar-hint" onClick={onSearch} tabIndex={-1}>
           Ctrl K
         </button>
-        <button className={`avatar-btn ${menu ? "on" : ""}`} onClick={() => setMenu((m) => !m)} aria-label="Account" aria-haspopup="menu" title={name}>
+        <button className={`avatar-btn ${menu ? "on" : ""}`} onClick={() => setMenu((m) => !m)} aria-label={t("Account")} aria-haspopup="menu" title={name}>
           <Avatar name={name} image={image} />
         </button>
         {menu && (
@@ -143,34 +145,34 @@ function AvatarMenu({
         <Avatar name={name} image={image} className="big" />
         <span>
           <strong>{name}</strong>
-          <span className="muted small">Spotify Premium</span>
+          <span className="muted small">{t("Spotify Premium")}</span>
         </span>
       </button>
       <div className="menu-sep" />
       <button className="avatar-menu-item" role="menuitem" onClick={pick(onSettings)}>
         <SettingsIcon size={18} />
-        <span>Settings</span>
+        <span>{t("Settings")}</span>
         <kbd>Ctrl P</kbd>
       </button>
       <button className="avatar-menu-item" role="menuitem" onClick={pick(toggleMini)}>
         <MiniPlayerIcon size={18} />
-        <span>Mini player</span>
+        <span>{t("Mini player")}</span>
         <kbd>Ctrl M</kbd>
       </button>
       <button className="avatar-menu-item" role="menuitem" onClick={pick(toggleCinema)}>
         <ExpandIcon size={18} />
-        <span>Cinema mode</span>
+        <span>{t("Cinema mode")}</span>
         <kbd>F11</kbd>
       </button>
       <button className="avatar-menu-item" role="menuitem" onClick={pick(onShortcuts)}>
         <KeyboardIcon size={18} />
-        <span>Keyboard shortcuts</span>
+        <span>{t("Keyboard shortcuts")}</span>
         <kbd>Ctrl /</kbd>
       </button>
       <div className="menu-sep" />
       <button className="avatar-menu-item danger" role="menuitem" onClick={pick(onLogout)}>
         <LogOutIcon size={18} />
-        <span>Log out</span>
+        <span>{t("Log out")}</span>
       </button>
     </div>
   );

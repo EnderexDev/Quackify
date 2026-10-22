@@ -7,6 +7,7 @@ import { Cover } from "../components/Cover";
 import { ConfirmDialog, EditDetailsDialog } from "../components/Dialog";
 import { SaveButton } from "../components/LikeButton";
 import { collectionMenu } from "../components/menus";
+import { t } from "../i18n";
 import { useSaved } from "../state/saved";
 import { SearchIcon, ShuffleIcon, SortIcon } from "../components/icons";
 import { OPEN_PALETTE_EVENT } from "../components/Palette";
@@ -23,13 +24,13 @@ import { Empty, Failed, Loading } from "./common";
 
 type Sort = "custom" | "added" | "title" | "artist" | "album" | "duration";
 
-const SORT_LABEL: Record<Sort, string> = {
-  custom: "Custom order",
-  added: "Date added",
-  title: "Title",
-  artist: "Artist",
-  album: "Album",
-  duration: "Duration",
+const SORT_LABEL: Record<Sort, () => string> = {
+  custom: () => t("Custom order"),
+  added: () => t("Date added"),
+  title: () => t("Title"),
+  artist: () => t("Artist"),
+  album: () => t("Album"),
+  duration: () => t("Duration"),
 };
 
 const byText = (pick: (t: Track) => string) => (a: Track, b: Track) =>
@@ -177,7 +178,7 @@ function Loaded({ first }: { first: Data }) {
     ).then(
       () => {
         setRemoved((n) => n + gone.length);
-        notify(gone.length === 1 ? `Removed from ${title}` : `Removed ${gone.length} songs from ${title}`);
+        notify(gone.length === 1 ? t("Removed from {name}", { name: title }) : t("Removed {n} songs from {name}", { n: gone.length, name: title }));
       },
       (e) => {
         setTracks(before);
@@ -247,7 +248,7 @@ function Loaded({ first }: { first: Data }) {
           <h1
             className={`hero-title ${title.length > 28 ? "long" : ""} ${own ? "editable" : ""}`}
             onClick={() => own && setDialog("edit")}
-            title={own ? "Edit details" : undefined}
+            title={own ? t("Edit details") : undefined}
           >
             {title}
           </h1>
@@ -264,7 +265,7 @@ function Loaded({ first }: { first: Data }) {
                   <b key="o">{first.owner}</b>
                 )),
               first.kind === "album" && first.description,
-              `${formatCount(first.total - removed)} ${first.total - removed === 1 ? "song" : "songs"}`,
+              first.total - removed === 1 ? t("1 song") : t("{n} songs", { n: formatCount(first.total - removed) }),
               totalMs > 0 && formatLength(totalMs),
             ]
               .filter(Boolean)
@@ -279,7 +280,7 @@ function Loaded({ first }: { first: Data }) {
             <div className="hero-guests">
               {guests.map((g) => (
                 <button key={g.uri} className="chip" onClick={() => nav.open(g.uri)}>
-                  with {g.name}
+                  {t("with {name}", { name: g.name })}
                 </button>
               ))}
             </div>
@@ -291,25 +292,25 @@ function Loaded({ first }: { first: Data }) {
         <button
           className={`icon-btn big ${player.shuffle ? "on" : ""}`}
           onClick={() => player.setShuffle(!player.shuffle)}
-          aria-label={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
-          title={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
+          aria-label={player.shuffle ? t("Disable shuffle") : t("Enable shuffle")}
+          title={player.shuffle ? t("Disable shuffle") : t("Enable shuffle")}
         >
           <ShuffleIcon size={28} />
         </button>
         {(first.kind === "album" || (first.kind === "playlist" && !own)) && <SaveButton uri={uri} kind={first.kind} />}
-        <button className="more-btn" aria-label={`More options for ${title}`} title="More options" onClick={openMore}>
+        <button className="more-btn" aria-label={t("More options for {name}", { name: title })} title={t("More options")} onClick={openMore}>
           •••
         </button>
         {listTools && (
           <div className="list-tools">
             <label className="list-sort-pill">
               <SortIcon size={14} />
-              <select className="list-sort" value={sort} aria-label="Sort by" onChange={(e) => setSort(e.currentTarget.value as Sort)}>
+              <select className="list-sort" value={sort} aria-label={t("Sort by")} onChange={(e) => setSort(e.currentTarget.value as Sort)}>
                 {(Object.keys(SORT_LABEL) as Sort[])
                   .filter((k) => first.kind !== "liked" || k !== "custom")
                   .map((k) => (
                     <option key={k} value={k}>
-                      {SORT_LABEL[k]}
+                      {SORT_LABEL[k]()}
                     </option>
                   ))}
               </select>
@@ -318,7 +319,7 @@ function Loaded({ first }: { first: Data }) {
               <SearchIcon size={16} />
               <input
                 value={filter}
-                placeholder={first.kind === "liked" ? "Search in Liked Songs" : "Search in playlist"}
+                placeholder={first.kind === "liked" ? t("Search in {name}", { name: t("Liked Songs") }) : t("Search in playlist")}
                 onChange={(e) => setFilter(e.currentTarget.value)}
                 onKeyDown={(e) => {
                   if (e.key !== "Escape") return;
@@ -336,7 +337,7 @@ function Loaded({ first }: { first: Data }) {
         </div>
       )}
       {reordered && !loadingForView && view.tracks.length === 0 && (
-        <p className="muted pad">No songs match “{filter.trim()}”.</p>
+        <p className="muted pad">{t("No songs match “{term}”.", { term: filter.trim() })}</p>
       )}
       <TrackList
         tracks={view.tracks}
@@ -358,10 +359,10 @@ function Loaded({ first }: { first: Data }) {
         </div>
       )}
       {first.kind === "playlist" && tracks.length === 0 && done && (
-        <Empty title="This playlist is empty" text="Find songs and add them with the right click, or drag them onto it in Your Library.">
+        <Empty title={t("This playlist is empty")} text={t("Find songs and add them with the right click, or drag them onto it in Your Library.")}>
           <button className="pill-btn white" onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}>
             <SearchIcon size={14} />
-            Find songs
+            {t("Find songs")}
           </button>
         </Empty>
       )}
@@ -385,9 +386,9 @@ function Loaded({ first }: { first: Data }) {
       )}
       {dialog === "delete" && (
         <ConfirmDialog
-          title="Delete from Your Library?"
-          message={`This will delete ${title} from Your Library.`}
-          confirmLabel="Delete"
+          title={t("Delete from Your Library?")}
+          message={t("This will delete {name} from Your Library.", { name: title })}
+          confirmLabel={t("Delete")}
           onClose={() => setDialog(null)}
           onConfirm={async () => {
             try {

@@ -4,6 +4,7 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { play } from "../api/spotify";
 import type { MenuItem } from "../components/ContextMenu";
+import { t } from "../i18n";
 import type { Player } from "./player";
 import { notify, toast  } from "./toast";
 
@@ -34,8 +35,8 @@ export function useSleep(): Sleep {
 /** "30 min", "12 min" left, or "End". */
 export function sleepLabel(s: Sleep): string {
   if (!s) return "";
-  if (s.kind === "end") return "End";
-  return `${Math.max(1, Math.ceil((s.at - Date.now()) / 60000))} min`;
+  if (s.kind === "end") return t("End");
+  return t("{n} min", { n: Math.max(1, Math.ceil((s.at - Date.now()) / 60000)) });
 }
 
 /** The choices, as menu items: the minutes, the end of what plays, and Turn off. */
@@ -43,17 +44,17 @@ export function sleepMenu(trackUri: string | null, episode: boolean): MenuItem[]
   const s = current;
   return [
     ...SLEEP_MINUTES.map((m) => ({
-      label: `${m} minutes`,
+      label: t("{n} minutes", { n: m }),
       checked: s?.kind === "at" && s.minutes === m,
       onClick: () => setSleep({ kind: "at", at: Date.now() + m * 60000, minutes: m }),
     })),
     {
-      label: episode ? "End of episode" : "End of song",
+      label: episode ? t("End of episode") : t("End of song"),
       checked: s?.kind === "end",
       disabled: !trackUri,
       onClick: () => trackUri && setSleep({ kind: "end", uri: trackUri }),
     },
-    ...(s ? ["separator" as const, { label: "Turn off timer", onClick: () => setSleep(null) }] : []),
+    ...(s ? ["separator" as const, { label: t("Turn off timer"), onClick: () => setSleep(null) }] : []),
   ];
 }
 
@@ -70,7 +71,7 @@ export function useSleepTimer(player: Player) {
     const fire = () => {
       setSleep(null);
       play.pause().catch(toast);
-      notify("Sleep timer: paused", { kind: "info" });
+      notify(t("Sleep timer: paused"), { kind: "info" });
     };
     if (s.kind === "at") {
       const id = window.setTimeout(fire, Math.max(0, s.at - Date.now()));

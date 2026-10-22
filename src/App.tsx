@@ -20,6 +20,7 @@ import { TopBar } from "./components/TopBar";
 import { NavProvider, useNav, type Nav } from "./state/nav";
 import { PlayerProvider, usePlayer, type NowPlaying } from "./state/player";
 import { setTheme } from "./state/theme";
+import { syncLang, t, useLang } from "./i18n";
 import { setCinema, toggleCinema, toggleMini, useCinema } from "./state/windows";
 import { toast, Toasts } from "./state/toast";
 import { Artist } from "./views/Artist";
@@ -43,6 +44,17 @@ const WEB_PLAYER_KEY = "webPlayer";
 
 function App() {
   const [status, setStatus] = useState<Status | null>(null);
+  // Every text re-reads the language: the shell starts over when it changes (the page open and
+  // the player stay, they live above it).
+  const language = useLang();
+  useEffect(() => {
+    syncLang();
+  }, []);
+  // Reads already cached carry the old language in what the app wrote into them ("Album • …").
+  const firstLanguage = useRef(language);
+  useEffect(() => {
+    if (language !== firstLanguage.current) clearCache();
+  }, [language]);
   const [webPlayer, setWebPlayer] = useState(() => localStorage.getItem(WEB_PLAYER_KEY) === "1");
 
   useEffect(() => {
@@ -61,7 +73,7 @@ function App() {
         <div className="splash-ring">
           <DuckIcon size={56} />
         </div>
-        <p className="muted small">Connecting to Spotify…</p>
+        <p className="muted small">{t("Connecting to Spotify…")}</p>
       </div>
     );
   }
@@ -98,6 +110,7 @@ function App() {
       <PlayerProvider>
         <ContextMenuProvider>
         <Shell
+          key={language}
           name={status.profile?.display_name ?? status.username ?? ""}
           image={status.profile?.image ?? null} onLogout={logout} />
         <CreditsHost />
@@ -232,20 +245,20 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
   }, [overlay, palette]);
 
   const commands: PaletteCommand[] = [
-    { label: "Home", keys: "Alt Shift H", run: () => nav.go({ page: "home" }) },
-    { label: "Explore", run: () => nav.go({ page: "explore" }) },
-    { label: "Your Library", run: () => nav.go({ page: "library", filter: "Playlists" }) },
-    { label: "Settings", keys: "Ctrl P", run: () => nav.go({ page: "settings" }) },
-    { label: "Your profile", run: () => nav.go({ page: "user", uri: "me" }) },
-    { label: "Queue", keys: "Alt Shift Q", run: () => togglePanel("queue") },
-    { label: "New playlist", keys: "Ctrl N", run: () => newPlaylist() },
-    { label: collapsed ? "Expand Your Library" : "Collapse Your Library", keys: "Ctrl B", run: toggleSidebar },
-    { label: "Mini player", keys: "Ctrl M", run: toggleMini },
-    { label: "Cinema mode", keys: "F11", run: toggleCinema },
-    { label: "Theme: System", run: () => setTheme("system") },
-    { label: "Theme: Dark", run: () => setTheme("dark") },
-    { label: "Theme: Light", run: () => setTheme("light") },
-    { label: "Keyboard shortcuts", keys: "Ctrl /", run: shortcuts.openList },
+    { label: t("Home"), keys: "Alt Shift H", run: () => nav.go({ page: "home" }) },
+    { label: t("Explore"), run: () => nav.go({ page: "explore" }) },
+    { label: t("Your Library"), run: () => nav.go({ page: "library", filter: "Playlists" }) },
+    { label: t("Settings"), keys: "Ctrl P", run: () => nav.go({ page: "settings" }) },
+    { label: t("Your profile"), run: () => nav.go({ page: "user", uri: "me" }) },
+    { label: t("Queue"), keys: "Alt Shift Q", run: () => togglePanel("queue") },
+    { label: t("New playlist"), keys: "Ctrl N", run: () => newPlaylist() },
+    { label: collapsed ? t("Expand Your Library") : t("Collapse Your Library"), keys: "Ctrl B", run: toggleSidebar },
+    { label: t("Mini player"), keys: "Ctrl M", run: toggleMini },
+    { label: t("Cinema mode"), keys: "F11", run: toggleCinema },
+    { label: t("Theme: System"), run: () => setTheme("system") },
+    { label: t("Theme: Dark"), run: () => setTheme("dark") },
+    { label: t("Theme: Light"), run: () => setTheme("light") },
+    { label: t("Keyboard shortcuts"), keys: "Ctrl /", run: shortcuts.openList },
   ];
 
   const key = JSON.stringify(route);
@@ -275,7 +288,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
         <FloatingScrollbar target={main} />
         {!online && (
           <div className="offline" role="status">
-            No connection. Playing only what's already saved on this computer.
+            {t("No connection. Playing only what's already saved on this computer.")}
           </div>
         )}
         {overlay && <div className="panel-scrim" onMouseDown={() => setPanel(null)} />}
@@ -309,7 +322,7 @@ function useOpenLinks(nav: Nav) {
         // Like Spotify, a song opens on its album.
         if (uri.startsWith("spotify:track:")) {
           const [track] = await invoke<NowPlaying[]>("spotify_tracks", { uris: [uri] });
-          if (!track?.album.uri) throw "That song could not be found";
+          if (!track?.album.uri) throw t("That song could not be found");
           uri = track.album.uri;
         }
         navRef.current.open(uri);
@@ -342,10 +355,10 @@ function WebPlayer({ onLeave }: { onLeave: () => void }) {
     <div className="web-player-bar">
       <DuckIcon size={26} />
       <strong>Quackify</strong>
-      <span className="web-player-pill">Spotify Free · Spotify's web player</span>
-      <span className="muted small web-player-note">Quackify's player needs Premium.</span>
+      <span className="web-player-pill">{t("Spotify Free · Spotify's web player")}</span>
+      <span className="muted small web-player-note">{t("Quackify's player needs Premium.")}</span>
       <button className="pill-button" onClick={onLeave}>
-        Log in with Premium
+        {t("Log in with Premium")}
       </button>
     </div>
   );
@@ -368,7 +381,7 @@ function Login({ onLoggedIn, onWebPlayer }: { onLoggedIn: (s: Status) => void; o
       setFree(notPremium(message));
       setError(
         notPremium(message)
-          ? "Spotify didn't let this account in: Quackify's player needs Spotify Premium. With a Free account, use the web player below."
+          ? t("Spotify didn't let this account in: Quackify's player needs Spotify Premium. With a Free account, use the web player below.")
           : message.replace(/^Error: /, ""),
       );
     } finally {
@@ -380,15 +393,15 @@ function Login({ onLoggedIn, onWebPlayer }: { onLoggedIn: (s: Status) => void; o
     <div className="login">
       <DuckIcon size={96} className="login-duck" />
       <h1>Quackify</h1>
-      <p className="muted">Your music, in a quack.</p>
+      <p className="muted">{t("Your music, in a quack.")}</p>
       <div className="login-actions">
         <button className="primary login-button" onClick={login} disabled={waiting}>
           <span className="login-dot" aria-hidden />
-          {waiting ? "Waiting for the browser…" : "Log in with Spotify"}
+          {waiting ? t("Waiting for the browser…") : t("Log in with Spotify")}
         </button>
         {waiting && (
           <button className="login-cancel" onClick={() => invoke("spotify_cancel_login")}>
-            Cancel
+            {t("Cancel")}
           </button>
         )}
       </div>
@@ -397,16 +410,15 @@ function Login({ onLoggedIn, onWebPlayer }: { onLoggedIn: (s: Status) => void; o
           {error}
         </p>
       ) : (
-        <p className="muted small">Needs Spotify Premium. The login opens in your browser.</p>
+        <p className="muted small">{t("Needs Spotify Premium. The login opens in your browser.")}</p>
       )}
       <div className={`login-free ${free ? "highlight" : ""}`}>
-        <strong>Spotify Free?</strong>
+        <strong>{t("Spotify Free?")}</strong>
         <p className="muted small">
-          Spotify only lets Premium accounts into apps like Quackify. With Free you can still listen here, with
-          Spotify's own web player inside Quackify. Quackify's player, queue, lyrics and the rest need Premium.
+          {t("Spotify only lets Premium accounts into apps like Quackify. With Free you can still listen here, with Spotify's own web player inside Quackify. Quackify's player, queue, lyrics and the rest need Premium.")}
         </p>
         <button className={free ? "pill-button white" : "pill-button"} onClick={onWebPlayer}>
-          Open the web player
+          {t("Open the web player")}
         </button>
       </div>
     </div>

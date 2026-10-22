@@ -1,6 +1,7 @@
 // A profile page: yours (with your top artists and songs of the month) or anyone's, with their
 // public playlists, the artists they played lately, and Follow.
 import { useEffect, useState } from "react";
+import { t } from "../i18n";
 import { followUser, isFollowingUser, play, profile as loadProfile, topContent } from "../api/spotify";
 import type { TopContent } from "../api/types";
 import { Shelf } from "../components/Card";
@@ -45,9 +46,10 @@ export function ProfileView({ uri }: { uri: string }) {
   };
 
   const stats = [
-    p.playlistCount > 0 && `${formatCount(p.playlistCount)} public ${p.playlistCount === 1 ? "playlist" : "playlists"}`,
-    `${formatCount(p.followers)} ${p.followers === 1 ? "follower" : "followers"}`,
-    `${formatCount(p.following)} following`,
+    p.playlistCount > 0 &&
+      (p.playlistCount === 1 ? t("{n} public playlist", { n: formatCount(p.playlistCount) }) : t("{n} public playlists", { n: formatCount(p.playlistCount) })),
+    p.followers === 1 ? t("{n} follower", { n: formatCount(p.followers) }) : t("{n} followers", { n: formatCount(p.followers) }),
+    t("{n} following", { n: formatCount(p.following) }),
   ].filter(Boolean);
 
   const copyLink = () => copy(webLink(p.uri));
@@ -58,36 +60,37 @@ export function ProfileView({ uri }: { uri: string }) {
       <header className="profile-hero">
         {p.image ? <img className="profile-avatar" src={p.image} alt="" /> : <span className="profile-avatar">{p.name.slice(0, 1).toUpperCase()}</span>}
         <div className="profile-text">
-          <span className="hero-kind">Profile</span>
+          <span className="hero-kind">{t("Profile")}</span>
           <h1 className="profile-name">{p.name}</h1>
           <p className="muted">{stats.join(" • ")}</p>
           <div className="profile-actions">
             {p.isMe ? (
               <button className="pill-button" onClick={copyLink}>
-                Copy profile link
+                {t("Copy profile link")}
               </button>
             ) : (
               <button className={`save-btn ${following ? "on" : ""}`} disabled={following === undefined || busy} onClick={toggleFollow}>
-                {following ? "Following" : "Follow"}
+                {following ? t("Following") : t("Follow")}
               </button>
             )}
             <button
               className="more-btn"
-              aria-label={`More options for ${p.name}`}
-              title="More options"
-              onClick={(e) => openMenu(e, [{ label: "Copy profile link", onClick: copyLink }])}
+              aria-label={t("More options for {name}", { name: p.name })}
+              title={t("More options")}
+              onClick={(e) => openMenu(e, [{ label: t("Copy profile link"), onClick: copyLink }])}
             >
               •••
             </button>
           </div>
         </div>
       </header>
-      {top && top.artists.length > 0 && <Shelf title="Top artists this month" note="only you see this" cards={top.artists} />}
+      {top && top.artists.length > 0 && <Shelf title={t("Top artists this month")} note={t("only you see this")} cards={top.artists} />}
       {top && top.tracks.length > 0 && (
         <section className="shelf">
           <div className="shelf-head">
             <h2>
-              Top tracks this month<span className="shelf-note">only you see this</span>
+              {t("Top tracks this month")}
+              <span className="shelf-note">{t("only you see this")}</span>
             </h2>
           </div>
           <TrackList
@@ -98,14 +101,14 @@ export function ProfileView({ uri }: { uri: string }) {
           />
           {top.tracks.length > 5 && (
             <button className="link see-more" onClick={() => setAllTracks(!allTracks)}>
-              {allTracks ? "Show less" : "See more"}
+              {allTracks ? t("Show less") : t("See more")}
             </button>
           )}
         </section>
       )}
-      <Shelf title="Public playlists" cards={p.playlists} />
-      <Shelf title={p.isMe ? "Recently played artists" : "Artists they played lately"} cards={p.recentArtists} />
-      {p.playlists.length === 0 && p.recentArtists.length === 0 && !top && <p className="muted">Nothing public here yet.</p>}
+      <Shelf title={t("Public playlists")} cards={p.playlists} />
+      <Shelf title={p.isMe ? t("Recently played artists") : t("Artists they played lately")} cards={p.recentArtists} />
+      {p.playlists.length === 0 && p.recentArtists.length === 0 && !top && <p className="muted">{t("Nothing public here yet.")}</p>}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { Cover } from "../components/Cover";
 import { CompactIcon, GridIcon, GroupIcon, ListIcon, PinIcon, PlusIcon, SearchIcon, SortIcon } from "../components/icons";
 import { pressable, useLibraryActions, useLibraryPages, usePersisted } from "../components/libraryItems";
 import { Segmented } from "../components/Segmented";
+import { locale, t } from "../i18n";
 import { newPlaylist } from "../state/newPlaylist";
 import { DRAGGABLE, dragCard } from "../state/drag";
 import { peekProps } from "../state/peek";
@@ -20,33 +21,60 @@ import { Empty, Failed, Loading } from "./common";
 
 type Filter = Exclude<LibraryFilter, null>;
 
-/** Each kind's title, the noun its count uses, and its slot in the counts. */
-const KINDS: Record<Filter, { title: string; one: string; many: string; count: keyof LibraryCounts }> = {
-  Playlists: { title: "Playlists", one: "playlist", many: "playlists", count: "playlists" },
-  Albums: { title: "Albums", one: "album", many: "albums", count: "albums" },
-  Artists: { title: "Artists", one: "artist", many: "artists", count: "artists" },
-  "Podcasts & Shows": { title: "Podcasts", one: "podcast", many: "podcasts", count: "podcasts" },
+const num = (n: number) => n.toLocaleString(locale());
+
+/** Each kind's slot in the counts, and its words (functions: read when drawn, in the language shown). */
+const KINDS: Record<
+  Filter,
+  { title: () => string; count: (n: number) => string; none: () => string; empty: () => string; slot: keyof LibraryCounts }
+> = {
+  Playlists: {
+    title: () => t("Playlists"),
+    count: (n) => (n === 1 ? t("1 playlist") : t("{n} playlists", { n: num(n) })),
+    none: () => t("No playlists yet"),
+    empty: () => t("Your playlists show up here."),
+    slot: "playlists",
+  },
+  Albums: {
+    title: () => t("Albums"),
+    count: (n) => (n === 1 ? t("1 album") : t("{n} albums", { n: num(n) })),
+    none: () => t("No albums yet"),
+    empty: () => t("Your albums show up here."),
+    slot: "albums",
+  },
+  Artists: {
+    title: () => t("Artists"),
+    count: (n) => (n === 1 ? t("1 artist") : t("{n} artists", { n: num(n) })),
+    none: () => t("No artists yet"),
+    empty: () => t("Your artists show up here."),
+    slot: "artists",
+  },
+  "Podcasts & Shows": {
+    title: () => t("Podcasts"),
+    count: (n) => (n === 1 ? t("1 podcast") : t("{n} podcasts", { n: num(n) })),
+    none: () => t("No podcasts yet"),
+    empty: () => t("Your podcasts show up here."),
+    slot: "podcasts",
+  },
 };
 
-const SORTS: { id: LibrarySort; label: string }[] = [
-  { id: "Recents", label: "Recents" },
-  { id: "Recently Added", label: "Recently added" },
-  { id: "Alphabetical", label: "Alphabetical" },
-  { id: "Creator", label: "Creator" },
+const SORTS: { id: LibrarySort; label: () => string }[] = [
+  { id: "Recents", label: () => t("Recents") },
+  { id: "Recently Added", label: () => t("Recently added") },
+  { id: "Alphabetical", label: () => t("Alphabetical") },
+  { id: "Creator", label: () => t("Creator") },
 ];
 
 type View = "list" | "compact" | "grid";
-const VIEWS: { id: View; label: React.ReactNode; title: string }[] = [
-  { id: "list", label: <ListIcon size={16} />, title: "List" },
-  { id: "compact", label: <CompactIcon size={16} />, title: "Compact" },
-  { id: "grid", label: <GridIcon size={16} />, title: "Grid" },
+const VIEWS: { id: View; label: React.ReactNode; title: () => string }[] = [
+  { id: "list", label: <ListIcon size={16} />, title: () => t("List") },
+  { id: "compact", label: <CompactIcon size={16} />, title: () => t("Compact") },
+  { id: "grid", label: <GridIcon size={16} />, title: () => t("Grid") },
 ];
 
 /** Grouping: by who made it (a playlist's owner, an album's artists, a podcast's publisher);
  * artists have no maker, so they group by their first letter. */
 type Group = "none" | "creator";
-
-const plural = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
 export function LibraryView({ filter, folder, title }: { filter: Filter; folder?: string; title?: string }) {
   const nav = useNav();
@@ -66,42 +94,47 @@ export function LibraryView({ filter, folder, title }: { filter: Filter; folder?
   const c = counts.data;
   const countLine = folder
     ? pages.loaded
-      ? plural(pages.total, "item", "items")
+      ? pages.total === 1
+        ? t("1 item")
+        : t("{n} items", { n: num(pages.total) })
       : ""
     : c
-      ? [plural(c[kind.count], kind.one, kind.many), filter === "Playlists" && c.folders ? plural(c.folders, "folder", "folders") : ""]
+      ? [
+          kind.count(c[kind.slot]),
+          filter === "Playlists" && c.folders ? (c.folders === 1 ? t("1 folder") : t("{n} folders", { n: num(c.folders) })) : "",
+        ]
           .filter(Boolean)
           .join(" · ")
       : "";
-  const heading = folder ? (title ?? "Folder") : kind.title;
-  const searchLabel = folder ? `Search in ${heading}` : `Search in ${kind.title}`;
+  const heading = folder ? (title ?? t("Folder")) : kind.title();
+  const searchLabel = t("Search in {name}", { name: heading });
   const groups = group === "none" ? [{ name: "", items: pages.items }] : groupItems(pages.items, filter);
 
   return (
     <div className="page library-page">
-      {folder && <p className="page-eyebrow">Folder</p>}
+      {folder && <p className="page-eyebrow">{t("Folder")}</p>}
       <div className="library-page-head">
         <h1 className="page-title">{heading}</h1>
         {countLine && <span className="library-count">{countLine}</span>}
       </div>
       <div className="library-page-tools">
-        <Segmented className="library-views" label="View as" options={VIEWS} value={view} onChange={setView} />
+        <Segmented className="library-views" label={t("View as")} options={VIEWS.map((v) => ({ ...v, title: v.title() }))} value={view} onChange={setView} />
         <label className="list-sort-pill">
           <SortIcon size={14} />
-          <select className="list-sort" value={sort} aria-label="Sort by" onChange={(e) => setSort(e.currentTarget.value as LibrarySort)}>
+          <select className="list-sort" value={sort} aria-label={t("Sort by")} onChange={(e) => setSort(e.currentTarget.value as LibrarySort)}>
             {/* Spotify answers nothing for artists sorted by creator. */}
             {SORTS.filter((s) => filter !== "Artists" || s.id !== "Creator").map((s) => (
               <option key={s.id} value={s.id}>
-                {s.label}
+                {s.label()}
               </option>
             ))}
           </select>
         </label>
         <label className="list-sort-pill">
           <GroupIcon size={14} />
-          <select className="list-sort" value={group} aria-label="Group by" onChange={(e) => setGroup(e.currentTarget.value as Group)}>
-            <option value="none">Group: none</option>
-            <option value="creator">{filter === "Artists" ? "Group: letter" : "Group: creator"}</option>
+          <select className="list-sort" value={group} aria-label={t("Group by")} onChange={(e) => setGroup(e.currentTarget.value as Group)}>
+            <option value="none">{t("Group: none")}</option>
+            <option value="creator">{filter === "Artists" ? t("Group: letter") : t("Group: creator")}</option>
           </select>
         </label>
         <label className="list-search">
@@ -121,26 +154,26 @@ export function LibraryView({ filter, folder, title }: { filter: Filter; folder?
         {filter === "Playlists" && (
           <button className="pill-btn white library-new" onClick={() => newPlaylist()}>
             <PlusIcon size={14} />
-            New playlist
+            {t("New playlist")}
           </button>
         )}
       </div>
       {!pages.loaded && <Loading />}
       {pages.loaded && pages.items.length === 0 && (
         text.trim() ? (
-          <Empty title={`Nothing matches “${text.trim()}”`} text={`Nothing in ${heading} has that in its name.`} />
+          <Empty title={t("Nothing matches “{term}”", { term: text.trim() })} text={t("Nothing in {name} has that in its name.", { name: heading })} />
         ) : folder ? (
-          <Empty title="This folder is empty" text="Move playlists into it in Spotify, or make a new playlist.">
+          <Empty title={t("This folder is empty")} text={t("Move playlists into it in Spotify, or make a new playlist.")}>
             <button className="pill-btn white" onClick={() => newPlaylist()}>
               <PlusIcon size={14} />
-              New playlist
+              {t("New playlist")}
             </button>
             <button className="pill-btn" onClick={() => nav.go({ page: "library", filter: "Playlists" })}>
-              See playlists
+              {t("See playlists")}
             </button>
           </Empty>
         ) : (
-          <Empty title={`No ${kind.many} yet`} text={`Your ${kind.many} show up here.`} />
+          <Empty title={kind.none()} text={kind.empty()} />
         )
       )}
       {pages.items.length > 0 &&
@@ -156,9 +189,9 @@ export function LibraryView({ filter, folder, title }: { filter: Filter; folder?
         ))}
       {pages.error && pages.items.length > 0 && (
         <div className="library-empty">
-          <p className="muted">Could not load the rest: {pages.error}</p>
+          <p className="muted">{t("Could not load the rest: {error}", { error: pages.error })}</p>
           <button className="pill-btn" onClick={pages.loadMore}>
-            Try again
+            {t("Try again")}
           </button>
         </div>
       )}
@@ -187,10 +220,10 @@ function groupItems(items: CardData[], filter: Filter) {
           ? c.title[0].toUpperCase()
           : "#"
         : c.kind === "folder"
-          ? "Folders"
+          ? t("Folders")
           : c.kind === "liked"
-            ? "You"
-            : c.creator || "Other";
+            ? t("You")
+            : c.creator || t("Other");
     const list = groups.get(name);
     if (list) list.push(c);
     else groups.set(name, [c]);
@@ -217,11 +250,11 @@ function Items({ view, items, actions }: { view: View; items: CardData[]; action
   return (
     <div className={`library-rows ${view}`}>
       <div className="library-row library-row-head">
-        <span>Title</span>
-        {view === "compact" && <span>Type</span>}
-        {view === "compact" && <span>Creator</span>}
-        <span>Date added</span>
-        <span>Played</span>
+        <span>{t("Title")}</span>
+        {view === "compact" && <span>{t("Type")}</span>}
+        {view === "compact" && <span>{t("Creator")}</span>}
+        <span>{t("Date added")}</span>
+        <span>{t("Played")}</span>
       </div>
       {items.map((c) => {
         const playing = player.contextUri === c.uri;
@@ -243,7 +276,7 @@ function Items({ view, items, actions }: { view: View; items: CardData[]; action
               <span className="library-row-text">
                 <span className={`library-row-title ${playing ? "accent" : ""}`}>
                   {c.pinned && (
-                    <span className="pin" title="Pinned">
+                    <span className="pin" title={t("Pinned")}>
                       <PinIcon size={12} />
                     </span>
                   )}
@@ -253,7 +286,7 @@ function Items({ view, items, actions }: { view: View; items: CardData[]; action
               </span>
             </span>
             {view === "compact" && <span className="library-row-cell">{kindLabel(c)}</span>}
-            {view === "compact" && <span className="library-row-cell">{c.kind === "liked" ? "You" : (c.creator ?? "")}</span>}
+            {view === "compact" && <span className="library-row-cell">{c.kind === "liked" ? t("You") : (c.creator ?? "")}</span>}
             <span className="library-row-cell">{c.addedAt ? formatAgo(c.addedAt) : ""}</span>
             <span className="library-row-cell">{c.playedAt ? formatAgo(c.playedAt) : ""}</span>
           </div>
@@ -265,13 +298,13 @@ function Items({ view, items, actions }: { view: View; items: CardData[]; action
 
 /** Under a card: who made a playlist (Spotify sends a description there elsewhere). */
 function cardSubtitle(c: CardData): string {
-  return c.kind === "playlist" && c.creator ? `By ${c.creator}` : c.subtitle;
+  return c.kind === "playlist" && c.creator ? t("By {name}", { name: c.creator }) : c.subtitle;
 }
 
 /** The type and the maker under a name in the list view. */
 function rowSubtitle(c: CardData): string {
-  if (c.kind === "folder") return `Folder · ${c.subtitle}`;
-  if (c.kind === "liked") return `Playlist · ${c.subtitle}`;
-  if (c.kind === "artist") return "Artist";
+  if (c.kind === "folder") return `${t("Folder")} · ${c.subtitle}`;
+  if (c.kind === "liked") return `${t("Playlist")} · ${c.subtitle}`;
+  if (c.kind === "artist") return t("Artist");
   return [kindLabel(c), c.creator].filter(Boolean).join(" · ");
 }

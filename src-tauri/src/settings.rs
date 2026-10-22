@@ -78,6 +78,9 @@ pub struct Settings {
     /// local data folder.
     pub cache_parent: Option<String>,
     pub progress_mode: ProgressMode,
+    /// The language the app shows, "en" or "pt", as the page resolved it (System included): the
+    /// tray menu and the browser page after login follow it. The choice itself lives in the page.
+    pub language: String,
 }
 
 /// The cache's own folder inside a folder the user picks: only it is ever cleared.
@@ -102,6 +105,7 @@ impl Default for Settings {
             start_minimized: true,
             cache_parent: None,
             progress_mode: ProgressMode::default(),
+            language: "en".to_string(),
         }
     }
 }
@@ -209,6 +213,8 @@ pub fn settings_get(app: AppHandle) -> View {
 /// Saves the settings. Audio ones rebuild the player, which takes a moment; the tray follows.
 #[tauri::command]
 pub async fn settings_set(app: AppHandle, settings: Settings) -> Result<(), String> {
+    // The language has its own command: a page holding an older copy must not undo it.
+    let settings = Settings { language: app.state::<Store>().get().language, ..settings };
     let before = app.state::<Store>().set(settings.clone())?;
     crate::desktop::sync_tray(&app);
     // The startup entry carries "start minimized" in its command line: rewrite it.
@@ -220,6 +226,19 @@ pub async fn settings_set(app: AppHandle, settings: Settings) -> Result<(), Stri
     if before.player_differs(&settings) {
         crate::spotify::reconnect(&app).await?;
     }
+    Ok(())
+}
+
+/// The page says which language it shows; saved, and the tray menu follows at once.
+#[tauri::command]
+pub fn settings_set_language(app: AppHandle, language: String) -> Result<(), String> {
+    let language = if language == "pt" { "pt" } else { "en" }.to_string();
+    let store = app.state::<Store>();
+    let now = store.get();
+    if now.language != language {
+        store.set(Settings { language, ..now })?;
+    }
+    crate::desktop::sync_tray(&app);
     Ok(())
 }
 

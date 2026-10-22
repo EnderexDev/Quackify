@@ -3,6 +3,7 @@
 // grows and lights up and stays in view, and clicking a line seeks to it.
 import { useEffect, useRef, useState } from "react";
 import { trackDetails } from "../api/spotify";
+import { t } from "../i18n";
 import type { TrackDetails } from "../api/types";
 import { Cover } from "../components/Cover";
 import { useContextMenu } from "../components/ContextMenu";
@@ -30,28 +31,28 @@ const SIZES: { id: LyricsSize; label: string }[] = [
 
 export function SongView() {
   const p = usePlayer();
-  const t = p.track;
-  if (!t)
+  const track = p.track;
+  if (!track)
     return (
       <div className="song-page empty">
-        <p>Play a song to see it here.</p>
+        <p>{t("Play a song to see it here.")}</p>
       </div>
     );
   return (
     <div className="song-page">
-      <SongInfo t={t} />
-      <SongLyrics uri={t.uri} />
+      <SongInfo track={track} />
+      <SongLyrics uri={track.uri} />
     </div>
   );
 }
 
-function SongInfo({ t }: { t: NowPlaying }) {
+function SongInfo({ track }: { track: NowPlaying }) {
   const nav = useNav();
   const openMenu = useContextMenu();
-  const episode = t.uri.startsWith("spotify:episode:");
-  const isTrack = t.uri.startsWith("spotify:track:");
-  const [saved, toggleSaved] = useSaved(isTrack ? t.uri : null);
-  const artistUri = t.artists[0]?.uri ?? "";
+  const episode = track.uri.startsWith("spotify:episode:");
+  const isTrack = track.uri.startsWith("spotify:track:");
+  const [saved, toggleSaved] = useSaved(isTrack ? track.uri : null);
+  const artistUri = track.artists[0]?.uri ?? "";
   const [details, setDetails] = useState<{
     uri: string;
     value: TrackDetails;
@@ -60,61 +61,61 @@ function SongInfo({ t }: { t: NowPlaying }) {
   useEffect(() => {
     if (!isTrack || !artistUri) return;
     let alive = true;
-    trackDetails(t.uri, artistUri).then(
-      (value) => alive && setDetails({ uri: t.uri, value }),
+    trackDetails(track.uri, artistUri).then(
+      (value) => alive && setDetails({ uri: track.uri, value }),
       () => {},
     );
     return () => {
       alive = false;
     };
-  }, [t.uri, artistUri]);
-  const artist = details?.uri === t.uri ? details.value.artist : null;
+  }, [track.uri, artistUri]);
+  const artist = details?.uri === track.uri ? details.value.artist : null;
 
   return (
     <section className="song-info">
-      <Cover src={t.image} className="song-cover" />
-      <div className="song-kind">{episode ? "Episode" : "Song"}</div>
-      <h1 className="song-title" title={t.name}>
-        {t.name}
+      <Cover src={track.image} className="song-cover" />
+      <div className="song-kind">{episode ? t("Episode") : t("Song")}</div>
+      <h1 className="song-title" title={track.name}>
+        {track.name}
       </h1>
       <div className="song-meta">
-        {t.artists.map((a, i) => (
+        {track.artists.map((a, i) => (
           <span key={a.uri || i}>
             {i > 0 && ", "}
-            <a onClick={() => (a.uri ? nav.open(a.uri) : episode && nav.open(t.uri))}>{a.name}</a>
+            <a onClick={() => (a.uri ? nav.open(a.uri) : episode && nav.open(track.uri))}>{a.name}</a>
           </span>
         ))}
-        {t.album.name && !episode && (
+        {track.album.name && !episode && (
           <>
             {" · "}
-            <a onClick={() => t.album.uri && nav.open(t.album.uri)}>{t.album.name}</a>
+            <a onClick={() => track.album.uri && nav.open(track.album.uri)}>{track.album.name}</a>
           </>
         )}
-        {t.duration_ms > 0 && <> · {formatDuration(t.duration_ms)}</>}
+        {track.duration_ms > 0 && <> · {formatDuration(track.duration_ms)}</>}
       </div>
 
       <div className="song-actions">
         {isTrack && (
           <button className={`pill-btn ${saved ? "liked" : ""}`} disabled={saved === undefined} onClick={toggleSaved}>
             {saved ? <HeartIcon size={16} /> : <HeartOutlineIcon size={16} />}
-            {saved ? "Liked" : "Like"}
+            {saved ? t("Liked") : t("Like")}
           </button>
         )}
         {isTrack && (
-          <button className="pill-btn" onClick={(e) => openPlaylistPicker(e.currentTarget, t, nav, openMenu)}>
+          <button className="pill-btn" onClick={(e) => openPlaylistPicker(e.currentTarget, track, nav, openMenu)}>
             <PlaylistAddIcon size={16} />
-            Add to playlist
+            {t("Add to playlist")}
           </button>
         )}
         {episode && (
-          <button className="pill-btn" onClick={() => nav.open(t.uri)}>
-            Go to episode
+          <button className="pill-btn" onClick={() => nav.open(track.uri)}>
+            {t("Go to episode")}
           </button>
         )}
         {!episode && (
           <button
             className="more-btn"
-            aria-label="More"
+            aria-label={t("More")}
             onClick={(e) => {
               const r = e.currentTarget.getBoundingClientRect();
               openMenu(
@@ -123,7 +124,7 @@ function SongInfo({ t }: { t: NowPlaying }) {
                   clientY: r.bottom,
                   preventDefault: () => {},
                 },
-                trackMenu(t, saved, nav),
+                trackMenu(track, saved, nav),
               );
             }}
           >
@@ -139,18 +140,18 @@ function SongInfo({ t }: { t: NowPlaying }) {
             <div className="song-artist-name">
               {artist.name}
               {artist.verified && (
-                <span className="song-verified" title="Verified artist">
+                <span className="song-verified" title={t("Verified artist")}>
                   ✓
                 </span>
               )}
             </div>
             {artist.monthlyListeners !== null && (
-              <div className="muted small">{formatCount(artist.monthlyListeners)} monthly listeners</div>
+              <div className="muted small">{t("{n} monthly listeners", { n: formatCount(artist.monthlyListeners) })}</div>
             )}
           </div>
           <div className="song-artist-buttons" onClick={(e) => e.stopPropagation()}>
-            <button className="link" onClick={() => openCredits(t.uri)}>
-              Credits
+            <button className="link" onClick={() => openCredits(track.uri)}>
+              {t("Credits")}
             </button>
             {artist.uri && <SaveButton uri={artist.uri} kind="artist" />}
           </div>
@@ -242,16 +243,16 @@ function SongLyrics({ uri }: { uri: string }) {
   return (
     <section className={`song-lyrics size-${size}`}>
       <div className="song-lyrics-head">
-        <h2>Lyrics</h2>
-        {l?.synced && <span className="muted small">synced</span>}
-        <Segmented className="song-lyrics-size" label="Lyrics size" options={SIZES} value={size} onChange={setSize} />
+        <h2>{t("Lyrics")}</h2>
+        {l?.synced && <span className="muted small">{t("synced")}</span>}
+        <Segmented className="song-lyrics-size" label={t("Lyrics size")} options={SIZES} value={size} onChange={setSize} />
       </div>
       <div className="song-lyrics-body">
         {state.status === "loading" && <div className="spinner" />}
         {state.status === "failed" && (
-          <Empty className="song-lyrics-state" title="Couldn't load the lyrics" text="Try again in a moment.">
+          <Empty className="song-lyrics-state" title={t("Couldn't load the lyrics")} text={t("Try again in a moment.")}>
             <button className="pill-btn white" onClick={state.retry}>
-              Try again
+              {t("Try again")}
             </button>
           </Empty>
         )}
@@ -259,13 +260,13 @@ function SongLyrics({ uri }: { uri: string }) {
           <Empty
             className="song-lyrics-state"
             icon={<MicIcon size={20} />}
-            title={uri.startsWith("spotify:track:") ? "This song has no lyrics on Spotify" : "Episodes have no lyrics"}
-            text="Instrumentals, episodes and local files don't have them."
+            title={uri.startsWith("spotify:track:") ? t("This song has no lyrics on Spotify") : t("Episodes have no lyrics")}
+            text={t("Instrumentals, episodes and local files don't have them.")}
           />
         )}
         {l && (
           <>
-            {!l.synced && <p className="song-lyrics-note">These lyrics don't follow the song yet</p>}
+            {!l.synced && <p className="song-lyrics-note">{t("These lyrics don't follow the song yet")}</p>}
             <div className={`lyrics ${l.synced ? "synced" : ""}`}>
               {l.lines.map((line, i) => (
                 <div
@@ -280,7 +281,7 @@ function SongLyrics({ uri }: { uri: string }) {
                 </div>
               ))}
             </div>
-            {l.provider && <p className="song-lyrics-provider">Lyrics provided by {l.provider}</p>}
+            {l.provider && <p className="song-lyrics-provider">{t("Lyrics provided by {name}", { name: l.provider })}</p>}
           </>
         )}
       </div>

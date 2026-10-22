@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { episode as loadEpisode, play, show as loadShow, showEpisodes } from "../api/spotify";
 import { formatDay } from "../api/normalize";
+import { t } from "../i18n";
 import type { Episode, EpisodePage } from "../api/types";
 import { useContextMenu, type MenuItem } from "../components/ContextMenu";
 import { CheckIcon, MoreIcon, PauseIcon, PlayIcon, QueueIcon, SearchIcon } from "../components/icons";
@@ -20,10 +21,11 @@ import { Failed, Loading } from "./common";
 
 /** Which episodes the list shows: all, the ones not started, or the ones left halfway. */
 type EpisodeFilter = "all" | "unplayed" | "progress";
-const FILTERS: { id: EpisodeFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "unplayed", label: "Unplayed" },
-  { id: "progress", label: "In progress" },
+// A function: read when drawn, in the language shown then.
+const filters = (): { id: EpisodeFilter; label: string }[] => [
+  { id: "all", label: t("All") },
+  { id: "unplayed", label: t("Unplayed") },
+  { id: "progress", label: t("In progress") },
 ];
 /** An episode is new for a week after it comes out, until it is played. */
 const NEW_MS = 7 * 86_400_000;
@@ -52,7 +54,7 @@ export function ShowView({ uri }: { uri: string }) {
       <header className="hero">
         <Cover src={s.image} kind="show" shaped className="hero-cover" />
         <div className="hero-text">
-          <span className="hero-kind">Podcast</span>
+          <span className="hero-kind">{t("Podcast")}</span>
           <h1 className={`hero-title ${s.name.length > 28 ? "long" : ""}`}>{s.name}</h1>
           {s.description && <p className="hero-desc">{s.description}</p>}
           <p className="hero-meta">
@@ -73,16 +75,16 @@ export function ShowView({ uri }: { uri: string }) {
       <div className="actions">
         <PlayButton size={56} playing={isCurrent && player.playing} onClick={playShow} />
         <SaveButton uri={uri} kind="show" />
-        <button className="more-btn" aria-label={`More options for ${s.name}`} title="More options" onClick={(e) => openMenu(e, followMenu(uri, following))}>
+        <button className="more-btn" aria-label={t("More options for {name}", { name: s.name })} title={t("More options")} onClick={(e) => openMenu(e, followMenu(uri, following))}>
           •••
         </button>
         <div className="list-tools">
-          <Segmented options={FILTERS} value={filter} onChange={setFilter} label="Episodes" />
+          <Segmented options={filters()} value={filter} onChange={setFilter} label={t("Episodes")} />
           <label className="list-search">
             <SearchIcon size={16} />
             <input
               value={text}
-              placeholder="Search episodes"
+              placeholder={t("Search episodes")}
               onChange={(e) => setText(e.currentTarget.value)}
               onKeyDown={(e) => {
                 if (e.key !== "Escape") return;
@@ -136,19 +138,19 @@ function Episodes({ showUri, first, filter, text }: { showUri: string; first: Ep
     return () => io.disconnect();
   }, [next, showUri, failed]);
 
-  if (episodes.length === 0) return <p className="muted">No episodes yet.</p>;
+  if (episodes.length === 0) return <p className="muted">{t("No episodes yet.")}</p>;
   return (
     <div className="episode-list">
       {shown.map((e) => (
         <EpisodeRow key={e.uri} episode={e} contextUri={showUri} />
       ))}
-      {shown.length === 0 && next === null && <p className="muted pad">No episodes here.</p>}
+      {shown.length === 0 && next === null && <p className="muted pad">{t("No episodes here.")}</p>}
       {next !== null &&
         (failed ? (
           <p className="muted pad">
-            Could not load more episodes.{" "}
+            {t("Could not load more episodes.")}{" "}
             <button className="link" onClick={() => setFailed(false)}>
-              Try again
+              {t("Try again")}
             </button>
           </p>
         ) : (
@@ -172,11 +174,11 @@ function episodeWhen(e: Episode) {
 
 function episodeMenu(e: Episode, playThis: () => void, nav: ReturnType<typeof useNav>, playing = false): MenuItem[] {
   return [
-    { label: playing ? "Pause" : "Play", onClick: playThis },
-    { label: "Add to queue", onClick: () => play.addToQueue(e.uri).then(() => notify("Added to queue"), toast) },
+    { label: playing ? t("Pause") : t("Play"), onClick: playThis },
+    { label: t("Add to queue"), onClick: () => play.addToQueue(e.uri).then(() => notify(t("Added to queue")), toast) },
     "separator",
-    { label: "Go to podcast", onClick: () => e.show.uri && nav.open(e.show.uri), disabled: !e.show.uri },
-    { label: "Copy episode link", onClick: () => copy(webLink(e.uri)) },
+    { label: t("Go to podcast"), onClick: () => e.show.uri && nav.open(e.show.uri), disabled: !e.show.uri },
+    { label: t("Copy episode link"), onClick: () => copy(webLink(e.uri)) },
   ];
 }
 
@@ -207,31 +209,31 @@ function EpisodeRow({ episode: e, contextUri }: { episode: Episode; contextUri: 
         <div className="episode-name">{e.name}</div>
         <p className="episode-desc">{e.description}</p>
         <div className="episode-foot">
-          {isNew && <span className="episode-new">NEW</span>}
+          {isNew && <span className="episode-new">{t("NEW")}</span>}
           <span>{episodeWhen(e)}</span>
           {halfway && (
             <>
               <span className="episode-progress">
                 <span style={{ width: `${Math.min(100, (at / e.durationMs) * 100)}%` }} />
               </span>
-              <b className="episode-left">{minutesLeft(e, at)} min left</b>
+              <b className="episode-left">{t("{n} min left", { n: minutesLeft(e, at) })}</b>
             </>
           )}
           {e.finished && (
             <span className="episode-played">
-              <CheckIcon size={12} /> Played
+              <CheckIcon size={12} /> {t("Played")}
             </span>
           )}
         </div>
       </div>
       <div className="episode-actions" onClick={(ev) => ev.stopPropagation()}>
-        <button className="icon-btn" aria-label="Add to queue" title="Add to queue" onClick={() => play.addToQueue(e.uri).then(() => notify("Added to queue"), toast)}>
+        <button className="icon-btn" aria-label={t("Add to queue")} title={t("Add to queue")} onClick={() => play.addToQueue(e.uri).then(() => notify(t("Added to queue")), toast)}>
           <QueueIcon size={18} />
         </button>
-        <button className="icon-btn" aria-label={`More options for ${e.name}`} title="More options" onClick={(ev) => openMenu(ev, menu)}>
+        <button className="icon-btn" aria-label={t("More options for {name}", { name: e.name })} title={t("More options")} onClick={(ev) => openMenu(ev, menu)}>
           <MoreIcon size={18} />
         </button>
-        <button className={`episode-play ${isCurrent ? "on" : ""}`} aria-label={isCurrent && player.playing ? "Pause" : "Play"} onClick={playThis}>
+        <button className={`episode-play ${isCurrent ? "on" : ""}`} aria-label={isCurrent && player.playing ? t("Pause") : t("Play")} onClick={playThis}>
           {isCurrent && player.playing ? <PauseIcon size={16} /> : <PlayIcon size={16} />}
         </button>
       </div>
@@ -258,7 +260,7 @@ export function EpisodeView({ uri }: { uri: string }) {
       <header className="hero">
         <Cover src={e.image} kind="show" shaped className="hero-cover" />
         <div className="hero-text">
-          <span className="hero-kind">Episode</span>
+          <span className="hero-kind">{t("Episode")}</span>
           <h1 className={`hero-title ${e.name.length > 40 ? "long" : ""}`}>{e.name}</h1>
           {e.show.name && (
             <p className="hero-desc">
@@ -268,7 +270,7 @@ export function EpisodeView({ uri }: { uri: string }) {
             </p>
           )}
           <p className="hero-meta">
-            {[formatDay(e.released), formatLength(e.durationMs), halfway ? `${minutesLeft(e, at)} min left` : e.finished ? "Played" : ""]
+            {[formatDay(e.released), formatLength(e.durationMs), halfway ? t("{n} min left", { n: minutesLeft(e, at) }) : e.finished ? t("Played") : ""]
               .filter(Boolean)
               .join(" • ")}
           </p>
@@ -284,24 +286,24 @@ export function EpisodeView({ uri }: { uri: string }) {
       </header>
       <div className="actions">
         <PlayButton size={56} playing={isCurrent && player.playing} onClick={playThis} />
-        {halfway && !isCurrent && <span className="muted">Continue where you stopped</span>}
-        <button className="more-btn" aria-label={`More options for ${e.name}`} title="More options" onClick={(ev) => openMenu(ev, episodeMenu(e, playThis, nav, isCurrent && player.playing))}>
+        {halfway && !isCurrent && <span className="muted">{t("Continue where you stopped")}</span>}
+        <button className="more-btn" aria-label={t("More options for {name}", { name: e.name })} title={t("More options")} onClick={(ev) => openMenu(ev, episodeMenu(e, playThis, nav, isCurrent && player.playing))}>
           •••
         </button>
       </div>
       <div className="episode-body">
         <section className="episode-about">
-          <h2>About this episode</h2>
-          <p className="muted">{e.description || "No description."}</p>
+          <h2>{t("About this episode")}</h2>
+          <p className="muted">{e.description || t("No description.")}</p>
         </section>
         {e.show.uri && (
           <button className="side-card episode-show" onClick={() => nav.open(e.show.uri)}>
-            <h3>Podcast</h3>
+            <h3>{t("Podcast")}</h3>
             <div className="pick">
               <Cover src={e.image} kind="show" className="pick-cover" />
               <div className="pick-text">
                 <div className="pick-title">{e.show.name}</div>
-                <div className="pick-sub">See all episodes</div>
+                <div className="pick-sub">{t("See all episodes")}</div>
               </div>
             </div>
           </button>

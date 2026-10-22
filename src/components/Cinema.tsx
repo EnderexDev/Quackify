@@ -8,7 +8,8 @@ import { play } from "../api/spotify";
 import { activeLine, useLyrics } from "../state/lyrics";
 import { useProgressMode } from "../state/meter";
 import { useNav } from "../state/nav";
-import { usePlayer, type NowPlaying } from "../state/player";
+import { t } from "../i18n";
+import { repeatLabel, usePlayer, type NowPlaying } from "../state/player";
 import { cinemaAuto, cinemaLyrics, lyricsSize, type LyricsSize } from "../state/prefs";
 import { toast } from "../state/toast";
 import { setCinema, toggleMini, useMiniOpen } from "../state/windows";
@@ -47,21 +48,22 @@ const LINES_SHOWN = 5;
 
 const SIZE_ORDER: LyricsSize[] = ["s", "m", "l"];
 
-const HINTS: [string, string][] = [
-  ["Space", "play/pause"],
-  ["Shift ← →", "5s"],
-  ["Ctrl ↑ ↓", "volume"],
-  ["Alt Shift B", "like"],
-  ["Alt Shift J", "lyrics"],
-  ["Alt Shift Q", "queue"],
-  ["Esc", "exit"],
+// A function, not a constant: the language is only known once the app runs.
+const hints = (): [string, string][] => [
+  [t("Space"), t("play/pause")],
+  ["Shift ← →", t("5s")],
+  ["Ctrl ↑ ↓", t("volume")],
+  ["Alt Shift B", t("like")],
+  ["Alt Shift J", t("lyrics")],
+  ["Alt Shift Q", t("queue")],
+  ["Esc", t("exit")],
 ];
 
 export function Cinema({ onQueue }: { onQueue: () => void }) {
   const p = usePlayer();
   const nav = useNav();
   const openMenu = useContextMenu();
-  const t = p.track;
+  const song = p.track;
   const mode = useProgressMode();
   const lyricsOn = cinemaLyrics.use() === "on";
   const size = lyricsSize.use();
@@ -71,9 +73,9 @@ export function Cinema({ onQueue }: { onQueue: () => void }) {
   const [lastVolume, setLastVolume] = useState(0.5);
   const calmTimer = useRef(0);
 
-  const isTrack = !!t?.uri.startsWith("spotify:track:");
-  const episode = !!t?.uri.startsWith("spotify:episode:");
-  const lyrics = useLyrics(lyricsOn && isTrack ? t!.uri : null);
+  const isTrack = !!song?.uri.startsWith("spotify:track:");
+  const episode = !!song?.uri.startsWith("spotify:episode:");
+  const lyrics = useLyrics(lyricsOn && isTrack ? song!.uri : null);
   const l = lyrics.status === "ready" ? lyrics.lyrics : null;
   const synced = !!l?.synced;
   // Lyrics only when they follow the song: unsynced ones would sit still beside it.
@@ -118,46 +120,46 @@ export function Cinema({ onQueue }: { onQueue: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const duration = t?.duration_ms ?? 0;
+  const duration = song?.duration_ms ?? 0;
   const position = p.position();
-  const ending = !!t && duration > 0 && duration - position <= UP_NEXT_MS;
+  const ending = !!song && duration > 0 && duration - position <= UP_NEXT_MS;
   const active = activeLine(l, position);
   const start = Math.max(0, Math.min(active - LINES_BEFORE, (l?.lines.length ?? 0) - LINES_SHOWN));
   const shown = withLyrics ? l!.lines.slice(start, start + LINES_SHOWN) : [];
-  const meta = t ? [t.artists.map((a) => a.name).join(", "), !episode && t.album.name].filter(Boolean).join(" · ") : "";
-  const noLyricsNote = !t
+  const meta = song ? [song.artists.map((a) => a.name).join(", "), !episode && song.album.name].filter(Boolean).join(" · ") : "";
+  const noLyricsNote = !song
     ? ""
     : episode
-      ? "Episode"
+      ? t("Episode")
       : !lyricsOn
-        ? "Lyrics off"
+        ? t("Lyrics off")
         : lyrics.status === "loading"
           ? ""
           : l && !synced
-            ? "Lyrics not synced"
-            : "Instrumental, no lyrics";
+            ? t("Lyrics not synced")
+            : t("Instrumental, no lyrics");
   const sizeIndex = SIZE_ORDER.indexOf(size);
 
   return (
-    <div className={`cinema ${withLyrics ? "with-lyrics" : "centered"} ${calm ? "calm" : ""} size-${size}`} role="dialog" aria-label="Cinema mode">
+    <div className={`cinema ${withLyrics ? "with-lyrics" : "centered"} ${calm ? "calm" : ""} size-${size}`} role="dialog" aria-label={t("Cinema mode")}>
       <div className="cinema-corner">
         <UpNext show={ending || !calm} />
         <button className="cinema-exit" onClick={() => setCinema(false)}>
-          <kbd>Esc</kbd> Exit
+          <kbd>Esc</kbd> {t("Exit")}
         </button>
       </div>
 
       <div className="cinema-stage">
         <section className="cinema-song">
-          {withLyrics && <SongName t={t!} meta={meta} />}
-          {t ? (
-            <Cover src={t.image} kind={episode ? "show" : "album"} shaped className="cinema-cover" />
+          {withLyrics && <SongName t={song!} meta={meta} />}
+          {song ? (
+            <Cover src={song.image} kind={episode ? "show" : "album"} shaped className="cinema-cover" />
           ) : (
-            <div className="cinema-cover cinema-nothing">Play something to see it here.</div>
+            <div className="cinema-cover cinema-nothing">{t("Play something to see it here.")}</div>
           )}
-          {!withLyrics && t && (
+          {!withLyrics && song && (
             <>
-              <SongName t={t} meta={meta} />
+              <SongName t={song} meta={meta} />
               {noLyricsNote && <span className="cinema-pill">{noLyricsNote}</span>}
             </>
           )}
@@ -178,7 +180,7 @@ export function Cinema({ onQueue }: { onQueue: () => void }) {
 
       <div className="cinema-bottom">
         <div className="cinema-hints">
-          {HINTS.map(([k, what]) => (
+          {hints().map(([k, what]) => (
             <span key={k}>
               <b>{k}</b> {what}
             </span>
@@ -188,12 +190,12 @@ export function Cinema({ onQueue }: { onQueue: () => void }) {
           <div className="cinema-progress">
             <span className="time">{formatDuration(position)}</span>
             <ProgressBar
-              uri={t?.uri ?? null}
+              uri={song?.uri ?? null}
               duration={duration}
               position={p.position}
               playing={p.playing}
               mode={p.remoteDevice ? "simple" : mode}
-              disabled={!t || !duration}
+              disabled={!song || !duration}
               onSeek={p.seek}
             />
             <span className="time">{formatDuration(duration)}</span>
@@ -202,47 +204,47 @@ export function Cinema({ onQueue }: { onQueue: () => void }) {
             <div className="cinema-left">
               {isTrack && (
                 <>
-                  <LikeButton uri={t!.uri} size={20} />
+                  <LikeButton uri={song!.uri} size={20} />
                   <button
                     className="icon-btn"
-                    aria-label="Add to playlist"
-                    title="Add to playlist"
-                    onClick={(e) => openPlaylistPicker(e.currentTarget, t!, nav, openMenu)}
+                    aria-label={t("Add to playlist")}
+                    title={t("Add to playlist")}
+                    onClick={(e) => openPlaylistPicker(e.currentTarget, song!, nav, openMenu)}
                   >
                     <PlaylistAddIcon size={20} />
                   </button>
                 </>
               )}
-              {withLyrics && <span className="cinema-pill">Synced lyrics</span>}
+              {withLyrics && <span className="cinema-pill">{t("Synced lyrics")}</span>}
             </div>
             <div className="cinema-center">
               {!episode && (
                 <button
                   className={`icon-btn cinema-toggle ${p.shuffle ? "on" : ""}`}
                   onClick={() => p.setShuffle(!p.shuffle)}
-                  disabled={!t}
-                  aria-label="Shuffle"
+                  disabled={!song}
+                  aria-label={t("Shuffle")}
                   aria-pressed={p.shuffle}
                 >
                   <ShuffleIcon size={20} />
                 </button>
               )}
-              <button className="icon-btn" onClick={() => play.previous().catch(toast)} disabled={!t} aria-label="Previous">
+              <button className="icon-btn" onClick={() => play.previous().catch(toast)} disabled={!song} aria-label={t("Previous")}>
                 <PrevIcon size={22} />
               </button>
-              <button className="cinema-play" onClick={p.toggle} disabled={!t} aria-label={p.playing ? "Pause" : "Play"}>
+              <button className="cinema-play" onClick={p.toggle} disabled={!song} aria-label={p.playing ? t("Pause") : t("Play")}>
                 {p.playing ? <PauseIcon size={24} /> : <PlayIcon size={24} />}
               </button>
-              <button className="icon-btn" onClick={() => play.next().catch(toast)} disabled={!t} aria-label="Next">
+              <button className="icon-btn" onClick={() => play.next().catch(toast)} disabled={!song} aria-label={t("Next")}>
                 <NextIcon size={22} />
               </button>
               {!episode && (
                 <button
                   className={`icon-btn cinema-toggle ${p.repeat !== "off" ? "on" : ""}`}
                   onClick={p.cycleRepeat}
-                  disabled={!t}
-                  aria-label="Repeat"
-                  title={`Repeat ${p.repeat}`}
+                  disabled={!song}
+                  aria-label={t("Repeat")}
+                  title={repeatLabel(p.repeat)}
                 >
                   <RepeatIcon size={20} one={p.repeat === "one"} />
                 </button>
@@ -254,8 +256,8 @@ export function Cinema({ onQueue }: { onQueue: () => void }) {
                 onClick={() => cinemaLyrics.set(lyricsOn ? "off" : "on")}
                 disabled={!isTrack}
                 aria-pressed={lyricsOn}
-                aria-label="Lyrics"
-                title={lyricsOn ? "Hide the lyrics" : "Show the lyrics"}
+                aria-label={t("Lyrics")}
+                title={lyricsOn ? t("Hide the lyrics") : t("Show the lyrics")}
               >
                 <MicIcon size={20} />
               </button>
@@ -265,7 +267,7 @@ export function Cinema({ onQueue }: { onQueue: () => void }) {
                     className="cinema-size small"
                     onClick={() => lyricsSize.set(SIZE_ORDER[Math.max(0, sizeIndex - 1)])}
                     disabled={sizeIndex === 0}
-                    aria-label="Smaller lyrics"
+                    aria-label={t("Smaller lyrics")}
                   >
                     A
                   </button>
@@ -273,19 +275,19 @@ export function Cinema({ onQueue }: { onQueue: () => void }) {
                     className="cinema-size big"
                     onClick={() => lyricsSize.set(SIZE_ORDER[Math.min(SIZE_ORDER.length - 1, sizeIndex + 1)])}
                     disabled={sizeIndex === SIZE_ORDER.length - 1}
-                    aria-label="Bigger lyrics"
+                    aria-label={t("Bigger lyrics")}
                   >
                     A
                   </button>
                 </span>
               )}
-              <button className="icon-btn" onClick={onQueue} aria-label="Queue" title="Queue">
+              <button className="icon-btn" onClick={onQueue} aria-label={t("Queue")} title={t("Queue")}>
                 <QueueIcon size={20} />
               </button>
               <DevicePicker />
               <button
                 className="icon-btn"
-                aria-label={p.volume === 0 ? "Unmute" : "Mute"}
+                aria-label={p.volume === 0 ? t("Unmute") : t("Mute")}
                 onClick={() => {
                   if (p.volume > 0) {
                     setLastVolume(p.volume);
@@ -303,8 +305,8 @@ export function Cinema({ onQueue }: { onQueue: () => void }) {
                   setCinema(false);
                   if (!miniOpen) toggleMini();
                 }}
-                aria-label="Mini player"
-                title="Mini player"
+                aria-label={t("Mini player")}
+                title={t("Mini player")}
               >
                 <MiniPlayerIcon size={20} />
               </button>
@@ -347,7 +349,7 @@ function UpNext({ show }: { show: boolean }) {
     <div className={`cinema-next ${show ? "" : "hidden"}`}>
       <Cover src={next.image} className="cinema-next-cover" />
       <div>
-        <div className="cinema-next-label">Up next</div>
+        <div className="cinema-next-label">{t("Up next")}</div>
         <div className="cinema-next-name">{next.name}</div>
         <div className="cinema-next-artist">{next.artists.map((a) => a.name).join(", ")}</div>
       </div>

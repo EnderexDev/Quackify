@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../i18n";
 import { play, recentSearches, removeRecentSearches, saveRecentSearch, search, searchTab } from "../api/spotify";
 import type { Card, SearchPage, SearchTab } from "../api/types";
 import { CardGrid, Shelf } from "../components/Card";
@@ -15,15 +16,16 @@ import { Empty, Failed, Loading } from "./common";
 
 const DEBOUNCE_MS = 250;
 
-const TABS: { id: SearchTab; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "tracks", label: "Songs" },
-  { id: "artists", label: "Artists" },
-  { id: "albums", label: "Albums" },
-  { id: "playlists", label: "Playlists" },
-  { id: "podcasts", label: "Podcasts" },
-  { id: "episodes", label: "Episodes" },
-  { id: "users", label: "Profiles" },
+// A function: read when drawn, in the language shown then.
+const tabs = (): { id: SearchTab; label: string }[] => [
+  { id: "all", label: t("All") },
+  { id: "tracks", label: t("Songs") },
+  { id: "artists", label: t("Artists") },
+  { id: "albums", label: t("Albums") },
+  { id: "playlists", label: t("Playlists") },
+  { id: "podcasts", label: t("Podcasts") },
+  { id: "episodes", label: t("Episodes") },
+  { id: "users", label: t("Profiles") },
 ];
 
 export function Search({ term, tab = "all" }: { term: string; tab?: SearchTab }) {
@@ -46,9 +48,9 @@ export function Search({ term, tab = "all" }: { term: string; tab?: SearchTab })
   return (
     <>
       <div className="search-tabs">
-        {TABS.map((t) => (
-          <button key={t.id} className={`chip ${tab === t.id ? "on" : ""}`} onClick={() => nav.replace({ page: "search", term, tab: t.id })}>
-            {t.label}
+        {tabs().map((x) => (
+          <button key={x.id} className={`chip ${tab === x.id ? "on" : ""}`} onClick={() => nav.replace({ page: "search", term, tab: x.id })}>
+            {x.label}
           </button>
         ))}
       </div>
@@ -100,7 +102,7 @@ function TabPages({ tab, term, first }: { tab: Exclude<SearchTab, "all">; term: 
   const empty = page.tracks.length + page.cards.length === 0;
   return (
     <div className="page search">
-      {empty && <Empty title={`Nothing for “${term}”`} text="Check the spelling, or try fewer words." />}
+      {empty && <Empty title={t("Nothing for “{term}”", { term })} text={t("Check the spelling, or try fewer words.")} />}
       {tab === "tracks" ? (
         <TrackList
           tracks={page.tracks}
@@ -155,9 +157,9 @@ function RecentSearches() {
   return (
     <section className="recent-searches">
       <div className="shelf-head">
-        <h2>Recent searches</h2>
+        <h2>{t("Recent searches")}</h2>
         <button className="link show-all" onClick={() => remove(items.map((c) => c.uri))}>
-          Clear recent searches
+          {t("Clear recent searches")}
         </button>
       </div>
       <CardGrid cards={items.slice(0, 12)} onRemove={(c) => remove([c.uri])} oneRow />
@@ -180,7 +182,7 @@ function Results({ term }: { term: string }) {
   if (nothing) {
     return (
       <div className="page center">
-        <p className="muted">No results for “{term}”.</p>
+        <p className="muted">{t("No results for “{term}”.", { term })}</p>
       </div>
     );
   }
@@ -190,7 +192,7 @@ function Results({ term }: { term: string }) {
       <div className="search-top">
         {top && (
           <section className="top-result-wrap">
-            <h2>Top result</h2>
+            <h2>{t("Top result")}</h2>
             <div
               className="top-result"
               onClick={() => {
@@ -218,7 +220,7 @@ function Results({ term }: { term: string }) {
         )}
         {songs.length > 0 && (
           <section className="search-songs">
-            <h2>Songs</h2>
+            <h2>{t("Songs")}</h2>
             <TrackList
               tracks={songs}
               showAlbum={false}
@@ -232,11 +234,11 @@ function Results({ term }: { term: string }) {
           </section>
         )}
       </div>
-      <Shelf title="Artists" cards={data.artists} onPick={(c) => remember(c.uri)} />
-      <Shelf title="Albums" cards={data.albums} onPick={(c) => remember(c.uri)} />
-      <Shelf title="Playlists" cards={data.playlists} onPick={(c) => remember(c.uri)} />
-      <Shelf title="Podcasts" cards={data.podcasts} onPick={(c) => remember(c.uri)} />
-      <Shelf title="Episodes" cards={data.episodes} onPick={(c) => remember(c.uri)} />
+      <Shelf title={t("Artists")} cards={data.artists} onPick={(c) => remember(c.uri)} />
+      <Shelf title={t("Albums")} cards={data.albums} onPick={(c) => remember(c.uri)} />
+      <Shelf title={t("Playlists")} cards={data.playlists} onPick={(c) => remember(c.uri)} />
+      <Shelf title={t("Podcasts")} cards={data.podcasts} onPick={(c) => remember(c.uri)} />
+      <Shelf title={t("Episodes")} cards={data.episodes} onPick={(c) => remember(c.uri)} />
     </div>
   );
 }

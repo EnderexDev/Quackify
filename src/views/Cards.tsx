@@ -1,6 +1,7 @@
 // "Show all": every card of a row, loaded a page at a time as the end comes into view.
 import { useEffect, useRef, useState } from "react";
 import { browseSection, discography, homeSection, relatedArtists } from "../api/spotify";
+import { t } from "../i18n";
 import type { Card, CardPage } from "../api/types";
 import { CardGrid } from "../components/Card";
 import type { Route } from "../state/nav";
@@ -20,8 +21,8 @@ const LOADERS: Record<Source, (uri: string, offset: number) => Promise<CardPage>
 
 /** The heading: the row's title, and above it where the row came from (Home, the genre, the artist). */
 function heading(source: Source, page: CardPage, title?: string, from?: string) {
-  if (source === "discography") return { title: "Discography", from: page.title || from || "" };
-  if (source === "related") return { title: "Fans also like", from: page.title || from || "" };
+  if (source === "discography") return { title: t("Discography"), from: page.title || from || "" };
+  if (source === "related") return { title: t("Fans also like"), from: page.title || from || "" };
   return { title: title || page.title, from: from ?? "" };
 }
 
@@ -45,7 +46,7 @@ function Pages({ first, load }: { first: CardPage; load: (offset: number) => Pro
   return (
     <>
       <CardGrid cards={cards} />
-      {cards.length === 0 && <Empty title="Nothing here yet" />}
+      {cards.length === 0 && <Empty title={t("Nothing here yet")} />}
       {more && (
         <div ref={sentinel} className="more">
           <div className="spinner small" />

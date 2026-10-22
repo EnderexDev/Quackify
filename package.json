@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "app:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
-    "app:build": "tauri build"
+    "app:build": "tauri build",
+    "i18n:check": "node scripts/i18n-check.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",

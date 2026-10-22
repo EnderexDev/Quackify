@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { libraryCounts, type LibraryCounts } from "../api/spotify";
 import type { Card, LibraryFilter, LibrarySort } from "../api/types";
+import { locale, t } from "../i18n";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
 import { newPlaylist } from "../state/newPlaylist";
@@ -15,15 +16,16 @@ import { librarySubtitle, pressable, readStored, useLibraryActions, useLibraryPa
 type Filter = Exclude<LibraryFilter, null>;
 
 /** The kinds of the tree, each with its icon on a square of its color at 16%. */
-const CATEGORIES: { filter: Filter; label: string; icon: React.ReactNode; tint: string; count: keyof LibraryCounts }[] = [
-  { filter: "Playlists", label: "Playlists", icon: <PlaylistIcon size={16} />, tint: "#ffd84d", count: "playlists" },
-  { filter: "Albums", label: "Albums", icon: <DiscIcon size={16} />, tint: "#ff8a3d", count: "albums" },
-  { filter: "Artists", label: "Artists", icon: <UserIcon size={16} />, tint: "#29d39a", count: "artists" },
-  { filter: "Podcasts & Shows", label: "Podcasts", icon: <PodcastIcon size={16} />, tint: "#a78bfa", count: "podcasts" },
+const CATEGORIES: { filter: Filter; label: () => string; icon: React.ReactNode; tint: string; count: keyof LibraryCounts }[] = [
+  { filter: "Playlists", label: () => t("Playlists"), icon: <PlaylistIcon size={16} />, tint: "#ffd84d", count: "playlists" },
+  { filter: "Albums", label: () => t("Albums"), icon: <DiscIcon size={16} />, tint: "#ff8a3d", count: "albums" },
+  { filter: "Artists", label: () => t("Artists"), icon: <UserIcon size={16} />, tint: "#29d39a", count: "artists" },
+  { filter: "Podcasts & Shows", label: () => t("Podcasts"), icon: <PodcastIcon size={16} />, tint: "#a78bfa", count: "podcasts" },
 ];
 
 const LIKED_TINT = "#a78bfa";
-const LIKED: Card = { uri: "spotify:collection:tracks", kind: "liked", title: "Liked Songs", subtitle: "", image: null };
+/** The Liked Songs row's card; its title is filled in when drawn (see `Tree`). */
+const LIKED: Card = { uri: "spotify:collection:tracks", kind: "liked", title: "", subtitle: "", image: null };
 
 /** How many items a category shows in the tree before "See all". */
 const TREE_SHOWN = 4;
@@ -90,7 +92,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
     // Narrow: the pinned covers and one icon per kind; a kind opens its whole page.
     return (
       <aside className="sidebar sidebar-collapsed panel">
-        <button className="side-icon" aria-label="Expand Your Library" title="Expand Your Library (Ctrl B)" onClick={onExpand}>
+        <button className="side-icon" aria-label={t("Expand Your Library")} title={t("Expand Your Library (Ctrl B)")} onClick={onExpand}>
           <LibraryIcon size={22} />
         </button>
         <div className="side-sep" />
@@ -112,25 +114,25 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
         <button
           className={`side-kind ${openUri === LIKED.uri ? "open" : ""}`}
           style={{ "--kind": LIKED_TINT } as React.CSSProperties}
-          title="Liked Songs"
-          aria-label="Liked Songs"
+          title={t("Liked Songs")}
+          aria-label={t("Liked Songs")}
           onClick={() => nav.open(LIKED.uri)}
         >
           <HeartIcon size={16} />
         </button>
         {CATEGORIES.map((k) => (
           <button
-            key={k.label}
+            key={k.filter}
             className={`side-kind ${openFilter === k.filter ? "open" : ""}`}
             style={{ "--kind": k.tint } as React.CSSProperties}
-            title={k.label}
-            aria-label={k.label}
+            title={k.label()}
+            aria-label={k.label()}
             onClick={() => openKind(k.filter)}
           >
             {k.icon}
           </button>
         ))}
-        <button className="side-new" aria-label="Create playlist" title="Create playlist (Ctrl N)" onClick={() => newPlaylist()}>
+        <button className="side-new" aria-label={t("Create playlist")} title={t("Create playlist (Ctrl N)")} onClick={() => newPlaylist()}>
           <PlusIcon size={18} />
         </button>
       </aside>
@@ -140,14 +142,14 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
   return (
     <aside className="sidebar panel">
       <div className="sidebar-head">
-        <button className="sidebar-title" title="Open Your Library" onClick={() => openKind(openFilter ?? "Playlists")}>
+        <button className="sidebar-title" title={t("Open Your Library")} onClick={() => openKind(openFilter ?? "Playlists")}>
           <LibraryIcon size={22} />
-          <span>Your Library</span>
+          <span>{t("Your Library")}</span>
         </button>
         <button
           className={`round-btn small ${searching ? "on" : ""}`}
-          aria-label="Search in Your Library"
-          title="Search in Your Library"
+          aria-label={t("Search in Your Library")}
+          title={t("Search in Your Library")}
           onClick={() => {
             setSearching(!searching);
             setText("");
@@ -155,7 +157,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
         >
           <SearchIcon size={16} />
         </button>
-        <button className="round-btn small" aria-label="Create playlist" title="Create playlist (Ctrl N)" onClick={() => newPlaylist()}>
+        <button className="round-btn small" aria-label={t("Create playlist")} title={t("Create playlist (Ctrl N)")} onClick={() => newPlaylist()}>
           <PlusIcon size={16} />
         </button>
       </div>
@@ -176,7 +178,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
             <section className="side-pinned">
               <button className="side-label" aria-expanded={pinsOpen === "1"} onClick={() => setPinsOpen(pinsOpen === "1" ? "0" : "1")}>
                 <PinIcon size={12} />
-                <span>Pinned</span>
+                <span>{t("Pinned")}</span>
                 <ChevronDownIcon size={14} className={pinsOpen === "1" ? "" : "turned"} />
               </button>
               {pinsOpen === "1" && (
@@ -222,7 +224,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
       )}
       <button className="side-new-wide" onClick={() => newPlaylist()}>
         <PlusIcon size={14} />
-        New playlist
+        {t("New playlist")}
       </button>
     </aside>
   );
@@ -249,6 +251,7 @@ function Tree({
   actions: Actions;
 }) {
   const nav = useNav();
+  const liked: Card = { ...LIKED, title: t("Liked Songs") };
   const tree = useRef<HTMLDivElement>(null);
   const [bar, setBar] = useState<{ y: number; h: number } | null>(null);
   const likedOpen = openUri === LIKED.uri;
@@ -273,20 +276,20 @@ function Tree({
     <div ref={tree} className="side-tree">
       {bar && <span className="side-indicator" style={{ transform: `translateY(${bar.y}px)`, height: bar.h }} />}
       <div
-        className={`side-cat ${likedOpen ? "open" : ""} ${actions.dropOn === LIKED.uri ? "drop-target" : actions.candidate(LIKED) ? "drop-candidate" : ""}`}
+        className={`side-cat ${likedOpen ? "open" : ""} ${actions.dropOn === LIKED.uri ? "drop-target" : actions.candidate(liked) ? "drop-candidate" : ""}`}
         draggable
-        onDragStart={(e) => dragCard(e, LIKED)}
+        onDragStart={(e) => dragCard(e, liked)}
         style={{ "--kind": LIKED_TINT } as React.CSSProperties}
         onClick={() => nav.open(LIKED.uri)}
         {...pressable(() => nav.open(LIKED.uri))}
-        onContextMenu={(e) => actions.onMenu(e, LIKED)}
-        {...actions.dropProps(LIKED)}
+        onContextMenu={(e) => actions.onMenu(e, liked)}
+        {...actions.dropProps(liked)}
       >
         <span className="side-cat-icon">
           <HeartIcon size={14} />
         </span>
-        <span className="side-cat-name">Liked Songs</span>
-        <span className="side-cat-count">{counts ? counts.liked.toLocaleString() : ""}</span>
+        <span className="side-cat-name">{t("Liked Songs")}</span>
+        <span className="side-cat-count">{counts ? counts.liked.toLocaleString(locale()) : ""}</span>
         <span className="side-cat-toggle" />
       </div>
       {CATEGORIES.map((k) => {
@@ -301,11 +304,11 @@ function Tree({
               {...pressable(() => openCategory(k.filter))}
             >
               <span className="side-cat-icon">{k.icon}</span>
-              <span className="side-cat-name">{k.label}</span>
-              <span className="side-cat-count">{total != null ? total.toLocaleString() : ""}</span>
+              <span className="side-cat-name">{k.label()}</span>
+              <span className="side-cat-count">{total != null ? total.toLocaleString(locale()) : ""}</span>
               <button
                 className="side-cat-toggle"
-                aria-label={isOpen ? `Close ${k.label}` : `Open ${k.label}`}
+                aria-label={isOpen ? t("Close {name}", { name: k.label() }) : t("Open {name}", { name: k.label() })}
                 aria-expanded={isOpen}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -368,7 +371,7 @@ function Branch({
   return (
     <div className="side-branch">
       {!pages.loaded && !pages.error && <div className="side-leaf side-leaf-loading" />}
-      {pages.loaded && items.length === 0 && <div className="side-leaf-note">{folder ? "This folder is empty" : "Nothing here yet"}</div>}
+      {pages.loaded && items.length === 0 && <div className="side-leaf-note">{folder ? t("This folder is empty") : t("Nothing here yet")}</div>}
       {shown.map((c, i) => {
         const playing = player.contextUri === c.uri;
         const isFolder = c.kind === "folder";
@@ -415,7 +418,7 @@ function Branch({
       })}
       {all != null && all > shown.length && (
         <button className="side-see-all" onClick={onSeeAll}>
-          See all {all.toLocaleString()}
+          {t("See all {n}", { n: all.toLocaleString(locale()) })}
         </button>
       )}
     </div>
@@ -447,14 +450,14 @@ function LibrarySearch({
         <input
           autoFocus
           value={text}
-          placeholder="Search in Your Library"
+          placeholder={t("Search in Your Library")}
           onChange={(e) => setText(e.currentTarget.value)}
           onKeyDown={(e) => e.key === "Escape" && onClose()}
         />
       </label>
       <div className="library-list list">
         {pages.error && <div className="muted small pad">{pages.error}</div>}
-        {pages.loaded && pages.items.length === 0 && term && <div className="muted small pad">Nothing in Your Library matches “{term}”.</div>}
+        {pages.loaded && pages.items.length === 0 && term && <div className="muted small pad">{t("Nothing in Your Library matches “{term}”.", { term })}</div>}
         {pages.items.map((c) => (
           <div
             key={c.uri}

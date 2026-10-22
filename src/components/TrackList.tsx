@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { areSaved } from "../api/library";
 import type { Track } from "../api/types";
+import { t } from "../i18n";
 import { useNav } from "../state/nav";
 import { usePlayer } from "../state/player";
 import { useSaved } from "../state/saved";
@@ -144,7 +145,7 @@ export function TrackList({
     const at = { clientX: e.clientX, clientY: e.clientY, preventDefault: () => {} };
     const rows = indices.map((i) => tracks[i]);
     const extra: MenuItem[] = removable(indices)
-      ? ["separator", { label: `Remove from ${playlistName ?? "this playlist"}`, onClick: () => onRemove!(indices) }]
+      ? ["separator", { label: t("Remove from {name}", { name: playlistName ?? t("this playlist") }), onClick: () => onRemove!(indices) }]
       : [];
     areSaved(rows.map((t) => t.uri)).then(
       (saved) => openMenu(at, [...tracksMenu(rows, saved.every(Boolean), nav), ...extra]),
@@ -162,9 +163,9 @@ export function TrackList({
       {showHeader && (
         <div className="track-row track-head">
           <span className="track-num">#</span>
-          <span>Title</span>
-          {showAlbum && <span className="track-album">Album</span>}
-          {showAlbum && showAdded && <span className="track-added">Date added</span>}
+          <span>{t("Title")}</span>
+          {showAlbum && <span className="track-album">{t("Album")}</span>}
+          {showAlbum && showAdded && <span className="track-added">{t("Date added")}</span>}
           <span className="track-time">
             <ClockIcon size={16} />
           </span>
@@ -235,8 +236,11 @@ export function TrackList({
 function SelectionBar({ rows, onClear }: { rows: Track[]; onClear: () => void }) {
   const nav = useNav();
   const openMenu = useContextMenu();
-  const item = (items: MenuItem[], label: RegExp) =>
-    items.find((m): m is Exclude<MenuItem, "separator"> => m !== "separator" && label.test(m.label));
+  // tracksMenu's items by their id: the labels change with the language.
+  const item = (items: MenuItem[], id: "queue" | "playlist" | "liked") => {
+    const m = items.find((x) => x !== "separator" && x.id === id);
+    return m && m !== "separator" ? m : undefined;
+  };
   const playable = rows.filter((t) => t.playable).map((t) => t.uri);
   // Whether they are all liked already: then the heart takes them out.
   const key = rows.map((t) => t.uri).join(",");
@@ -256,41 +260,41 @@ function SelectionBar({ rows, onClear }: { rows: Track[]; onClear: () => void })
   };
 
   return (
-    <div className="selection-bar" role="toolbar" aria-label={`${rows.length} selected`}>
-      <span className="selection-count">{rows.length} selected</span>
+    <div className="selection-bar" role="toolbar" aria-label={t("{n} selected", { n: rows.length })}>
+      <span className="selection-count">{t("{n} selected", { n: rows.length })}</span>
       <button className="selection-btn" disabled={!playable.length} onClick={() => play.tracks(playable, 0).catch(toast)}>
         <PlayIcon size={14} />
-        Play
+        {t("Play")}
       </button>
-      <button className="selection-btn" onClick={() => item(tracksMenu(rows, undefined, nav), /queue/i)?.onClick?.()}>
+      <button className="selection-btn" onClick={() => item(tracksMenu(rows, undefined, nav), "queue")?.onClick?.()}>
         <QueueIcon size={14} />
-        Queue
+        {t("Queue")}
       </button>
       <button
         className="selection-btn"
         onClick={async (e) => {
           const where = at(e);
-          const add = item(tracksMenu(rows, undefined, nav), /playlist/i);
+          const add = item(tracksMenu(rows, undefined, nav), "playlist");
           if (!add) return;
           const mine = add.submenu ? await Promise.resolve(add.submenu()).catch((): MenuItem[] => []) : [];
           openMenu(where, [...(add.submenuHead ?? []), ...mine]);
         }}
       >
         <PlaylistAddIcon size={14} />
-        Add to playlist
+        {t("Add to playlist")}
       </button>
       <button
         className="selection-btn"
         disabled={allSaved === undefined}
         onClick={() => {
-          item(tracksMenu(rows, allSaved, nav), /liked/i)?.onClick?.();
+          item(tracksMenu(rows, allSaved, nav), "liked")?.onClick?.();
           setAllSaved(!allSaved);
         }}
       >
         {allSaved ? <HeartIcon size={14} className="accent" /> : <HeartOutlineIcon size={14} />}
-        {allSaved ? "Unlike" : "Like"}
+        {allSaved ? t("Unlike") : t("Like")}
       </button>
-      <button className="selection-close" aria-label="Clear selection" title="Clear selection (Esc)" onClick={onClear}>
+      <button className="selection-close" aria-label={t("Clear selection")} title={t("Clear selection (Esc)")} onClick={onClear}>
         <CloseIcon size={14} />
       </button>
     </div>
@@ -298,7 +302,7 @@ function SelectionBar({ rows, onClear }: { rows: Track[]; onClear: () => void })
 }
 
 function TrackRow({
-  track: t,
+  track,
   index,
   current,
   selected,
@@ -339,21 +343,21 @@ function TrackRow({
   const nav = useNav();
   const player = usePlayer();
   const openMenu = useContextMenu();
-  const [saved] = useSaved(t.uri);
+  const [saved] = useSaved(track.uri);
 
   return (
     <div
-      className={`track-row ${current ? "current" : ""} ${selected ? "selected" : ""} ${t.playable ? "" : "unplayable"} ${saved ? "liked" : ""} ${drag.marker ? "drop-" + drag.marker : ""} ${drag.dragging ? "dragging" : ""}`}
+      className={`track-row ${current ? "current" : ""} ${selected ? "selected" : ""} ${track.playable ? "" : "unplayable"} ${saved ? "liked" : ""} ${drag.marker ? "drop-" + drag.marker : ""} ${drag.dragging ? "dragging" : ""}`}
       onClick={(e) => {
         // Links (artist, album) and buttons do their own thing.
         if (!(e.target as HTMLElement).closest("a, button")) onSelect(e);
       }}
-      onDoubleClick={() => t.playable && onPlay()}
+      onDoubleClick={() => track.playable && onPlay()}
       onContextMenu={(e) =>
         onMenu(e, () =>
           openMenu(e, [
-            ...trackMenu(t, saved, nav),
-            ...(onRemove ? (["separator", { label: `Remove from ${playlistName ?? "this playlist"}`, onClick: onRemove }] as const) : []),
+            ...trackMenu(track, saved, nav),
+            ...(onRemove ? (["separator", { label: t("Remove from {name}", { name: playlistName ?? t("this playlist") }), onClick: onRemove }] as const) : []),
           ]),
         )
       }
@@ -363,7 +367,7 @@ function TrackRow({
         e.dataTransfer.effectAllowed = "copyMove";
         e.dataTransfer.setData(TRACKS_MIME, JSON.stringify(rows.map((r) => r.uri)));
         e.dataTransfer.setData("text/plain", rows.map((r) => r.name).join(", "));
-        beginDrag({ kind: "tracks", uris: rows.map((r) => r.uri), label: rows.length === 1 ? rows[0].name : `${rows.length} songs` });
+        beginDrag({ kind: "tracks", uris: rows.map((r) => r.uri), label: rows.length === 1 ? rows[0].name : t("{n} songs", { n: rows.length }) });
         drag.start();
       }}
       onDragOver={(e) => {
@@ -388,19 +392,19 @@ function TrackRow({
         )}
         <button
           className="row-play"
-          aria-label="Play"
-          disabled={!t.playable}
+          aria-label={t("Play")}
+          disabled={!track.playable}
           onClick={() => (current ? player.toggle() : onPlay())}
         >
           {current && player.playing ? <PauseIcon size={16} /> : <PlayIcon size={16} />}
         </button>
       </span>
       <span className="track-main">
-        {showCover && <Cover src={t.image} className="track-cover" />}
+        {showCover && <Cover src={track.image} className="track-cover" />}
         <span className="track-text">
-          <span className="track-name">{t.name}</span>
+          <span className="track-name">{track.name}</span>
           <span className="track-artists">
-            {t.artists.map((a, k) => (
+            {track.artists.map((a, k) => (
               <span key={a.uri || k}>
                 {k > 0 && ", "}
                 <a onClick={() => a.uri && nav.open(a.uri)}>{a.name}</a>
@@ -410,28 +414,28 @@ function TrackRow({
         </span>
       </span>
       {showPlays ? (
-        <span className="track-album track-plays">{t.plays !== undefined ? formatCount(t.plays) : ""}</span>
+        <span className="track-album track-plays">{track.plays !== undefined ? formatCount(track.plays) : ""}</span>
       ) : (
         showAlbum && (
           <span className="track-album">
-            {t.album && <a onClick={() => nav.open(t.album!.uri)}>{t.album.name}</a>}
+            {track.album && <a onClick={() => nav.open(track.album!.uri)}>{track.album.name}</a>}
           </span>
         )
       )}
-      {showAlbum && showAdded && <span className="track-added">{formatAgo(t.addedAt)}</span>}
+      {showAlbum && showAdded && <span className="track-added">{formatAgo(track.addedAt)}</span>}
       <span className="track-time">
-        <LikeButton uri={t.uri} size={16} className="row-like" />
-        <span>{formatDuration(t.durationMs)}</span>
+        <LikeButton uri={track.uri} size={16} className="row-like" />
+        <span>{formatDuration(track.durationMs)}</span>
         <button
           className="row-more"
-          aria-label={`More options for ${t.name}`}
-          title="More options"
+          aria-label={t("More options for {name}", { name: track.name })}
+          title={t("More options")}
           onClick={(e) => {
             e.stopPropagation();
             onMenu(e, () =>
               openMenu(e, [
-                ...trackMenu(t, saved, nav),
-                ...(onRemove ? (["separator", { label: `Remove from ${playlistName ?? "this playlist"}`, onClick: onRemove }] as const) : []),
+                ...trackMenu(track, saved, nav),
+                ...(onRemove ? (["separator", { label: t("Remove from {name}", { name: playlistName ?? t("this playlist") }), onClick: onRemove }] as const) : []),
               ]),
             );
           }}

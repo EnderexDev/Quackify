@@ -33,7 +33,18 @@ const HANDOFF_WAIT: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// The browser tab after the login: the duck with a check on a glass card. One page with the
 /// duck inline, and no name in it: it is shown before the app knows who logged in.
-const LOGIN_DONE_PAGE: &str = r##"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Quackify: logged in</title><style>html,body{height:100%;margin:0}body{display:grid;place-items:center;font-family:"Segoe UI Variable","Segoe UI",system-ui,sans-serif;color:#f6f4ee;background:radial-gradient(ellipse 55% 60% at 50% 45%,rgba(255,216,77,.30),transparent 70%),#0a0a0c}.card{width:min(420px,calc(100% - 48px));padding:36px 32px 30px;text-align:center;border:1px solid rgba(255,255,255,.1);border-radius:22px;background:rgba(20,20,26,.6);backdrop-filter:blur(24px) saturate(140%);box-shadow:0 20px 50px rgba(0,0,0,.5)}.duck{position:relative;display:inline-block}.check{position:absolute;right:-6px;bottom:2px;width:26px;height:26px;border-radius:50%;background:#29d39a;border:3px solid #16161b;display:grid;place-items:center}h1{margin:18px 0 8px;font-size:24px;font-weight:750}p{margin:0;color:#9a978f;font-size:14px;line-height:1.5}kbd{display:inline-block;margin-top:18px;padding:3px 8px;border:1px solid rgba(255,255,255,.14);border-radius:6px;background:rgba(255,255,255,.06);color:#f6f4ee;font:600 12px "Segoe UI",system-ui,sans-serif}</style></head><body><div class="card"><div class="duck"><svg width="88" height="88" viewBox="0 0 64 64" aria-hidden="true"><path fill="#ffd84d" d="M38 10c7.7 0 14 6.1 14 13.7 0 3.1-1 5.9-2.8 8.2C56.7 35 61 41 61 47.6 61 56.6 52.4 62 41 62H20C9.5 62 3 55.8 3 47.4c0-6.8 5.5-11.6 12.3-11.6 3.2 0 6 1 8.1 2.9-.7-2-1.1-4.1-1.1-6.4C22.3 18.2 29.3 10 38 10z"/><path fill="#ff9f1c" d="M50 21.5c4.8-.6 9.2.4 11 2.6-1.8 2.6-6.4 4-11.6 3.6z"/><circle cx="42" cy="20" r="3" fill="#1a1a1a"/><path fill="#f2c230" d="M20 44c6 6 18 7 26 1-3 8-13 11-21 8-4-1.5-6-5-5-9z"/></svg><span class="check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0a0a0c" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></div><h1>All set, Quackify is in</h1><p>You can close this tab and go back to the app. Your music is waiting.</p><kbd>Ctrl W</kbd></div></body></html>"##;
+const LOGIN_DONE_PAGE: &str = r##"<!doctype html><html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>{title}</title><style>html,body{height:100%;margin:0}body{display:grid;place-items:center;font-family:"Segoe UI Variable","Segoe UI",system-ui,sans-serif;color:#f6f4ee;background:radial-gradient(ellipse 55% 60% at 50% 45%,rgba(255,216,77,.30),transparent 70%),#0a0a0c}.card{width:min(420px,calc(100% - 48px));padding:36px 32px 30px;text-align:center;border:1px solid rgba(255,255,255,.1);border-radius:22px;background:rgba(20,20,26,.6);backdrop-filter:blur(24px) saturate(140%);box-shadow:0 20px 50px rgba(0,0,0,.5)}.duck{position:relative;display:inline-block}.check{position:absolute;right:-6px;bottom:2px;width:26px;height:26px;border-radius:50%;background:#29d39a;border:3px solid #16161b;display:grid;place-items:center}h1{margin:18px 0 8px;font-size:24px;font-weight:750}p{margin:0;color:#9a978f;font-size:14px;line-height:1.5}kbd{display:inline-block;margin-top:18px;padding:3px 8px;border:1px solid rgba(255,255,255,.14);border-radius:6px;background:rgba(255,255,255,.06);color:#f6f4ee;font:600 12px "Segoe UI",system-ui,sans-serif}</style></head><body><div class="card"><div class="duck"><svg width="88" height="88" viewBox="0 0 64 64" aria-hidden="true"><path fill="#ffd84d" d="M38 10c7.7 0 14 6.1 14 13.7 0 3.1-1 5.9-2.8 8.2C56.7 35 61 41 61 47.6 61 56.6 52.4 62 41 62H20C9.5 62 3 55.8 3 47.4c0-6.8 5.5-11.6 12.3-11.6 3.2 0 6 1 8.1 2.9-.7-2-1.1-4.1-1.1-6.4C22.3 18.2 29.3 10 38 10z"/><path fill="#ff9f1c" d="M50 21.5c4.8-.6 9.2.4 11 2.6-1.8 2.6-6.4 4-11.6 3.6z"/><circle cx="42" cy="20" r="3" fill="#1a1a1a"/><path fill="#f2c230" d="M20 44c6 6 18 7 26 1-3 8-13 11-21 8-4-1.5-6-5-5-9z"/></svg><span class="check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0a0a0c" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></div><h1>{heading}</h1><p>{text}</p><kbd>Ctrl W</kbd></div></body></html>"##;
+
+/// The page in the app's language (the one the Settings page last sent).
+fn login_done_page(language: &str) -> String {
+    let (lang, title, heading, text) = if language == "pt" {
+        ("pt-BR", "Quackify: login concluído", "Pronto, o Quackify entrou", "Pode fechar esta aba e voltar pro app. A música já tá te esperando.")
+    } else {
+        ("en", "Quackify: logged in", "All set, Quackify is in", "You can close this tab and go back to the app. Your music is waiting.")
+    };
+    LOGIN_DONE_PAGE.replace("{lang}", lang).replace("{title}", title).replace("{heading}", heading).replace("{text}", text)
+}
+
 
 struct Engine {
     session: Session,
@@ -310,10 +321,11 @@ fn wake_redirect_listener() {
 /// Opens the Spotify consent page in the browser and waits for the redirect.
 #[tauri::command]
 pub async fn spotify_login(app: AppHandle, state: State<'_, SpotifyState>) -> Result<Status, String> {
-    let mut waiting = tauri::async_runtime::spawn_blocking(|| {
+    let page_lang = crate::settings::current(&app).language;
+    let mut waiting = tauri::async_runtime::spawn_blocking(move || {
         OAuthClientBuilder::new(CLIENT_ID, REDIRECT_URI, SCOPES.to_vec())
             .open_in_browser()
-            .with_custom_message(LOGIN_DONE_PAGE)
+            .with_custom_message(&login_done_page(&page_lang))
             .build()
             .and_then(|client| client.get_access_token())
             .map_err(|e| e.to_string())
@@ -750,5 +762,18 @@ mod tests {
         assert!(!l.synced);
         assert_eq!(l.background, None);
         assert_eq!(parse_lyrics(&serde_json::json!({ "lyrics": { "lines": [] } })), None);
+    }
+
+    #[test]
+    fn login_page_in_both_languages() {
+        let pt = login_done_page("pt");
+        assert!(pt.contains("<html lang=\"pt-BR\">") && pt.contains("Pronto, o Quackify entrou") && pt.contains("login concluído"));
+        let en = login_done_page("en");
+        assert!(en.contains("<html lang=\"en\">") && en.contains("All set, Quackify is in"));
+        // No placeholder left, and the CSS braces untouched.
+        for page in [&pt, &en] {
+            assert!(!page.contains("{lang}") && !page.contains("{title}") && !page.contains("{heading}") && !page.contains("{text}"));
+            assert!(page.contains("html,body{height:100%;margin:0}"));
+        }
     }
 }

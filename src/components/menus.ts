@@ -1,6 +1,7 @@
 // The items of the right-click menus for tracks and for cards (playlists, albums, artists).
 import { addToPlaylist, areSaved, editablePlaylists, save, unsave } from "../api/library";
 import { play, songRadio } from "../api/spotify";
+import { t } from "../i18n";
 import { openCredits } from "./Credits";
 import type { Card, Named } from "../api/types";
 import { markSaved, notifyLibraryChanged, setSaved } from "../state/saved";
@@ -17,14 +18,14 @@ export function webLink(uri: string): string {
 }
 
 /** Copies to the clipboard and says whether it worked. */
-export const copy = (text: string, done = "Link copied") =>
+export const copy = (text: string, done = t("Link copied")) =>
   navigator.clipboard.writeText(text).then(
     () => notify(done),
     (e) => toast(e),
   );
 
 /** The toast's way to the playlist something was just added to. */
-const openAction = (nav: Nav, uri: string) => ({ label: "Open", run: () => nav.open(uri) });
+const openAction = (nav: Nav, uri: string) => ({ label: t("Open"), run: () => nav.open(uri) });
 
 /** The player Spotify gives to put a song in a web page. */
 export function embedCode(uri: string): string {
@@ -37,8 +38,8 @@ export function playlistPicker(track: { uri: string; name?: string }, nav: Nav):
   return {
     submenuHead: [
       {
-        label: "New playlist",
-        onClick: () => newPlaylist({ songs: async () => [track.uri], label: track.name ?? "this song", name: track.name }),
+        label: t("New playlist"),
+        onClick: () => newPlaylist({ songs: async () => [track.uri], label: track.name ?? t("this song"), name: track.name }),
       },
       "separator",
     ],
@@ -46,7 +47,7 @@ export function playlistPicker(track: { uri: string; name?: string }, nav: Nav):
       (await editablePlaylists(track.uri)).map((p) => ({
         label: p.name,
         checked: p.contains,
-        onClick: () => addToPlaylist(p.uri, [track.uri]).then(() => notify(`Added to ${p.name}`, { action: openAction(nav, p.uri) }), toast),
+        onClick: () => addToPlaylist(p.uri, [track.uri]).then(() => notify(t("Added to {name}", { name: p.name }), { action: openAction(nav, p.uri) }), toast),
       })),
   };
 }
@@ -72,39 +73,39 @@ export function trackMenu(
 ): MenuItem[] {
   return [
     {
-      label: "Add to queue",
-      onClick: () => play.addToQueue(track.uri).then(() => notify("Added to queue"), toast),
+      label: t("Add to queue"),
+      onClick: () => play.addToQueue(track.uri).then(() => notify(t("Added to queue")), toast),
     },
-    { label: "Add to playlist", ...playlistPicker(track, nav) },
+    { label: t("Add to playlist"), ...playlistPicker(track, nav) },
     {
-      label: saved ? "Remove from Liked Songs" : "Save to Liked Songs",
+      label: saved ? t("Remove from Liked Songs") : t("Save to Liked Songs"),
       disabled: saved === undefined,
       onClick: () => setSaved(track.uri, !saved),
     },
     "separator",
     ...(track.artists.length === 1
-      ? [{ label: "Go to artist", onClick: () => nav.open(track.artists[0].uri) }]
+      ? [{ label: t("Go to artist"), onClick: () => nav.open(track.artists[0].uri) }]
       : track.artists.length > 1
         ? [
             {
-              label: "Go to artist",
+              label: t("Go to artist"),
               submenu: () => track.artists.map((a) => ({ label: a.name, onClick: () => nav.open(a.uri) })),
             },
           ]
         : []),
-    ...(track.album?.uri ? [{ label: "Go to album", onClick: () => nav.open(track.album!.uri) }] : []),
+    ...(track.album?.uri ? [{ label: t("Go to album"), onClick: () => nav.open(track.album!.uri) }] : []),
     ...(track.uri.startsWith("spotify:track:")
       ? [
-          { label: "Go to song radio", onClick: () => songRadio(track.uri).then((u) => nav.open(u), toast) },
-          { label: "Show credits", onClick: () => openCredits(track.uri) },
+          { label: t("Go to song radio"), onClick: () => songRadio(track.uri).then((u) => nav.open(u), toast) },
+          { label: t("Show credits"), onClick: () => openCredits(track.uri) },
         ]
       : []),
     "separator",
     {
-      label: "Share",
+      label: t("Share"),
       submenu: () => [
-        { label: "Copy song link", onClick: () => copy(webLink(track.uri)) },
-        { label: "Embed track", onClick: () => copy(embedCode(track.uri), "Embed code copied") },
+        { label: t("Copy song link"), onClick: () => copy(webLink(track.uri)) },
+        { label: t("Embed track"), onClick: () => copy(embedCode(track.uri), t("Embed code copied")) },
       ],
     },
   ];
@@ -118,25 +119,27 @@ export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSav
   // Every selected song goes to a playlist or Liked Songs; the queue only takes ones that play.
   const uris = tracks.map((t) => t.uri);
   const playable = tracks.filter((t) => t.playable !== false).map((t) => t.uri);
-  const n = `${tracks.length} songs`;
+  const n = tracks.length === 1 ? t("1 song") : t("{n} songs", { n: tracks.length });
   return [
     {
-      label: "Add to queue",
+      id: "queue",
+      label: t("Add to queue"),
       onClick: async () => {
         try {
           const queued = playable.slice(0, QUEUE_LIMIT);
           for (const u of queued) await play.addToQueue(u);
-          notify(`Added ${queued.length} ${queued.length === 1 ? "song" : "songs"} to the queue`);
+          notify(queued.length === 1 ? t("Added 1 song to the queue") : t("Added {n} songs to the queue", { n: queued.length }));
         } catch (e) {
           toast(e);
         }
       },
     },
     {
-      label: "Add to playlist",
+      id: "playlist",
+      label: t("Add to playlist"),
       submenuHead: [
         {
-          label: "New playlist",
+          label: t("New playlist"),
           onClick: () => newPlaylist({ songs: async () => uris, label: n }),
         },
         "separator",
@@ -144,18 +147,19 @@ export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSav
       submenu: async () =>
         (await editablePlaylists(uris[0] ?? "")).map((p) => ({
           label: p.name,
-          onClick: () => addAll(p.uri, uris).then(() => notify(`Added ${n} to ${p.name}`, { action: openAction(nav, p.uri) }), toast),
+          onClick: () => addAll(p.uri, uris).then(() => notify(t("Added {count} to {name}", { count: n, name: p.name }), { action: openAction(nav, p.uri) }), toast),
         })),
     },
     {
-      label: allSaved ? "Remove from Liked Songs" : "Save to Liked Songs",
+      id: "liked",
+      label: allSaved ? t("Remove from Liked Songs") : t("Save to Liked Songs"),
       disabled: allSaved === undefined,
       onClick: () => {
         const want = !allSaved;
         (want ? save(uris) : unsave(uris)).then(() => {
           uris.forEach((u) => markSaved(u, want));
           notifyLibraryChanged();
-          notify(want ? `Saved ${n} to Liked Songs` : `Removed ${n} from Liked Songs`);
+          notify(want ? t("Saved {count} to Liked Songs", { count: n }) : t("Removed {count} from Liked Songs", { count: n }));
         }, toast);
       },
     },
@@ -168,22 +172,22 @@ export function cardMenu(card: Card, saved: boolean | undefined, nav: Nav): Menu
   const isTrack = card.kind === "track" || card.kind === "episode";
   const items: MenuItem[] = [
     isTrack
-      ? { label: "Play", onClick: () => play.tracks([card.uri], 0).catch(toast) }
-      : { label: "Open", onClick: () => nav.open(card.uri, card.title) },
+      ? { label: t("Play"), onClick: () => play.tracks([card.uri], 0).catch(toast) }
+      : { label: t("Open"), onClick: () => nav.open(card.uri, card.title) },
   ];
-  if (isTrack) items.push({ label: "Add to queue", onClick: () => play.addToQueue(card.uri).catch(toast) });
-  if (card.kind === "user") return [...items, "separator", { label: "Copy link", onClick: () => copy(webLink(card.uri)) }];
+  if (isTrack) items.push({ label: t("Add to queue"), onClick: () => play.addToQueue(card.uri).catch(toast) });
+  if (card.kind === "user") return [...items, "separator", { label: t("Copy link"), onClick: () => copy(webLink(card.uri)) }];
   if (card.kind !== "liked") {
     items.push({
       label: isArtist
-        ? saved ? "Unfollow" : "Follow"
+        ? saved ? t("Unfollow") : t("Follow")
         : isTrack
-          ? saved ? "Remove from Liked Songs" : "Save to Liked Songs"
-          : saved ? "Remove from Your Library" : "Save to Your Library",
+          ? saved ? t("Remove from Liked Songs") : t("Save to Liked Songs")
+          : saved ? t("Remove from Your Library") : t("Save to Your Library"),
       disabled: saved === undefined,
       onClick: () => setSaved(card.uri, !saved),
     });
-    items.push("separator", { label: "Copy link", onClick: () => copy(webLink(card.uri)) });
+    items.push("separator", { label: t("Copy link"), onClick: () => copy(webLink(card.uri)) });
   }
   return items;
 }
@@ -215,22 +219,22 @@ export function collectionMenu(o: {
 }): MenuItem[] {
   const items: MenuItem[] = [
     {
-      label: "Add to queue",
+      label: t("Add to queue"),
       onClick: async () => {
         try {
           const uris = await o.songs();
           for (const u of uris.slice(0, QUEUE_LIMIT)) await play.addToQueue(u);
-          notify(uris.length > QUEUE_LIMIT ? `Added the first ${QUEUE_LIMIT} songs to the queue` : "Added to queue");
+          notify(uris.length > QUEUE_LIMIT ? t("Added the first {n} songs to the queue", { n: QUEUE_LIMIT }) : t("Added to queue"));
         } catch (e) {
           toast(e);
         }
       },
     },
     {
-      label: "Add to playlist",
+      label: t("Add to playlist"),
       submenuHead: [
         {
-          label: "New playlist",
+          label: t("New playlist"),
           onClick: () => newPlaylist({ songs: o.songs, label: o.title, name: o.title }),
         },
         "separator",
@@ -245,13 +249,13 @@ export function collectionMenu(o: {
               o
                 .songs()
                 .then((uris) => addAll(p.uri, uris))
-                .then(() => notify(`Added to ${p.name}`, { action: openAction(o.nav, p.uri) }), toast),
+                .then(() => notify(t("Added to {name}", { name: p.name }), { action: openAction(o.nav, p.uri) }), toast),
           })),
     },
   ];
   if (o.kind !== "liked" && !o.own) {
     items.push({
-      label: o.saved ? "Remove from Your Library" : "Save to Your Library",
+      label: o.saved ? t("Remove from Your Library") : t("Save to Your Library"),
       disabled: o.saved === undefined,
       onClick: () => setSaved(o.uri, !o.saved),
     });
@@ -260,23 +264,23 @@ export function collectionMenu(o: {
     items.push("separator");
     items.push(
       o.artists.length === 1
-        ? { label: "Go to artist", onClick: () => o.nav.open(o.artists[0].uri) }
-        : { label: "Go to artist", submenu: () => o.artists.map((a) => ({ label: a.name, onClick: () => o.nav.open(a.uri) })) },
+        ? { label: t("Go to artist"), onClick: () => o.nav.open(o.artists[0].uri) }
+        : { label: t("Go to artist"), submenu: () => o.artists.map((a) => ({ label: a.name, onClick: () => o.nav.open(a.uri) })) },
     );
   }
   if (o.own) {
-    items.push("separator", { label: "Edit details", onClick: o.onEdit }, { label: "Delete", onClick: o.onDelete });
+    items.push("separator", { label: t("Edit details"), onClick: o.onEdit }, { label: t("Delete"), onClick: o.onDelete });
   }
-  if (o.kind !== "liked") items.push("separator", { label: "Copy link", onClick: () => copy(webLink(o.uri)) });
+  if (o.kind !== "liked") items.push("separator", { label: t("Copy link"), onClick: () => copy(webLink(o.uri)) });
   return items;
 }
 
 /** The ••• menu of an artist's or a podcast's own page. */
 export function followMenu(uri: string, saved: boolean | undefined): MenuItem[] {
   return [
-    { label: saved ? "Unfollow" : "Follow", disabled: saved === undefined, onClick: () => setSaved(uri, !saved) },
+    { label: saved ? t("Unfollow") : t("Follow"), disabled: saved === undefined, onClick: () => setSaved(uri, !saved) },
     "separator",
-    { label: "Copy link", onClick: () => copy(webLink(uri)) },
+    { label: t("Copy link"), onClick: () => copy(webLink(uri)) },
   ];
 }
 

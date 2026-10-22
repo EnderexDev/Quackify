@@ -4,6 +4,7 @@ import { play } from "../api/spotify";
 import { DRAGGABLE, dragCard } from "../state/drag";
 import { peekProps } from "../state/peek";
 import { useNav } from "../state/nav";
+import { t } from "../i18n";
 import { kindLabel, TAGGED_KINDS } from "../util/kinds";
 import { usePlayer } from "../state/player";
 import { toast } from "../state/toast";
@@ -65,7 +66,7 @@ export function Card({
         <span className="peek-ring" aria-hidden />
         {TAGGED_KINDS.has(card.kind) && <span className="card-tag">{kindLabel(card)}</span>}
         {card.pinned && !onRemove && (
-          <span className="card-pin" title="Pinned">
+          <span className="card-pin" title={t("Pinned")}>
             <PinIcon size={13} />
           </span>
         )}
@@ -73,8 +74,8 @@ export function Card({
         {onRemove && (
           <button
             className="card-remove"
-            aria-label="Remove"
-            title="Remove"
+            aria-label={t("Remove")}
+            title={t("Remove")}
             onClick={(e) => {
               e.stopPropagation();
               onRemove();
@@ -166,15 +167,15 @@ export function ShelfRow({
         {aside}
         {onShowAll && (
           <button className="link show-all" onClick={onShowAll}>
-            Show all
+            {t("Show all")}
           </button>
         )}
         {!(ends.start && ends.end) && (
           <div className="shelf-arrows">
-            <button className="round-button" aria-label="Scroll back" disabled={ends.start} onClick={() => page(-1)}>
+            <button className="round-button" aria-label={t("Scroll back")} disabled={ends.start} onClick={() => page(-1)}>
               <BackIcon size={16} />
             </button>
-            <button className="round-button" aria-label="Scroll forward" disabled={ends.end} onClick={() => page(1)}>
+            <button className="round-button" aria-label={t("Scroll forward")} disabled={ends.end} onClick={() => page(1)}>
               <ForwardIcon size={16} />
             </button>
           </div>

@@ -13,6 +13,7 @@ import { notify, toast  } from "../state/toast";
 import { coverColors, GRAPHITE, type CoverColors } from "../util/coverColors";
 import { formatDuration, formatLength } from "../util/format";
 import { kindLabel } from "../util/kinds";
+import { locale, t } from "../i18n";
 import { useContextMenu } from "./ContextMenu";
 import { Cover } from "./Cover";
 import { HeartIcon, HeartOutlineIcon, MoreIcon, PlayIcon, QueueIcon } from "./icons";
@@ -27,12 +28,12 @@ type Preview = { line: string; total: number; tracks: Track[] };
 async function preview(card: Card): Promise<Preview> {
   if (card.kind === "artist") {
     const a = await artist(card.uri);
-    return { line: "Popular songs", total: a.topTracks.length, tracks: a.topTracks };
+    return { line: t("Popular songs"), total: a.topTracks.length, tracks: a.topTracks };
   }
   const c = await collection(card.uri);
   // The length only when every song is in: a long playlist comes a page at a time.
   const length = c.tracks.length === c.total ? formatLength(c.tracks.reduce((n, t) => n + t.durationMs, 0)) : "";
-  const count = `${c.total.toLocaleString()} ${c.total === 1 ? "song" : "songs"}`;
+  const count = c.total === 1 ? t("1 song") : t("{n} songs", { n: c.total.toLocaleString(locale()) });
   return { line: [c.owner, length ? `${count}, ${length}` : count].filter(Boolean).join(" · "), total: c.total, tracks: c.tracks };
 }
 
@@ -85,7 +86,7 @@ function PeekPanel({ peek }: { peek: PeekOpen }) {
     save: run(() => toggleSaved()),
     queue: run(() =>
       songsOf(card.uri)
-        .then((uris) => queueSongs(uris, false, currentQueue).then(() => notify(`Added ${uris.length} songs to the queue`)))
+        .then((uris) => queueSongs(uris, false, currentQueue).then(() => notify(uris.length === 1 ? t("Added 1 song to the queue") : t("Added {n} songs to the queue", { n: uris.length }))))
         .catch(toast),
     ),
     open: run(() => nav.open(card.uri, card.title)),
@@ -129,7 +130,7 @@ function PeekPanel({ peek }: { peek: PeekOpen }) {
   const isArtist = card.kind === "artist";
   const shown = data?.tracks.slice(0, SHOWN) ?? [];
   return (
-    <div className={`peek ${mode}`} role="dialog" aria-label={`Peek: ${card.title}`}>
+    <div className={`peek ${mode}`} role="dialog" aria-label={t("Peek: {title}", { title: card.title })}>
       <div className="peek-scrim" onPointerDown={() => mode === "key" && done()} />
       {cover && (
         <div className="peek-lift" style={{ left: cover.left, top: cover.top, width: cover.width, height: cover.height }}>
@@ -152,17 +153,17 @@ function PeekPanel({ peek }: { peek: PeekOpen }) {
         <div className="peek-actions">
           <button className="peek-btn play" data-peek-act onClick={actions.play}>
             <PlayIcon size={14} />
-            Play
+            {t("Play")}
           </button>
           {card.kind !== "liked" && (
             <button className="peek-btn" data-peek-act onClick={actions.save} disabled={saved === undefined}>
               {saved ? <HeartIcon size={14} /> : <HeartOutlineIcon size={14} />}
-              {isArtist ? (saved ? "Following" : "Follow") : saved ? "Saved" : "Save"}
+              {isArtist ? (saved ? t("Following") : t("Follow")) : saved ? t("Saved") : t("Save")}
             </button>
           )}
           <button className="peek-btn" data-peek-act onClick={actions.queue}>
             <QueueIcon size={14} />
-            Queue
+            {t("Queue")}
           </button>
           <button
             className="peek-btn"
@@ -174,7 +175,7 @@ function PeekPanel({ peek }: { peek: PeekOpen }) {
             }}
           >
             <MoreIcon size={14} />
-            More
+            {t("More")}
           </button>
         </div>
         <div className="peek-tracks">
@@ -193,12 +194,12 @@ function PeekPanel({ peek }: { peek: PeekOpen }) {
             </button>
           ))}
           {data && data.total > shown.length && !isArtist && (
-            <span className="peek-more">+ {(data.total - shown.length).toLocaleString()} songs</span>
+            <span className="peek-more">{t("+ {n} songs", { n: (data.total - shown.length).toLocaleString(locale()) })}</span>
           )}
         </div>
         <div className="peek-foot">
-          <span>{mode === "hold" ? "Release to close" : "Esc closes"}</span>
-          <span>Enter opens the page</span>
+          <span>{mode === "hold" ? t("Release to close") : t("Esc closes")}</span>
+          <span>{t("Enter opens the page")}</span>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { artist, collection, discography, play } from "../api/spotify";
+import { t } from "../i18n";
 import type { Artist as Data, Card as CardData } from "../api/types";
 import { CardGrid, Shelf } from "../components/Card";
 import { Cover } from "../components/Cover";
@@ -20,10 +21,11 @@ import { usePaged } from "./Cards";
 import { Empty, Failed, Loading } from "./common";
 
 type Tab = "overview" | "discography" | "about";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "discography", label: "Discography" },
-  { id: "about", label: "About" },
+// A function: read when drawn, in the language shown then.
+const tabs = (): { id: Tab; label: string }[] => [
+  { id: "overview", label: t("Overview") },
+  { id: "discography", label: t("Discography") },
+  { id: "about", label: t("About") },
 ];
 /** Discography as cards or as albums that open into their songs; the choice is kept. */
 const DISCO_VIEW_KEY = "discographyView";
@@ -55,11 +57,11 @@ export function Artist({ uri }: { uri: string }) {
               <span className="verified-badge">
                 <CheckIcon size={11} />
               </span>
-              Verified artist
+              {t("Verified artist")}
             </span>
           )}
           <h1>{data.name}</h1>
-          {data.monthlyListeners !== null && <p>{formatCount(data.monthlyListeners)} monthly listeners</p>}
+          {data.monthlyListeners !== null && <p>{t("{n} monthly listeners", { n: formatCount(data.monthlyListeners) })}</p>}
         </div>
       </header>
       <div className="actions artist-actions">
@@ -71,16 +73,16 @@ export function Artist({ uri }: { uri: string }) {
         <button
           className={`icon-btn big ${player.shuffle ? "on" : ""}`}
           onClick={() => player.setShuffle(!player.shuffle)}
-          aria-label={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
-          title={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
+          aria-label={player.shuffle ? t("Disable shuffle") : t("Enable shuffle")}
+          title={player.shuffle ? t("Disable shuffle") : t("Enable shuffle")}
         >
           <ShuffleIcon size={28} />
         </button>
         <SaveButton uri={uri} kind="artist" />
-        <button className="more-btn" aria-label={`More options for ${data.name}`} title="More options" onClick={(e) => openMenu(e, followMenu(uri, following))}>
+        <button className="more-btn" aria-label={t("More options for {name}", { name: data.name })} title={t("More options")} onClick={(e) => openMenu(e, followMenu(uri, following))}>
           •••
         </button>
-        <Segmented className="artist-tabs" options={TABS} value={tab} onChange={setTab} label="Artist" />
+        <Segmented className="artist-tabs" options={tabs()} value={tab} onChange={setTab} label={t("Artist")} />
       </div>
       {tab === "overview" && <Overview data={data} onAbout={() => setTab("about")} />}
       {tab === "discography" && <Discography uri={uri} name={data.name} />}
@@ -105,7 +107,7 @@ function Overview({ data, onAbout }: { data: Data; onAbout: () => void }) {
       <div className={`artist-overview ${side ? "with-side" : ""}`}>
         {top.length > 0 && (
           <section className="artist-popular">
-            <h2>Popular</h2>
+            <h2>{t("Popular")}</h2>
             <TrackList
               tracks={showAll ? top : top.slice(0, 5)}
               showAlbum={false}
@@ -116,7 +118,7 @@ function Overview({ data, onAbout }: { data: Data; onAbout: () => void }) {
             />
             {top.length > 5 && (
               <button className="link see-more" onClick={() => setShowAll(!showAll)}>
-                {showAll ? "Show less" : "See more"}
+                {showAll ? t("Show less") : t("See more")}
               </button>
             )}
           </section>
@@ -126,24 +128,24 @@ function Overview({ data, onAbout }: { data: Data; onAbout: () => void }) {
             {data.pick && <ArtistPick card={data.pick.card} comment={data.pick.comment} />}
             {data.bio && (
               <div className="side-card">
-                <h3>About</h3>
+                <h3>{t("About")}</h3>
                 <p className="side-bio">{data.bio}</p>
                 <button className="link side-more" onClick={onAbout}>
-                  Read more
+                  {t("Read more")}
                 </button>
               </div>
             )}
           </aside>
         )}
       </div>
-      <Shelf title="Albums" cards={data.albums} onShowAll={showDiscography} />
-      <Shelf title="Singles and EPs" cards={data.singles} onShowAll={showDiscography} />
+      <Shelf title={t("Albums")} cards={data.albums} onShowAll={showDiscography} />
+      <Shelf title={t("Singles and EPs")} cards={data.singles} onShowAll={showDiscography} />
       <Shelf
-        title="Fans also like"
+        title={t("Fans also like")}
         cards={data.related}
         onShowAll={data.relatedCount > data.related.length ? () => nav.go({ page: "cards", source: "related", uri, from: data.name }) : undefined}
       />
-      <Shelf title="Appears On" cards={data.appearsOn} />
+      <Shelf title={t("Appears On")} cards={data.appearsOn} />
     </>
   );
 }
@@ -152,7 +154,7 @@ function ArtistPick({ card, comment }: { card: CardData; comment: string }) {
   const nav = useNav();
   return (
     <div className="side-card">
-      <h3>Artist's pick</h3>
+      <h3>{t("Artist's pick")}</h3>
       <div className="pick" onClick={() => nav.open(card.uri)}>
         <Cover src={card.image} kind={card.kind} className="pick-cover" />
         <div className="pick-text">
@@ -173,17 +175,17 @@ function Discography({ uri, name }: { uri: string; name: string }) {
     if (v === "list") localStorage.setItem(DISCO_VIEW_KEY, v);
     else localStorage.removeItem(DISCO_VIEW_KEY);
   };
-  if (error) return <p className="muted">Could not load the discography.</p>;
+  if (error) return <p className="muted">{t("Could not load the discography.")}</p>;
   if (!data) return <div className="spinner" />;
   return (
     <section className="discography">
       <div className="shelf-head">
-        <h2>Discography</h2>
+        <h2>{t("Discography")}</h2>
         <div className="view-toggle">
-          <button className={`icon-btn ${view === "grid" ? "on" : ""}`} aria-label="Grid" title="Grid" onClick={() => pick("grid")}>
+          <button className={`icon-btn ${view === "grid" ? "on" : ""}`} aria-label={t("Grid")} title={t("Grid")} onClick={() => pick("grid")}>
             <GridIcon size={18} />
           </button>
-          <button className={`icon-btn ${view === "list" ? "on" : ""}`} aria-label="List" title="List" onClick={() => pick("list")}>
+          <button className={`icon-btn ${view === "list" ? "on" : ""}`} aria-label={t("List")} title={t("List")} onClick={() => pick("list")}>
             <ListIcon size={18} />
           </button>
         </div>
@@ -216,7 +218,7 @@ function DiscographyPages({
           ))}
         </div>
       )}
-      {cards.length === 0 && <Empty title="Nothing here yet" />}
+      {cards.length === 0 && <Empty title={t("Nothing here yet")} />}
       {more && (
         <div ref={sentinel} className="more">
           <div className="spinner small" />
@@ -264,9 +266,9 @@ function Release({ card, artist: artistName }: { card: CardData; artist: string 
           />
         ) : error ? (
           <p className="muted small release-error">
-            Could not load the songs.{" "}
+            {t("Could not load the songs.")}{" "}
             <button className="link" onClick={() => setAttempt((n) => n + 1)}>
-              Try again
+              {t("Try again")}
             </button>
           </p>
         ) : (
@@ -286,32 +288,32 @@ function About({ data }: { data: Data }) {
           {data.worldRank && (
             <div className="about-stat">
               <b>#{data.worldRank}</b>
-              <span>in the world</span>
+              <span>{t("in the world")}</span>
             </div>
           )}
           {data.monthlyListeners !== null && (
             <div className="about-stat">
               <b>{formatCount(data.monthlyListeners)}</b>
-              <span>monthly listeners</span>
+              <span>{t("monthly listeners")}</span>
             </div>
           )}
           {data.followers !== null && (
             <div className="about-stat">
               <b>{formatCount(data.followers)}</b>
-              <span>followers</span>
+              <span>{t("followers")}</span>
             </div>
           )}
         </div>
         {data.bio && <p className="about-bio">{data.bio}</p>}
         {data.topCities.length > 0 && (
           <div className="about-cities">
-            <h3>Where people listen</h3>
+            <h3>{t("Where people listen")}</h3>
             {data.topCities.map((c) => (
               <div key={`${c.city}:${c.country}`} className="about-city">
                 <span>
                   {c.city}, {c.country}
                 </span>
-                <span className="muted">{formatCount(c.listeners)} listeners</span>
+                <span className="muted">{t("{n} listeners", { n: formatCount(c.listeners) })}</span>
               </div>
             ))}
           </div>

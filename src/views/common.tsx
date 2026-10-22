@@ -4,12 +4,13 @@
 import type { ReactNode } from "react";
 import { DuckIcon } from "../components/icons";
 import { notify, toast } from "../state/toast";
+import { t } from "../i18n";
 import { AUTO_RETRIES } from "../util/useAsync";
 
 /** A page loading: a title, a row of shortcuts and a row of cards, shimmering every 1.2 s. */
 export function Loading() {
   return (
-    <div className="page skeleton" aria-busy="true" aria-label="Loading">
+    <div className="page skeleton" aria-busy="true" aria-label={t("Loading")}>
       <div className="sk sk-title" />
       <div className="sk-row">
         {Array.from({ length: 12 }, (_, i) => (
@@ -37,21 +38,22 @@ export function Failed({ error, onRetry, retried = AUTO_RETRIES }: { error: stri
       <span className="state-icon danger" aria-hidden>
         !
       </span>
-      <h3>Couldn't load this page</h3>
+      <h3>{t("Couldn't load this page")}</h3>
       <p className="muted">
-        Spotify didn't answer.{retried > 0 ? ` Tried ${retried} more times already.` : ""}
+        {t("Spotify didn't answer.")}
+        {retried > 0 ? ` ${t("Tried {n} more times already.", { n: retried })}` : ""}
       </p>
       <div className="state-actions">
         {onRetry && (
           <button className="pill-btn white" onClick={onRetry}>
-            Try again
+            {t("Try again")}
           </button>
         )}
         <button
           className="pill-btn"
-          onClick={() => navigator.clipboard.writeText(detail).then(() => notify("Details copied", { kind: "info" }), toast)}
+          onClick={() => navigator.clipboard.writeText(detail).then(() => notify(t("Details copied"), { kind: "info" }), toast)}
         >
-          Copy details
+          {t("Copy details")}
         </button>
       </div>
     </div>
