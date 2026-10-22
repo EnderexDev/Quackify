@@ -75,35 +75,6 @@
   color: var(--text);
 }
 
-/* Your Library, compact: one line per item, no covers. */
-.library-list.compact .library-item {
-  padding-top: 4px;
-  padding-bottom: 4px;
-}
-
-.library-list.compact .library-cover {
-  display: none;
-}
-
-.library-list.compact .library-text {
-  flex: 1;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-
-/* The name keeps its room; the kind and owner shrink first. */
-.library-list.compact .library-title {
-  flex: 0 1 auto;
-  max-width: 75%;
-}
-
-.library-list.compact .library-sub {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
 .settings-account {
   display: flex;
   align-items: center;

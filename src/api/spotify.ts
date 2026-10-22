@@ -112,7 +112,7 @@ export function library(q: LibraryQuery, offset = 0): Promise<LibraryPage> {
   );
 }
 
-export type LibraryCounts = { playlists: number; folders: number; albums: number; artists: number; podcasts: number };
+export type LibraryCounts = { liked: number; playlists: number; folders: number; albums: number; artists: number; podcasts: number };
 
 /** How many of each kind Your Library holds: one small query per kind. Playlists inside
  * folders count; folders are the flattened list with them minus without them. */
@@ -131,14 +131,17 @@ export function libraryCounts(): Promise<LibraryCounts> {
       includeFoldersWhenFlattening: withFolders,
     }).then((d) => ((d as { me?: { libraryV3?: { totalCount?: number } } })?.me?.libraryV3?.totalCount ?? 0) as number);
   return cached("library:counts", async () => {
-    const [playlists, withFolders, albums, artists, podcasts] = await Promise.all([
+    const [liked, playlists, withFolders, albums, artists, podcasts] = await Promise.all([
+      query("fetchLibraryTracks", { offset: 0, limit: 1 }).then(
+        (d) => ((d as { me?: { library?: { tracks?: { totalCount?: number } } } })?.me?.library?.tracks?.totalCount ?? 0) as number,
+      ),
       total("Playlists", true, false),
       total("Playlists", true, true),
       total("Albums", false, false),
       total("Artists", false, false),
       total("Podcasts & Shows", false, false),
     ]);
-    return { playlists, folders: Math.max(0, withFolders - playlists), albums, artists, podcasts };
+    return { liked, playlists, folders: Math.max(0, withFolders - playlists), albums, artists, podcasts };
   });
 }
 
