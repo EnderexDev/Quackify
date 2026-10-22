@@ -35,6 +35,8 @@ const RECENT: usize = (SAMPLE_RATE as usize * 33) / 1000;
 const QUEUE_MAX: usize = SAMPLE_RATE as usize * NUM_CHANNELS as usize / 5;
 /// The longest a stop waits for the queued sound to finish playing.
 const DRAIN_MAX: Duration = Duration::from_millis(1500);
+/// A full queue that does not move for this long means the device stopped asking for sound.
+const STALL_MAX: Duration = Duration::from_secs(2);
 
 /// What the meter hears in one moment, with the volume taken back out.
 #[derive(Clone, Debug, Default, Serialize)]
@@ -148,6 +150,22 @@ struct Shared {
     /// Between start and stop: an empty queue then is a gap in the sound.
     running: bool,
     underruns: u32,
+    /// Frames the device has taken, so a writer can tell a full queue from a dead device.
+    played: u64,
+    /// The device reported an error: the player gets one back instead of waiting forever.
+    failed: Option<String>,
+}
+
+/// Queues a packet if there is room: Ok(false) when full, an error when the device failed.
+fn try_queue(s: &mut Shared, samples: &[f32]) -> Result<bool, String> {
+    if let Some(e) = &s.failed {
+        return Err(e.clone());
+    }
+    if s.queue.len() >= QUEUE_MAX {
+        return Ok(false);
+    }
+    s.queue.extend(samples.iter().copied());
+    Ok(true)
 }
 
 /// The output for Wave and Live: cpal with the meter in the callback.
@@ -179,8 +197,11 @@ impl OutputSink {
             meter: Meter::new(),
             running: false,
             underruns: 0,
+            played: 0,
+            failed: None,
         }));
         let feed = shared.clone();
+        let errors = shared.clone();
         let stream = device
             .build_output_stream(
                 &config,
@@ -188,7 +209,12 @@ impl OutputSink {
                     let Ok(mut s) = feed.lock() else { return out.fill(0.0) };
                     fill(&mut s, out, channels, step);
                 },
-                |e| eprintln!("[output] stream error: {e}"),
+                move |e| {
+                    eprintln!("[output] stream error: {e}");
+                    if let Ok(mut s) = errors.lock() {
+                        s.failed = Some(e.to_string());
+                    }
+                },
                 None,
             )
             .map_err(|e| e.to_string())?;
@@ -205,11 +231,19 @@ impl OutputSink {
 fn fill(s: &mut Shared, out: &mut [f32], channels: usize, step: f64) {
     let same_rate = (step - 1.0).abs() < 1e-9;
     for frame in out.chunks_mut(channels) {
+        // Whole frames still to skip (a slow device rate, or a queue that ran dry mid-step) go
+        // first, so the interpolation never reaches past the next frame.
+        while s.frac >= 1.0 && s.queue.len() >= 2 {
+            pop_frame(s);
+            s.frac -= 1.0;
+        }
         let frames = s.queue.len() / 2;
         // Linear resampling looks one frame ahead.
-        if frames < if same_rate { 1 } else { 2 } {
+        if frames < if same_rate { 1 } else { 2 } || s.frac >= 1.0 {
             if s.running && frames == 0 {
                 s.underruns += 1;
+                // The meter hears the gap too, so the bars fall instead of freezing.
+                s.meter.push(0.0);
             }
             frame.fill(0.0);
             continue;
@@ -229,12 +263,18 @@ fn fill(s: &mut Shared, out: &mut [f32], channels: usize, step: f64) {
             }
         }
         s.frac += step;
-        while s.frac >= 1.0 && s.queue.len() >= 2 {
-            let (a, b) = (s.queue.pop_front().unwrap_or(0.0), s.queue.pop_front().unwrap_or(0.0));
-            s.meter.push((a + b) * 0.5);
+        if s.frac >= 1.0 {
+            pop_frame(s);
             s.frac -= 1.0;
         }
     }
+}
+
+/// The front frame leaves the queue for the meter.
+fn pop_frame(s: &mut Shared) {
+    let (a, b) = (s.queue.pop_front().unwrap_or(0.0), s.queue.pop_front().unwrap_or(0.0));
+    s.meter.push((a + b) * 0.5);
+    s.played += 1;
 }
 
 /// Reads the meter 30 times a second while sound plays and sends it to the window; one silent
@@ -300,13 +340,19 @@ impl Sink for OutputSink {
     fn write(&mut self, packet: AudioPacket, converter: &mut Converter) -> SinkResult<()> {
         let samples = packet.samples().map_err(|e| sink_error(e.to_string()))?;
         let samples = converter.f64_to_f32(samples);
-        // Wait while the device has enough queued: the player must not decode far ahead.
+        // Wait while the device has enough queued: the player must not decode far ahead. A device
+        // that failed, or stopped taking sound, ends the wait with an error.
+        let mut seen = (u64::MAX, Instant::now());
         loop {
             {
                 let mut s = self.shared.lock().map_err(|_| sink_error("lock poisoned"))?;
-                if s.queue.len() < QUEUE_MAX {
-                    s.queue.extend(samples.iter().copied());
+                if try_queue(&mut s, &samples).map_err(sink_error)? {
                     return Ok(());
+                }
+                if s.played != seen.0 {
+                    seen = (s.played, Instant::now());
+                } else if seen.1.elapsed() >= STALL_MAX {
+                    return Err(sink_error("the device stopped taking sound"));
                 }
             }
             thread::sleep(Duration::from_millis(5));
@@ -333,7 +379,7 @@ mod tests {
     }
 
     fn shared() -> Shared {
-        Shared { queue: VecDeque::new(), frac: 0.0, meter: Meter::new(), running: true, underruns: 0 }
+        Shared { queue: VecDeque::new(), frac: 0.0, meter: Meter::new(), running: true, underruns: 0, played: 0, failed: None }
     }
 
     #[test]
@@ -412,6 +458,43 @@ mod tests {
         fill(&mut s, &mut out, 2, 1.0);
         let f = s.meter.frame(1.0, RECENT);
         assert!(loudest(&f) <= 3 && f.peak > 0.7, "{f:?}");
+    }
+
+    #[test]
+    fn a_slow_device_never_reaches_past_the_next_frame() {
+        // 22.05 kHz device: two source frames per output frame. The queue runs dry mid-step,
+        // then refills; the next output must still lie between two real samples.
+        let mut s = shared();
+        s.queue.extend([0.5, 0.5, 0.5, 0.5, 0.5, 0.5]);
+        let mut out = vec![0.0; 2 * 4];
+        fill(&mut s, &mut out, 2, 2.0);
+        s.queue.extend([1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0]);
+        let mut out = vec![0.0; 2 * 3];
+        fill(&mut s, &mut out, 2, 2.0);
+        assert!(s.frac < 1.0, "frac {}", s.frac);
+        assert!(out.iter().all(|v| v.abs() <= 1.0), "{out:?}");
+    }
+
+    #[test]
+    fn a_gap_brings_the_meter_down() {
+        let mut s = shared();
+        s.queue.extend(sine(80.0, 0.1, 0.8).iter().map(|v| *v as f32));
+        let mut out = vec![0.0; 4410 * 2];
+        fill(&mut s, &mut out, 2, 1.0);
+        assert!(s.meter.frame(1.0, RECENT).peak > 0.7);
+        let mut out = vec![0.0; 2 * RECENT];
+        fill(&mut s, &mut out, 2, 1.0);
+        assert_eq!(s.meter.frame(1.0, RECENT).peak, 0.0, "the last frame's worth of sound was a gap");
+    }
+
+    #[test]
+    fn a_failed_device_refuses_sound_instead_of_waiting() {
+        let mut s = shared();
+        assert_eq!(try_queue(&mut s, &[0.1, 0.1]), Ok(true));
+        s.queue.extend(std::iter::repeat(0.0).take(QUEUE_MAX));
+        assert_eq!(try_queue(&mut s, &[0.1, 0.1]), Ok(false), "full: wait");
+        s.failed = Some("device unplugged".into());
+        assert!(try_queue(&mut s, &[0.1, 0.1]).is_err(), "failed: give up");
     }
 
     #[test]

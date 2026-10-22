@@ -47,7 +47,11 @@ export function ProgressBar({
   // changes, every few seconds, and when the window closes.
   const wave = useRef<{ uri: string; bins: Float32Array; dirty: boolean } | null>(null);
   useEffect(() => {
-    if (mode !== "wave" || !uri) return;
+    if (mode !== "wave" || !uri) {
+      // Nothing playing: no waveform left from the song before.
+      wave.current = null;
+      return;
+    }
     const w = { uri, bins: loadWave(uri), dirty: false };
     wave.current = w;
     const flush = () => {
