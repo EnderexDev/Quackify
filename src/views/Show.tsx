@@ -39,8 +39,8 @@ export function ShowView({ uri }: { uri: string }) {
   const [following] = useSaved(uri);
   const [filter, setFilter] = useState<EpisodeFilter>("all");
   const [text, setText] = useState("");
-  const { data, error, loading } = useAsync(() => Promise.all([loadShow(uri), showEpisodes(uri, 0)]), uri);
-  if (error) return <Failed error={error} />;
+  const { data, error, loading, retry } = useAsync(() => Promise.all([loadShow(uri), showEpisodes(uri, 0)]), uri);
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (loading || !data) return <Loading />;
   const [s, first] = data;
   const isCurrent = player.contextUri === uri;
@@ -243,8 +243,8 @@ export function EpisodeView({ uri }: { uri: string }) {
   const nav = useNav();
   const player = usePlayer();
   const openMenu = useContextMenu();
-  const { data: e, error, loading } = useAsync(() => loadEpisode(uri), uri);
-  if (error) return <Failed error={error} />;
+  const { data: e, error, loading, retry } = useAsync(() => loadEpisode(uri), uri);
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (loading || !e) return <Loading />;
   const isCurrent = player.track?.uri === uri;
   const playThis = () =>

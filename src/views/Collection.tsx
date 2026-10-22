@@ -8,7 +8,7 @@ import { ConfirmDialog, EditDetailsDialog } from "../components/Dialog";
 import { SaveButton } from "../components/LikeButton";
 import { collectionMenu } from "../components/menus";
 import { useSaved } from "../state/saved";
-import { DuckIcon, SearchIcon, ShuffleIcon, SortIcon } from "../components/icons";
+import { SearchIcon, ShuffleIcon, SortIcon } from "../components/icons";
 import { OPEN_PALETTE_EVENT } from "../components/Palette";
 import { PlayButton } from "../components/PlayButton";
 import { TrackList } from "../components/TrackList";
@@ -19,7 +19,7 @@ import { notify, toast } from "../state/toast";
 import { formatCount, formatLength } from "../util/format";
 import { kindLabel } from "../util/kinds";
 import { useAsync } from "../util/useAsync";
-import { Failed, Loading } from "./common";
+import { Empty, Failed, Loading } from "./common";
 
 type Sort = "custom" | "added" | "title" | "artist" | "album" | "duration";
 
@@ -46,8 +46,8 @@ const COMPARE: Record<Exclude<Sort, "custom">, (a: Track, b: Track) => number> =
 
 /** A playlist, album or Liked Songs: header, play button, and every track (paged on scroll). */
 export function Collection({ uri }: { uri: string }) {
-  const { data, error, loading } = useAsync(() => collection(uri, 0), uri);
-  if (error) return <Failed error={error} />;
+  const { data, error, loading, retry } = useAsync(() => collection(uri, 0), uri);
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (loading || !data) return <Loading />;
   return <Loaded key={uri} first={data} />;
 }
@@ -358,15 +358,12 @@ function Loaded({ first }: { first: Data }) {
         </div>
       )}
       {first.kind === "playlist" && tracks.length === 0 && done && (
-        <div className="empty-list">
-          <DuckIcon size={48} />
-          <h3>This playlist is empty</h3>
-          <p>Find songs and add them with the right click, or drag them onto it in Your Library.</p>
-          <button className="pill-button" onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}>
+        <Empty title="This playlist is empty" text="Find songs and add them with the right click, or drag them onto it in Your Library.">
+          <button className="pill-btn white" onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}>
             <SearchIcon size={14} />
             Find songs
           </button>
-        </div>
+        </Empty>
       )}
       {dialog === "edit" && (
         <EditDetailsDialog

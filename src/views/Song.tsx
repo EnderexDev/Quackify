@@ -7,7 +7,8 @@ import type { TrackDetails } from "../api/types";
 import { Cover } from "../components/Cover";
 import { useContextMenu } from "../components/ContextMenu";
 import { openCredits } from "../components/Credits";
-import { HeartIcon, HeartOutlineIcon, PlaylistAddIcon } from "../components/icons";
+import { HeartIcon, HeartOutlineIcon, MicIcon, PlaylistAddIcon } from "../components/icons";
+import { Empty } from "./common";
 import { SaveButton } from "../components/LikeButton";
 import { openPlaylistPicker, trackMenu } from "../components/menus";
 import { Segmented } from "../components/Segmented";
@@ -248,21 +249,23 @@ function SongLyrics({ uri }: { uri: string }) {
       <div className="song-lyrics-body">
         {state.status === "loading" && <div className="spinner" />}
         {state.status === "failed" && (
-          <div className="song-lyrics-message">
-            <p>Couldn't load the lyrics.</p>
-            <button className="pill-btn" onClick={state.retry}>
+          <Empty className="song-lyrics-state" title="Couldn't load the lyrics" text="Try again in a moment.">
+            <button className="pill-btn white" onClick={state.retry}>
               Try again
             </button>
-          </div>
+          </Empty>
         )}
         {state.status === "ready" && !l && (
-          <div className="song-lyrics-message">
-            <p>{uri.startsWith("spotify:track:") ? "This song has no lyrics on Spotify." : "Episodes have no lyrics."}</p>
-          </div>
+          <Empty
+            className="song-lyrics-state"
+            icon={<MicIcon size={20} />}
+            title={uri.startsWith("spotify:track:") ? "This song has no lyrics on Spotify" : "Episodes have no lyrics"}
+            text="Instrumentals, episodes and local files don't have them."
+          />
         )}
         {l && (
           <>
-            {!l.synced && <p className="song-lyrics-note">These lyrics aren't synced to the song yet.</p>}
+            {!l.synced && <p className="song-lyrics-note">These lyrics don't follow the song yet</p>}
             <div className={`lyrics ${l.synced ? "synced" : ""}`}>
               {l.lines.map((line, i) => (
                 <div

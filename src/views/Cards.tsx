@@ -6,7 +6,7 @@ import { CardGrid } from "../components/Card";
 import type { Route } from "../state/nav";
 import { toast } from "../state/toast";
 import { useAsync } from "../util/useAsync";
-import { Failed, Loading } from "./common";
+import { Empty, Failed, Loading } from "./common";
 
 type Source = Extract<Route, { page: "cards" }>["source"];
 
@@ -27,8 +27,8 @@ function heading(source: Source, page: CardPage, title?: string, from?: string) 
 
 export function CardsView({ source, uri, title, from }: { source: Source; uri: string; title?: string; from?: string }) {
   const load = LOADERS[source];
-  const { data, error, loading } = useAsync(() => load(uri, 0), `${source}:${uri}`);
-  if (error) return <Failed error={error} />;
+  const { data, error, loading, retry } = useAsync(() => load(uri, 0), `${source}:${uri}`);
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (loading || !data) return <Loading />;
   const head = heading(source, data, title, from);
   return (
@@ -45,7 +45,7 @@ function Pages({ first, load }: { first: CardPage; load: (offset: number) => Pro
   return (
     <>
       <CardGrid cards={cards} />
-      {cards.length === 0 && <p className="muted">Nothing here yet.</p>}
+      {cards.length === 0 && <Empty title="Nothing here yet" />}
       {more && (
         <div ref={sentinel} className="more">
           <div className="spinner small" />

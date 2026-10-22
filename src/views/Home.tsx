@@ -61,7 +61,7 @@ const CONTINUE_SHOWS = 12;
 export function Home({ name }: { name: string }) {
   const nav = useNav();
   const layout = useHomeLayout();
-  const { data, error, loading } = useAsync(getHome, "home");
+  const { data, error, loading, retry } = useAsync(getHome, "home");
   const log = useListening();
   const slot = useHour();
   // Read once an hour, not on each song: the panel does not reshuffle under the mouse.
@@ -69,7 +69,7 @@ export function Home({ name }: { name: string }) {
   const forNowCards = useContextCards(forNowUris);
   const continuing = useContinuing(!layout.hidden.includes(CONTINUE_ID), log);
   const [editing, setEditing] = useState(false);
-  if (error) return <Failed error={error} />;
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (loading || !data) return <Loading />;
 
   // The untitled first section is the grid of shortcuts Spotify puts at the top.

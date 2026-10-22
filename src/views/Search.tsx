@@ -11,7 +11,7 @@ import { toast } from "../state/toast";
 import { kindLabel } from "../util/kinds";
 import { useAsync } from "../util/useAsync";
 import { BrowseAll } from "./Browse";
-import { Failed, Loading } from "./common";
+import { Empty, Failed, Loading } from "./common";
 
 const DEBOUNCE_MS = 250;
 
@@ -59,8 +59,8 @@ export function Search({ term, tab = "all" }: { term: string; tab?: SearchTab })
 
 /** One kind of result, every one of them as you scroll. */
 function TabResults({ tab, term }: { tab: Exclude<SearchTab, "all">; term: string }) {
-  const { data, error, loading } = useAsync(() => searchTab(tab, term, 0), `${tab}:${term}`);
-  if (error) return <Failed error={error} />;
+  const { data, error, loading, retry } = useAsync(() => searchTab(tab, term, 0), `${tab}:${term}`);
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (loading || !data) return <Loading />;
   return <TabPages tab={tab} term={term} first={data} />;
 }
@@ -100,7 +100,7 @@ function TabPages({ tab, term, first }: { tab: Exclude<SearchTab, "all">; term: 
   const empty = page.tracks.length + page.cards.length === 0;
   return (
     <div className="page search">
-      {empty && <p className="muted">No results for “{term}”.</p>}
+      {empty && <Empty title={`Nothing for “${term}”`} text="Check the spelling, or try fewer words." />}
       {tab === "tracks" ? (
         <TrackList
           tracks={page.tracks}
@@ -168,8 +168,8 @@ function RecentSearches() {
 function Results({ term }: { term: string }) {
   const nav = useNav();
   const player = usePlayer();
-  const { data, error, loading } = useAsync(() => search(term), term);
-  if (error) return <Failed error={error} />;
+  const { data, error, loading, retry } = useAsync(() => search(term), term);
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (loading || !data) return <Loading />;
 
   const top = data.top;

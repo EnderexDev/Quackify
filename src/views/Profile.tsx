@@ -15,7 +15,7 @@ import { Failed, Loading } from "./common";
 /** `uri`: a spotify:user: URI, or "me". */
 export function ProfileView({ uri }: { uri: string }) {
   const username = uri === "me" ? null : uri.split(":")[2] ?? null;
-  const { data: p, error, loading } = useAsync(() => loadProfile(username), uri);
+  const { data: p, error, loading, retry } = useAsync(() => loadProfile(username), uri);
   const [top, setTop] = useState<TopContent | null>(null);
   const [following, setFollowing] = useState<boolean | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -28,7 +28,7 @@ export function ProfileView({ uri }: { uri: string }) {
     else isFollowingUser(p.uri).then(setFollowing, () => {});
   }, [p]);
 
-  if (error) return <Failed error={error} />;
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (loading || !p) return <Loading />;
 
   const toggleFollow = async () => {

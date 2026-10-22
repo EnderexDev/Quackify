@@ -6,7 +6,7 @@ import { Shelf } from "../components/Card";
 import { useNav } from "../state/nav";
 import { BROWSE_GROUPS, browseGroup, MOOD_CHIPS } from "../util/browseGroups";
 import { useAsync } from "../util/useAsync";
-import { Failed, Loading } from "./common";
+import { Empty, Failed, Loading } from "./common";
 
 /** A break the browser may take without drawing anything. */
 const ZWSP = String.fromCharCode(0x200b);
@@ -43,8 +43,8 @@ export function BrowseAll() {
 /** The Explore tab of the top bar: quick moods, then genres, moods and the rest in sections. */
 export function ExploreView() {
   const nav = useNav();
-  const { data, error } = useAsync(browseAll, "browseAll");
-  if (error) return <Failed error={error} />;
+  const { data, error, retry } = useAsync(browseAll, "browseAll");
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (!data) return <Loading />;
   const chips = MOOD_CHIPS.map((uri) => data.find((c) => c.uri === uri)).filter((c): c is Category => !!c);
   return (
@@ -90,11 +90,11 @@ function CategorySection({ title, tiles }: { title: string; tiles: Category[] })
 /** A genre or mood: a band in its color with its cover tilted, then its rows. */
 export function BrowseView({ uri }: { uri: string }) {
   const nav = useNav();
-  const { data, error, loading } = useAsync(() => browsePage(uri), uri);
+  const { data, error, loading, retry } = useAsync(() => browsePage(uri), uri);
   // The color and cover are the tile's: the page itself does not send them.
   const tiles = useAsync(browseAll, "browseAll").data;
   const tile = tiles?.find((c) => c.uri === uri);
-  if (error) return <Failed error={error} />;
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (loading || !data) return <Loading />;
   return (
     <div className="page browse">
@@ -110,7 +110,7 @@ export function BrowseView({ uri }: { uri: string }) {
           onShowAll={s.more && s.uri ? () => nav.go({ page: "cards", source: "browse", uri: s.uri!, title: s.title, from: data.title }) : undefined}
         />
       ))}
-      {data.sections.length === 0 && <p className="muted">Nothing here yet.</p>}
+      {data.sections.length === 0 && <Empty title="Nothing here yet" />}
     </div>
   );
 }

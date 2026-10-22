@@ -16,7 +16,7 @@ import { usePlayer } from "../state/player";
 import { formatAgo } from "../util/format";
 import { kindLabel } from "../util/kinds";
 import { useAsync } from "../util/useAsync";
-import { Failed, Loading } from "./common";
+import { Empty, Failed, Loading } from "./common";
 
 type Filter = Exclude<LibraryFilter, null>;
 
@@ -61,7 +61,7 @@ export function LibraryView({ filter, folder, title }: { filter: Filter; folder?
   const counts = useAsync(() => libraryCounts(), "library-counts");
   const actions = useLibraryActions();
 
-  if (pages.error && !pages.items.length) return <Failed error={pages.error} />;
+  if (pages.error && !pages.items.length) return <Failed error={pages.error} onRetry={pages.reload} retried={0} />;
 
   const c = counts.data;
   const countLine = folder
@@ -127,31 +127,33 @@ export function LibraryView({ filter, folder, title }: { filter: Filter; folder?
       </div>
       {!pages.loaded && <Loading />}
       {pages.loaded && pages.items.length === 0 && (
-        <div className="library-empty">
-          {text.trim() ? (
-            <p className="muted">Nothing in {heading} matches “{text.trim()}”.</p>
-          ) : folder ? (
-            <>
-              <p className="muted">This folder is empty.</p>
-              <button className="pill-btn" onClick={() => nav.go({ page: "library", filter: "Playlists" })}>
-                See playlists
-              </button>
-            </>
-          ) : (
-            <p className="muted">Your {kind.many} show up here.</p>
-          )}
-        </div>
+        text.trim() ? (
+          <Empty title={`Nothing matches “${text.trim()}”`} text={`Nothing in ${heading} has that in its name.`} />
+        ) : folder ? (
+          <Empty title="This folder is empty" text="Move playlists into it in Spotify, or make a new playlist.">
+            <button className="pill-btn white" onClick={() => newPlaylist()}>
+              <PlusIcon size={14} />
+              New playlist
+            </button>
+            <button className="pill-btn" onClick={() => nav.go({ page: "library", filter: "Playlists" })}>
+              See playlists
+            </button>
+          </Empty>
+        ) : (
+          <Empty title={`No ${kind.many} yet`} text={`Your ${kind.many} show up here.`} />
+        )
       )}
-      {groups.map((g) => (
-        <section key={g.name} className="library-group">
-          {g.name && (
-            <h2 className="library-group-name">
-              {g.name} <span className="muted">{g.items.length}</span>
-            </h2>
-          )}
-          <Items view={view} items={g.items} actions={actions} />
-        </section>
-      ))}
+      {pages.items.length > 0 &&
+        groups.map((g) => (
+          <section key={g.name} className="library-group">
+            {g.name && (
+              <h2 className="library-group-name">
+                {g.name} <span className="muted">{g.items.length}</span>
+              </h2>
+            )}
+            <Items view={view} items={g.items} actions={actions} />
+          </section>
+        ))}
       {pages.error && pages.items.length > 0 && (
         <div className="library-empty">
           <p className="muted">Could not load the rest: {pages.error}</p>

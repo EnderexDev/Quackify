@@ -8,7 +8,8 @@ import { toast } from "../state/toast";
 import { formatDuration } from "../util/format";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
 import { Cover } from "./Cover";
-import { CloseIcon, RepeatIcon, ShuffleIcon } from "./icons";
+import { ClockIcon, CloseIcon, RepeatIcon, ShuffleIcon } from "./icons";
+import { Empty } from "../views/common";
 import { trackMenu } from "./menus";
 import { Segmented } from "./Segmented";
 
@@ -289,7 +290,7 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
             ))}
           </>
         )}
-        {tab === "history" && history.length === 0 && <p className="muted pad">Nothing here yet.</p>}
+        {tab === "history" && history.length === 0 && <Empty title="Nothing here yet" text="Songs you play show up here." icon={<ClockIcon size={20} />} />}
         {tab === "history" &&
           history.map((q, i) => (
             <QueueRow key={rowKey(q, i)} track={info.get(q.uri)} onPlay={() => play.tracks([q.uri], 0).catch(toast)} />

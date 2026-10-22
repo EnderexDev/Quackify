@@ -17,7 +17,7 @@ import { toast } from "../state/toast";
 import { formatCount } from "../util/format";
 import { useAsync } from "../util/useAsync";
 import { usePaged } from "./Cards";
-import { Failed, Loading } from "./common";
+import { Empty, Failed, Loading } from "./common";
 
 type Tab = "overview" | "discography" | "about";
 const TABS: { id: Tab; label: string }[] = [
@@ -34,8 +34,8 @@ export function Artist({ uri }: { uri: string }) {
   const openMenu = useContextMenu();
   const [following] = useSaved(uri);
   const [tab, setTab] = useState<Tab>("overview");
-  const { data, error, loading } = useAsync(() => artist(uri), uri);
-  if (error) return <Failed error={error} />;
+  const { data, error, loading, retry } = useAsync(() => artist(uri), uri);
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (loading || !data) return <Loading />;
 
   const top = data.topTracks;
@@ -216,7 +216,7 @@ function DiscographyPages({
           ))}
         </div>
       )}
-      {cards.length === 0 && <p className="muted">Nothing here yet.</p>}
+      {cards.length === 0 && <Empty title="Nothing here yet" />}
       {more && (
         <div ref={sentinel} className="more">
           <div className="spinner small" />

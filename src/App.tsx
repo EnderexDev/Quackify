@@ -124,6 +124,21 @@ function useMedia(query: string): boolean {
   return on;
 }
 
+/** Whether Windows says there is a network, kept up to date. */
+function useOnline(): boolean {
+  const [online, setOnline] = useState(() => navigator.onLine);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  return online;
+}
+
 // Below 1200px wide the right-hand panel opens over the page; below 1100px Your Library
 // collapses to icons and the player turns compact (the CSS has the same widths).
 const NARROW = "(max-width: 1199px)";
@@ -146,6 +161,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
   };
   const togglePanel = (p: Exclude<Panel, null>) => setPanel(panel === p ? null : p);
 
+  const online = useOnline();
   const narrow = useMedia(NARROW);
   const compact = useMedia(COMPACT);
   // Ctrl B: null follows the window's width; true or false is a choice that differs from it.
@@ -257,6 +273,11 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
           {route.page === "library" && <LibraryView filter={route.filter} folder={route.folder} title={route.title} />}
         </main>
         <FloatingScrollbar target={main} />
+        {!online && (
+          <div className="offline" role="status">
+            No connection. Playing only what's already saved on this computer.
+          </div>
+        )}
         {overlay && <div className="panel-scrim" onMouseDown={() => setPanel(null)} />}
         {panel === "queue" && <QueuePanel onClose={() => setPanel(null)} />}
         <PlayerBar panel={panel} onPanel={togglePanel} />
