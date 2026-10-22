@@ -88,11 +88,14 @@ export function peekProps(card: Card, onEnter?: () => void) {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", stop);
       window.removeEventListener("dragstart", stop);
+      window.removeEventListener("pointercancel", stop);
     };
     const move = (m: PointerEvent) => Math.hypot(m.clientX - x0, m.clientY - y0) > SLOP && stop();
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", stop);
     window.addEventListener("dragstart", stop);
+    // The system took the pointer (a gesture, the window lost it): no peek.
+    window.addEventListener("pointercancel", stop);
     el.classList.add("peek-holding");
     timer = window.setTimeout(() => {
       stop();
@@ -104,6 +107,8 @@ export function peekProps(card: Card, onEnter?: () => void) {
     if (enter(e) || e.key !== " " || e.target !== e.currentTarget) return;
     e.preventDefault();
     e.stopPropagation();
+    // Space held down repeats: only the first press opens or closes.
+    if (e.repeat) return;
     if (open?.card.uri === card.uri) closePeek();
     else openFrom(e.currentTarget, card, "key");
   };

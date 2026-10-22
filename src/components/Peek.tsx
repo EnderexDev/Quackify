@@ -7,7 +7,7 @@ import type { Card, Track } from "../api/types";
 import { songsOf, queueSongs } from "../state/drag";
 import { useNav } from "../state/nav";
 import { closePeek, pressInPeek, usePeekState, type PeekOpen } from "../state/peek";
-import { usePlayer } from "../state/player";
+import { currentQueue, usePlayer } from "../state/player";
 import { useSaved } from "../state/saved";
 import { toast } from "../state/toast";
 import { coverColors, GRAPHITE, type CoverColors } from "../util/coverColors";
@@ -52,8 +52,6 @@ function PeekPanel({ peek }: { peek: PeekOpen }) {
   const [colors, setColors] = useState<CoverColors>(GRAPHITE);
   const panel = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(rect.top);
-  const queue = useRef(player.queue);
-  queue.current = player.queue;
 
   useEffect(() => {
     let alive = true;
@@ -87,7 +85,7 @@ function PeekPanel({ peek }: { peek: PeekOpen }) {
     save: run(() => toggleSaved()),
     queue: run(() =>
       songsOf(card.uri)
-        .then((uris) => queueSongs(uris, false, () => queue.current).then(() => toast(`Added ${uris.length} songs to the queue`)))
+        .then((uris) => queueSongs(uris, false, currentQueue).then(() => toast(`Added ${uris.length} songs to the queue`)))
         .catch(toast),
     ),
     open: run(() => nav.open(card.uri, card.title)),
@@ -98,7 +96,8 @@ function PeekPanel({ peek }: { peek: PeekOpen }) {
     if (mode !== "hold") return;
     const up = (e: PointerEvent) => {
       const target = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-peek-act]");
-      if (target) pressInPeek(target);
+      // A disabled one (a song that cannot play) runs nothing: the peek only closes.
+      if (target && !target.matches(":disabled")) pressInPeek(target);
       else closePeek();
     };
     window.addEventListener("pointerup", up, { once: true });

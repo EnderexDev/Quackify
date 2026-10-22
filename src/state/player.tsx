@@ -84,6 +84,11 @@ export type Player = {
 
 const PlayerContext = createContext<Player | null>(null);
 
+/** What plays next, as of the last render: for work that outlives the component that began
+ * it (a drop or a peek closes before the songs it added show in the queue). */
+let liveQueue: QueuedTrack[] = [];
+export const currentQueue = () => liveQueue;
+
 export function usePlayer(): Player {
   const p = useContext(PlayerContext);
   if (!p) throw new Error("usePlayer outside PlayerProvider");
@@ -245,6 +250,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     resyncRef.current();
   };
 
+  liveQueue = pb?.next_tracks ?? [];
   const value: Player = {
     track,
     contextUri: pageUri(pb?.context_uri ?? null),

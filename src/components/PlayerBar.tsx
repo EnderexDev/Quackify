@@ -7,7 +7,7 @@ import { play } from "../api/spotify";
 import { activeLine, useLyrics } from "../state/lyrics";
 import { useProgressMode } from "../state/meter";
 import { useNav } from "../state/nav";
-import { usePlayer, type NowPlaying } from "../state/player";
+import { currentQueue, usePlayer, type NowPlaying } from "../state/player";
 import { playerLyrics } from "../state/prefs";
 import { carriesSongs, droppedSongs, queueSongs, readDrop, useDrag } from "../state/drag";
 import { useSaved } from "../state/saved";
@@ -398,9 +398,6 @@ function QueueDrop() {
   const drag = useDrag();
   const p = usePlayer();
   const [over, setOver] = useState<"next" | "end" | null>(null);
-  // The queue as it is when the songs land (the drop runs on after this render).
-  const queue = useRef(p.queue);
-  queue.current = p.queue;
   useEffect(() => setOver(null), [drag]);
   if (!drag) return null;
   const queued = p.queue.filter((q) => q.provider === "queue").length;
@@ -412,7 +409,7 @@ function QueueDrop() {
     try {
       const uris = await droppedSongs(data);
       if (!uris.length) return toast("Nothing there to add to the queue");
-      const went = await queueSongs(uris, where === "next", () => queue.current);
+      const went = await queueSongs(uris, where === "next", currentQueue);
       const n = uris.length === 1 ? "1 song" : `${uris.length} songs`;
       toast(went === "next" ? `${n} will play next` : `Added ${n} to the queue`);
     } catch (err) {
