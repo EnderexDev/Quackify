@@ -404,9 +404,10 @@ pub async fn spotify_player_state(state: State<'_, SpotifyState>) -> Result<Play
 pub async fn spotify_play_context(
     context_uri: String,
     track_uri: Option<String>,
+    position_ms: Option<u32>,
     state: State<'_, SpotifyState>,
 ) -> Result<(), String> {
-    hub(&state).await?.play_context(context_uri, track_uri).await
+    hub(&state).await?.play_context(context_uri, track_uri, position_ms).await
 }
 
 /// Plays a loose list of tracks (search results) from `index`.

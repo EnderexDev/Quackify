@@ -405,8 +405,13 @@ export type QueueEdit =
   | { kind: "clear" };
 
 export const play = {
-  context: (contextUri: string, trackUri?: string) =>
-    invoke("spotify_play_context", { contextUri, trackUri: trackUri ?? null }),
+  /** Plays an album, playlist or podcast, from `trackUri` when given, `positionMs` into it. */
+  context: (contextUri: string, trackUri?: string, positionMs?: number) =>
+    invoke("spotify_play_context", {
+      contextUri,
+      trackUri: trackUri ?? null,
+      positionMs: positionMs ? Math.max(0, Math.round(positionMs)) : null,
+    }),
   tracks: (uris: string[], index: number) => invoke("spotify_play_tracks", { uris, index }),
   pause: () => invoke("spotify_pause"),
   resume: () => invoke("spotify_resume"),

@@ -250,3 +250,86 @@
 .customize-add-item:hover {
   background: var(--surface-2);
 }
+
+/* For now: the row of what usually plays at this hour, in a panel tinted with the music's
+   colours, with the day and hour and why. */
+.shelf.for-now {
+  padding: 14px 16px 6px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--aura-2) 16%, transparent),
+    color-mix(in srgb, var(--aura) 14%, transparent)
+  );
+}
+
+.for-now .shelf-head {
+  padding: 0 4px;
+  margin-bottom: 4px;
+}
+
+.for-now h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+}
+
+.for-now-when {
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.for-now-why {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Your shortcuts: Spotify's grid as one row of tiles, four across at the Figma's width. */
+.shelf-row.tiles {
+  --cols: 1;
+  padding-bottom: 2px;
+}
+
+.shelf-row.tiles .shortcut {
+  scroll-snap-align: start;
+}
+
+@container (min-width: 460px) {
+  .shelf-row.tiles {
+    --cols: 2;
+  }
+}
+
+@container (min-width: 700px) {
+  .shelf-row.tiles {
+    --cols: 3;
+  }
+}
+
+@container (min-width: 900px) {
+  .shelf-row.tiles {
+    --cols: 4;
+  }
+}
+
+@container (min-width: 1400px) {
+  .shelf-row.tiles {
+    --cols: 5;
+  }
+}
+
+@container (min-width: 1700px) {
+  .shelf-row.tiles {
+    --cols: 6;
+  }
+}

@@ -383,7 +383,7 @@ impl Hub {
                 // when it had one.
                 let Some(p) = self.view().playback else { return Ok(()) };
                 match p.context_uri.filter(|c| c.starts_with("spotify:") && !c.starts_with("spotify:web-api")) {
-                    Some(context) => self.play_context(context, Some(p.track_uri)).await,
+                    Some(context) => self.play_context(context, Some(p.track_uri), None).await,
                     None => self.play_tracks(vec![p.track_uri], 0).await,
                 }
             }
@@ -480,7 +480,14 @@ impl Hub {
 
     /// Plays a playlist, album, artist or Liked Songs from `track_uri`, on the active device
     /// (this one when nothing is playing anywhere).
-    pub async fn play_context(self: &Arc<Self>, context_uri: String, track_uri: Option<String>) -> Result<(), String> {
+    /// Plays a context, from `track_uri` when given and `position_ms` into it (Continue picks up
+    /// where the user left).
+    pub async fn play_context(
+        self: &Arc<Self>,
+        context_uri: String,
+        track_uri: Option<String>,
+        position_ms: Option<u32>,
+    ) -> Result<(), String> {
         let context_uri = self.resolvable(&context_uri);
         match self.target() {
             Target::Local => {
@@ -489,6 +496,7 @@ impl Hub {
                     context_uri,
                     LoadRequestOptions {
                         start_playing: true,
+                        seek_to: position_ms.unwrap_or(0),
                         playing_track: track_uri.map(PlayingTrack::Uri),
                         ..Default::default()
                     },
@@ -498,6 +506,9 @@ impl Hub {
                 let mut options = json!({});
                 if let Some(t) = track_uri {
                     options["skip_to"] = json!({ "track_uri": t });
+                }
+                if let Some(ms) = position_ms {
+                    options["seek_to"] = json!(ms);
                 }
                 self.remote_command(
                     &to,

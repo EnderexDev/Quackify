@@ -7,6 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { play, type Repeat } from "../api/spotify";
 import type { Named } from "../api/types";
+import { flush, observe } from "./listening";
 import { toast } from "./toast";
 
 export type NowPlaying = {
@@ -167,6 +168,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // The local listening history hears each change of song, place or state (state/listening.ts).
+    const sample = () => {
+      const pb = viewRef.current?.playback;
+      if (!pb) return;
+      const c = clock.current;
+      observe({
+        context: pageUri(pb.context_uri),
+        track: pb.track_uri,
+        index: pb.index,
+        pos: c.running ? c.ms + (performance.now() - c.at) : c.ms,
+        dur: pb.duration_ms,
+        playing: c.running,
+        shuffle: pb.shuffle,
+        now: Date.now(),
+      });
+    };
     const applyView = (v: ConnectView) => {
       viewRef.current = v;
       setView(v);
@@ -176,6 +193,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (v.playback) {
         setPlaying(v.playback.is_playing);
         setClock(v.playback.position_ms, v.playback.is_playing);
+        sample();
       } else if (v.active_device_id === null) {
         setPlaying(false);
         clock.current.running = false;
@@ -229,11 +247,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             setClock(0, false);
             break;
         }
+        // Only an event about the song the cluster shows: one for the next song can come first,
+        // and would put the place of the song before at 0:00.
+        if (e.kind !== "loading" && e.kind !== "stopped" && e.uri === viewRef.current?.playback?.track_uri) sample();
       }),
     ];
     // Listen first, then read the snapshot, so nothing slips between the two.
     Promise.all(offs).then(resync);
-    return () => offs.forEach((o) => o.then((f) => f()));
+    const onHide = () => flush();
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      offs.forEach((o) => o.then((f) => f()));
+    };
   }, []);
 
   const pb = view?.playback ?? null;

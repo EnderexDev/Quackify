@@ -118,8 +118,25 @@ export function Shelf({
 /** How far the mouse moves before a press on the row becomes a drag instead of a click. */
 const DRAG_PX = 6;
 
-/** The sideways-scrolling row under a title, for cards or any other tiles. */
-export function ShelfRow({ title, note, onShowAll, children }: { title: string; note?: string; onShowAll?: () => void; children: ReactNode }) {
+/** The sideways-scrolling row under a title, for cards or any other tiles. `aside` sits at the
+ * right of the head; `className` and `rowClass` go on the section and on the row. */
+export function ShelfRow({
+  title,
+  note,
+  aside,
+  onShowAll,
+  className = "",
+  rowClass = "",
+  children,
+}: {
+  title: ReactNode;
+  note?: string;
+  aside?: ReactNode;
+  onShowAll?: () => void;
+  className?: string;
+  rowClass?: string;
+  children: ReactNode;
+}) {
   const row = useRef<HTMLDivElement>(null);
   const [ends, setEnds] = useState({ start: true, end: true });
 
@@ -140,12 +157,13 @@ export function ShelfRow({ title, note, onShowAll, children }: { title: string; 
   const page = (dir: 1 | -1) => row.current?.scrollBy({ left: dir * row.current.clientWidth, behavior: "smooth" });
 
   return (
-    <section className="shelf">
+    <section className={`shelf ${className}`}>
       <div className="shelf-head">
         <h2>
           {title}
           {note && <span className="shelf-note">{note}</span>}
         </h2>
+        {aside}
         {onShowAll && (
           <button className="link show-all" onClick={onShowAll}>
             Show all
@@ -164,7 +182,7 @@ export function ShelfRow({ title, note, onShowAll, children }: { title: string; 
       </div>
       <div
         ref={row}
-        className="shelf-row"
+        className={`shelf-row ${rowClass}`}
         onPointerDown={(e) => {
           const el = row.current;
           if (!el || e.button !== 0 || e.pointerType !== "mouse") return;
