@@ -71,6 +71,9 @@ function useSource(uri: string | null): Source | null {
   return source;
 }
 
+/** A row's key: its uid, or its place when it has none (the same song can come twice). */
+const rowKey = (q: QueuedTrack, i: number) => q.uid || `${q.uri}#${i}`;
+
 /** A new order for \`list\`, every order as likely. */
 function shuffled<T>(list: T[]): T[] {
   const out = [...list];
@@ -91,7 +94,8 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<"queue" | "history">("queue");
   // An edit shows at once; Spotify's next state replaces it.
   const [shown, setShown] = useState<QueuedTrack[] | null>(null);
-  const serverKey = player.queue.map((q) => q.uid).join(",");
+  // Every entry counts, uid or not, so a new state always replaces an edit shown early.
+  const serverKey = JSON.stringify(player.queue.map((q) => [q.uri, q.uid, q.provider]));
   useEffect(() => setShown(null), [serverKey]);
   const all = shown ?? player.queue;
   const allQueued = all.filter((q) => q.provider === "queue");
@@ -212,8 +216,8 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
                 </button>
               </div>
             )}
-            {queued.map((q) => (
-              <QueueRow key={q.uid || q.uri} {...rowProps(q)} />
+            {queued.map((q, i) => (
+              <QueueRow key={rowKey(q, i)} {...rowProps(q)} />
             ))}
             {/* Dropping here puts a song at the end of the added ones. */}
             {dragging && (
@@ -269,8 +273,8 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
                 )}
               </div>
             )}
-            {fromContext.map((q) => (
-              <QueueRow key={q.uid || q.uri} {...rowProps(q)} />
+            {fromContext.map((q, i) => (
+              <QueueRow key={rowKey(q, i)} {...rowProps(q)} />
             ))}
             {autoplay.length > 0 && (
               <div className="queue-group-head">
@@ -280,15 +284,15 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
             )}
-            {autoplay.map((q) => (
-              <QueueRow key={q.uid || q.uri} track={info.get(q.uri)} item={q} />
+            {autoplay.map((q, i) => (
+              <QueueRow key={rowKey(q, i)} track={info.get(q.uri)} item={q} />
             ))}
           </>
         )}
         {tab === "history" && history.length === 0 && <p className="muted pad">Nothing here yet.</p>}
         {tab === "history" &&
-          history.map((q) => (
-            <QueueRow key={q.uid || q.uri} track={info.get(q.uri)} onPlay={() => play.tracks([q.uri], 0).catch(toast)} />
+          history.map((q, i) => (
+            <QueueRow key={rowKey(q, i)} track={info.get(q.uri)} onPlay={() => play.tracks([q.uri], 0).catch(toast)} />
           ))}
       </div>
     </aside>
