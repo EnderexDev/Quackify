@@ -28,8 +28,9 @@ const FILTERS: { id: EpisodeFilter; label: string }[] = [
 /** An episode is new for a week after it comes out, until it is played. */
 const NEW_MS = 7 * 86_400_000;
 
-const matches = (e: Episode, filter: EpisodeFilter, text: string) =>
-  (filter === "all" || (filter === "unplayed" ? !e.finished && e.playedMs === 0 : !e.finished && e.playedMs > 0)) &&
+/** `playedMs` is where it stopped when the page loaded; the episode playing passes its live position. */
+const matches = (e: Episode, filter: EpisodeFilter, text: string, playedMs = e.playedMs) =>
+  (filter === "all" || (filter === "unplayed" ? !e.finished && playedMs === 0 : !e.finished && playedMs > 0)) &&
   (!text || e.name.toLowerCase().includes(text) || e.description.toLowerCase().includes(text));
 
 export function ShowView({ uri }: { uri: string }) {
@@ -104,7 +105,10 @@ function Episodes({ showUri, first, filter, text }: { showUri: string; first: Ep
   const [failed, setFailed] = useState(false);
   const sentinel = useRef<HTMLDivElement>(null);
   const loadingMore = useRef(false);
-  const shown = episodes.filter((e) => matches(e, filter, text));
+  const player = usePlayer();
+  const playingUri = player.track?.uri;
+  // The one playing has started, whatever the page loaded with.
+  const shown = episodes.filter((e) => matches(e, filter, text, e.uri === playingUri ? Math.max(e.playedMs, 1) : e.playedMs));
 
   // Next page when the end of the list comes into view, also while filtering, so a filter
   // that hides most of a page still reaches the older episodes.
