@@ -100,8 +100,13 @@ function PeekPanel({ peek }: { peek: PeekOpen }) {
       if (target && !target.matches(":disabled")) pressInPeek(target);
       else closePeek();
     };
+    // A pointer the system takes back never comes up: it closes too.
     window.addEventListener("pointerup", up, { once: true });
-    return () => window.removeEventListener("pointerup", up);
+    window.addEventListener("pointercancel", closePeek, { once: true });
+    return () => {
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", closePeek);
+    };
   }, [mode]);
 
   useEffect(() => {
@@ -111,7 +116,9 @@ function PeekPanel({ peek }: { peek: PeekOpen }) {
         e.stopPropagation();
         done();
       } else if (e.key === "Enter" && !(e.target as HTMLElement)?.closest?.("button")) {
+        // The card in focus would open the page a second time.
         e.preventDefault();
+        e.stopPropagation();
         actions.open();
       }
     };
