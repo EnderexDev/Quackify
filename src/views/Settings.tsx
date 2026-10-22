@@ -224,14 +224,13 @@ export function SettingsView({ account }: { account: Account }) {
           </Group>
 
           <Group id="progress" title="Progress bar" note="How the player's bar shows the song. Wave and Live play through Quackify's own audio output, so going between Simple and them reconnects for a moment.">
-            <div className="progress-choices" role="radiogroup" aria-label="Progress bar">
+            <div className="progress-choices" role="group" aria-label="Progress bar">
               {PROGRESS_MODES.map((m) => {
                 const on = (s.progress_mode ?? "simple") === m.id;
                 return (
                   <button
                     key={m.id}
-                    role="radio"
-                    aria-checked={on}
+                    aria-pressed={on}
                     className={`progress-choice ${on ? "on" : ""}`}
                     disabled={applying}
                     onClick={() => !on && save({ progress_mode: m.id })}
@@ -257,7 +256,7 @@ export function SettingsView({ account }: { account: Account }) {
 
           <Group id="audio" title="Audio">
             <Row title="Streaming quality" note="Lossless is only played by Spotify's own apps: 320 kbps is the best Quackify can get.">
-              <select value={s.quality} disabled={applying} onChange={(e) => save({ quality: e.currentTarget.value as Quality })}>
+              <select aria-label="Streaming quality" value={s.quality} disabled={applying} onChange={(e) => save({ quality: e.currentTarget.value as Quality })}>
                 {QUALITIES.map((q) => (
                   <option key={q.value} value={q.value}>
                     {q.label}
@@ -302,6 +301,7 @@ export function SettingsView({ account }: { account: Account }) {
             </Row>
             <Row title="Cache size" note="The most the cache may take on disk." off={!s.audio_cache}>
               <select
+                aria-label="Cache size"
                 value={s.cache_size_gb}
                 disabled={applying || !s.audio_cache}
                 onChange={(e) => save({ cache_size_gb: Number(e.currentTarget.value) })}
@@ -342,6 +342,7 @@ export function SettingsView({ account }: { account: Account }) {
             <Row title="Device name" note="How this computer shows up in your other Spotify apps.">
               <input
                 className="settings-input"
+                aria-label="Device name"
                 value={nameDraft}
                 maxLength={40}
                 disabled={applying}
