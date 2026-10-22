@@ -54,7 +54,9 @@ export function Aura() {
     const el = blobs.current;
     if (!el || still || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const off = onMeter((f) => {
-      const low = (f.bands[0] + f.bands[1] + f.bands[2]) / 3;
+      // The first sixth of the bands: about 50 to 140 Hz.
+      const n = Math.max(1, Math.round(f.bands.length / 6));
+      const low = f.bands.slice(0, n).reduce((a, b) => a + b, 0) / n;
       const push = Math.max(0, (low - 0.45) / 0.55);
       el.style.transform = `scale(${(1 + push * 0.07).toFixed(3)})`;
     });

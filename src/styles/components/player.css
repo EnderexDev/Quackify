@@ -483,7 +483,11 @@
   opacity: 0;
 }
 
-/* Live: the line stays under the bars, a little quieter. */
+/* Live: while there is sound the bars are the bar; in silence (and on pause) the line comes back. */
 .progress-live .slider-track {
-  opacity: 0.6;
+  transition: opacity var(--t-mid) var(--ease-out);
+}
+
+.progress-live.sounding .slider-track {
+  opacity: 0;
 }

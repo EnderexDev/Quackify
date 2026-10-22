@@ -21,7 +21,8 @@ use librespot_playback::{NUM_CHANNELS, SAMPLE_RATE};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
-pub const BANDS: usize = 16;
+/// Frequency bands, low to high: enough for the Live bars to differ from their neighbours.
+pub const BANDS: usize = 32;
 /// Mono samples per spectrum: 46 ms of sound, bins about 22 Hz apart (1024 left the lowest bands
 /// sharing the same two bins).
 const FFT: usize = 2048;
@@ -316,11 +317,19 @@ impl Drop for OutputSink {
 }
 
 impl Sink for OutputSink {
+    // Start and stop never return an error: librespot answers one with exit(1), closing the app.
+    // A device that fails is kept in `failed`, and the next write returns that instead, which
+    // librespot answers with a pause.
     fn start(&mut self) -> SinkResult<()> {
+        let played = self.stream.play();
         if let Ok(mut s) = self.shared.lock() {
             s.running = true;
+            if let Err(e) = &played {
+                eprintln!("[output] could not start: {e}");
+                s.failed = Some(e.to_string());
+            }
         }
-        self.stream.play().map_err(sink_error)
+        Ok(())
     }
 
     fn stop(&mut self) -> SinkResult<()> {
@@ -334,7 +343,10 @@ impl Sink for OutputSink {
             s.queue.clear();
             s.frac = 0.0;
         }
-        self.stream.pause().map_err(sink_error)
+        if let Err(e) = self.stream.pause() {
+            eprintln!("[output] could not pause: {e}");
+        }
+        Ok(())
     }
 
     fn write(&mut self, packet: AudioPacket, converter: &mut Converter) -> SinkResult<()> {
@@ -388,8 +400,8 @@ mod tests {
         let low = m.feed(&sine(80.0, 0.1, 0.8), 1.0);
         let mut m = Meter::new();
         let high = m.feed(&sine(6000.0, 0.1, 0.8), 1.0);
-        assert!(loudest(&low) <= 3, "80 Hz should be in the first bands");
-        assert!(loudest(&high) >= 11, "6 kHz should be in the top bands");
+        assert!(loudest(&low) <= BANDS / 5, "80 Hz should be in the first bands");
+        assert!(loudest(&high) >= BANDS * 2 / 3, "6 kHz should be in the top bands");
         assert!(low.bands[loudest(&low)] > 0.85, "a loud tone should read near full scale");
     }
 
@@ -457,7 +469,7 @@ mod tests {
         let mut out = vec![0.0; 4410 * 2];
         fill(&mut s, &mut out, 2, 1.0);
         let f = s.meter.frame(1.0, RECENT);
-        assert!(loudest(&f) <= 3 && f.peak > 0.7, "{f:?}");
+        assert!(loudest(&f) <= BANDS / 5 && f.peak > 0.7, "{f:?}");
     }
 
     #[test]

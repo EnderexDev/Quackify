@@ -115,6 +115,10 @@ pub struct Hub {
     // The track whose metadata was last asked for: an older answer arriving late is dropped.
     wanted_track: StdMutex<Option<String>>,
     refresh_pending: AtomicBool,
+    // This app's player stopped (the last song ended with nothing after it). librespot 0.8 then
+    // leaves the playback it publishes as playing at 0:00, so the view says paused instead, and
+    // play starts the song again (librespot ignores play while stopped).
+    local_stopped: AtomicBool,
     // One cluster read at a time, in order, so an older answer never overwrites a newer one.
     refreshing: tokio::sync::Mutex<()>,
     // Queue edits one at a time, each on the queue the previous one left.
@@ -143,6 +147,7 @@ impl Hub {
             now_playing: StdMutex::new(None),
             wanted_track: StdMutex::new(None),
             refresh_pending: AtomicBool::new(false),
+            local_stopped: AtomicBool::new(false),
             refreshing: tokio::sync::Mutex::new(()),
             editing_queue: tokio::sync::Mutex::new(()),
             track_cache: StdMutex::new(Default::default()),
@@ -215,6 +220,12 @@ impl Hub {
             .map_err(|e| e.to_string())?;
         let cluster: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
         let mut view = parse_cluster(&cluster, self.session.device_id());
+        if self.local_stopped.load(Ordering::SeqCst) && view.active_device_id.as_deref() == Some(view.local_device_id.as_str()) {
+            if let Some(p) = view.playback.as_mut() {
+                p.is_playing = false;
+                p.position_ms = 0;
+            }
+        }
         // This device's volume is its mixer's: the cluster's copy can lag behind a change.
         let local_volume = f64::from(self.mixer.volume()) / f64::from(u16::MAX);
         for d in view.devices.iter_mut().filter(|d| d.is_local) {
@@ -360,8 +371,22 @@ impl Hub {
         }
     }
 
+    /// What this app's player does, from its events: stopped, or loading and playing again.
+    pub fn set_local_stopped(&self, stopped: bool) {
+        self.local_stopped.store(stopped, Ordering::SeqCst);
+    }
+
     pub async fn resume(self: &Arc<Self>) -> Result<(), String> {
         match self.target() {
+            Target::Local if self.local_stopped.load(Ordering::SeqCst) => {
+                // The song ended with nothing after it: play it again, in its album or playlist
+                // when it had one.
+                let Some(p) = self.view().playback else { return Ok(()) };
+                match p.context_uri.filter(|c| c.starts_with("spotify:") && !c.starts_with("spotify:web-api")) {
+                    Some(context) => self.play_context(context, Some(p.track_uri)).await,
+                    None => self.play_tracks(vec![p.track_uri], 0).await,
+                }
+            }
             Target::Local => self.local(self.spirc.play()),
             Target::Remote(to) => self.remote_command(&to, json!({ "endpoint": "resume" })).await,
         }

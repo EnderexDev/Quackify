@@ -8,7 +8,7 @@ import { listen } from "@tauri-apps/api/event";
 export type MeterFrame = { peak: number; rms: number; bands: number[] };
 export type ProgressMode = "simple" | "wave" | "live";
 
-const SILENT: MeterFrame = { peak: 0, rms: 0, bands: new Array(16).fill(0) };
+const SILENT: MeterFrame = { peak: 0, rms: 0, bands: new Array(32).fill(0) };
 let last: { frame: MeterFrame; at: number } = { frame: SILENT, at: 0 };
 const listeners = new Set<(f: MeterFrame) => void>();
 

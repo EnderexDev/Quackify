@@ -1,8 +1,8 @@
 // The player's progress bar, in the three modes of Settings: Simple (the line), Wave (the song's
-// waveform in thin bars, the played part white) and Live (bars born in the middle that reach for
-// the ends with the sound, low notes in the centre). Wave and Live draw on a canvas over the
-// slider, which still takes the clicks and drags. While another device plays, it is Simple:
-// Quackify does not hear that device's sound.
+// waveform in thin bars, the played part white) and Live (thin bars across the whole bar that
+// move with the sound, the lows in the middle, tapering to dots at the ends). Wave and Live draw
+// on a canvas over the slider, which still takes the clicks and drags. While another device
+// plays, it is Simple: Quackify does not hear that device's sound.
 import { useEffect, useRef } from "react";
 import { level, meterNow, onMeter, type ProgressMode } from "../state/meter";
 import { Slider } from "./Slider";
@@ -13,13 +13,27 @@ const WAVE_PREFIX = "wave:";
 const WAVE_INDEX = "waveIndex";
 /** Songs whose waveform is kept; the least recently played goes first. */
 const WAVE_KEEP = 300;
-/** Live: bands per side (the meter's 16), mirrored around the middle. */
-const LIVE_BANDS = 16;
-/** Live: how much of its height a bar keeps per frame after the sound drops (about 300 ms to nothing). */
-const LIVE_DECAY = 0.82;
+/** Wave: a saved bar counts as this many readings, so a new play refines it without wiping it. */
+const WAVE_SAVED_WEIGHT = 4;
+/** Wave: past this many readings a bar keeps learning, but slowly. */
+const WAVE_MAX_WEIGHT = 40;
+/** Live: about one bar every this many pixels, mirrored around the middle. */
+const LIVE_PITCH = 5;
+/** Live: a bar rises at once and falls by this share per frame (about 300 ms to nothing). */
+const LIVE_FALL = 0.82;
+/**
+ * Live: each band is read against its own recent quietest and loudest (they drift back towards
+ * the band by this much per frame, about 5 s to forget), since the lows sit around 0.6 on the
+ * meter and the highs around 0.2.
+ */
+const LIVE_ADAPT = 0.0015;
+/** Live: a band whose loudest stays under this is silence (the top octave of many songs). */
+const LIVE_QUIET = 0.08;
 
 const PLAYED = "rgba(255, 255, 255, 0.95)";
-const AHEAD = "rgba(255, 255, 255, 0.3)";
+const AHEAD = "rgba(255, 255, 255, 0.32)";
+
+type Wave = { uri: string; bins: Float32Array; weight: Float32Array; dirty: boolean };
 
 export function ProgressBar({
   uri,
@@ -38,21 +52,24 @@ export function ProgressBar({
   disabled: boolean;
   onSeek: (ms: number) => void;
 }) {
+  const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   // Read by the drawing loop, which outlives renders.
   const live = useRef({ position, duration, playing });
   live.current = { position, duration, playing };
 
-  // The waveform of the song playing: loaded when it starts, grown while it plays, saved when it
-  // changes, every few seconds, and when the window closes.
-  const wave = useRef<{ uri: string; bins: Float32Array; dirty: boolean } | null>(null);
+  // The waveform of the song playing: loaded when it starts, grown while it plays (each bar the
+  // average loudness of its stretch of the song), saved when it changes, every few seconds, and
+  // when the window closes.
+  const wave = useRef<Wave | null>(null);
   useEffect(() => {
     if (mode !== "wave" || !uri) {
       // Nothing playing: no waveform left from the song before.
       wave.current = null;
       return;
     }
-    const w = { uri, bins: loadWave(uri), dirty: false };
+    const bins = loadWave(uri);
+    const w: Wave = { uri, bins, weight: bins.map((v) => (v > 0 ? WAVE_SAVED_WEIGHT : 0)), dirty: false };
     wave.current = w;
     const flush = () => {
       if (!w.dirty) return;
@@ -61,14 +78,14 @@ export function ProgressBar({
     };
     const off = onMeter((f) => {
       const { position, duration, playing } = live.current;
-      if (!playing || !duration) return;
+      if (!playing || !duration || f.rms <= 0) return;
       const i = Math.min(WAVE_BINS - 1, Math.floor((position() / duration) * WAVE_BINS));
-      // Music sits between about -30 and -6 dB: that range fills the bar, so loud and quiet parts differ.
-      const v = level(f.rms, -30, -6);
-      if (v > w.bins[i]) {
-        w.bins[i] = v;
-        w.dirty = true;
-      }
+      // Music sits between about -36 and -6 dB; the drawing stretches each song to its own range.
+      const v = level(f.rms, -36, -6);
+      const n = Math.min(w.weight[i], WAVE_MAX_WEIGHT);
+      w.bins[i] = (w.bins[i] * n + v) / (n + 1);
+      w.weight[i] = n + 1;
+      w.dirty = true;
     });
     const timer = window.setInterval(flush, 15000);
     window.addEventListener("beforeunload", flush);
@@ -86,7 +103,9 @@ export function ProgressBar({
     const c = canvas.current;
     const ctx = c?.getContext("2d");
     if (!c || !ctx) return;
-    const heights = new Float32Array(LIVE_BANDS * 2);
+    let heights = new Float32Array(0);
+    const range = { lo: new Float32Array(0), hi: new Float32Array(0) };
+    let sounding = false;
     let raf = 0;
     const draw = () => {
       raf = requestAnimationFrame(draw);
@@ -99,57 +118,118 @@ export function ProgressBar({
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      const { position, duration } = live.current;
+      const { position, duration, playing } = live.current;
       const played = duration ? Math.min(1, position() / duration) * w : 0;
-      if (mode === "wave") drawWave(ctx, w, h, played, wave.current?.bins ?? null);
-      else drawLive(ctx, w, h, played, heights, live.current.playing);
+      if (mode === "wave") return drawWave(ctx, w, h, played, wave.current?.bins ?? null);
+      const half = Math.max(8, Math.floor(w / LIVE_PITCH / 2));
+      if (heights.length !== half) heights = new Float32Array(half);
+      const loud = drawLive(ctx, w, h, played, heights, normalize(playing ? meterNow().bands : null, range));
+      // While there is sound the bars are the bar; without it, the line comes back.
+      if (loud !== sounding) {
+        sounding = loud;
+        box.current?.classList.toggle("sounding", loud);
+      }
     };
     draw();
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      box.current?.classList.remove("sounding");
+    };
   }, [mode]);
 
   return (
-    <div className={`progress progress-${mode}`}>
+    <div className={`progress progress-${mode}`} ref={box}>
       {mode !== "simple" && <canvas ref={canvas} className="progress-canvas" aria-hidden />}
       <Slider value={duration ? position() / duration : 0} onCommit={(f) => onSeek(f * duration)} disabled={disabled} />
     </div>
   );
 }
 
-/** Thin bars, as tall as the song is loud there; a stub where it has not been heard yet. */
+/**
+ * Thin bars as tall as the song is loud there, stretched to the song's own quietest and loudest
+ * parts so its shape shows; a short stub where it has not been heard yet.
+ */
 function drawWave(ctx: CanvasRenderingContext2D, w: number, h: number, played: number, bins: Float32Array | null) {
+  let lo = 1;
+  let hi = 0;
+  if (bins)
+    for (const v of bins)
+      if (v > 0) {
+        lo = Math.min(lo, v);
+        hi = Math.max(hi, v);
+      }
+  const span = hi - lo;
   const step = w / WAVE_BINS;
-  const bar = Math.max(1, step * 0.55);
+  const bar = Math.max(1.5, step * 0.5);
   const mid = h / 2;
   for (let i = 0; i < WAVE_BINS; i++) {
     const v = bins ? bins[i] : 0;
-    const bh = Math.max(2, v * (h - 2));
+    let bh = 2;
+    if (v > 0) {
+      const t = span > 0.04 ? (v - lo) / span : 0.6;
+      bh = Math.max(3, (0.14 + 0.86 * Math.pow(t, 1.6)) * (h - 2));
+    }
     const x = i * step + (step - bar) / 2;
     ctx.fillStyle = x + bar / 2 <= played ? PLAYED : AHEAD;
     roundBar(ctx, x, mid - bh / 2, bar, bh);
   }
 }
 
-/** Bars from the middle out, mirrored: band 0 (the lows) at the centre, the highs at the ends. */
-function drawLive(ctx: CanvasRenderingContext2D, w: number, h: number, played: number, heights: Float32Array, playing: boolean) {
-  const bands = playing ? meterNow().bands : null;
-  const n = LIVE_BANDS * 2;
-  const step = w / n;
-  const bar = Math.max(1.5, step * 0.5);
+/** Each band as 0 to 1 between its own recent quietest and loudest; null without sound. */
+function normalize(bands: number[] | null, range: { lo: Float32Array; hi: Float32Array }): number[] | null {
+  if (!bands || !bands.some((b) => b > 0)) return null;
+  if (range.lo.length !== bands.length) {
+    range.lo = Float32Array.from(bands, (b) => Math.max(0, b - 0.1));
+    range.hi = Float32Array.from(bands, (b) => b + 0.1);
+  }
+  return bands.map((b, i) => {
+    range.lo[i] = Math.min(b, range.lo[i] + LIVE_ADAPT);
+    range.hi[i] = Math.max(b, range.hi[i] - LIVE_ADAPT);
+    if (range.hi[i] < LIVE_QUIET) return 0;
+    return Math.min(1, Math.max(0, (b - range.lo[i]) / Math.max(0.12, range.hi[i] - range.lo[i])));
+  });
+}
+
+/**
+ * Bars from the middle out, mirrored: the lows at the centre, the highs towards the ends, each
+ * bar reading the band at its distance (in between, a blend of the two nearest). They taper
+ * towards the ends and stand as dots while the sound is quiet. Returns whether any sound shows.
+ */
+function drawLive(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  played: number,
+  heights: Float32Array,
+  bands: number[] | null,
+): boolean {
+  const half = heights.length;
+  const step = w / (half * 2);
+  const bar = Math.max(1.5, Math.min(2.5, step * 0.45));
   const mid = h / 2;
-  for (let j = 0; j < LIVE_BANDS; j++) {
-    // The highs read low on the meter: a boost growing towards them, only in the picture.
-    const raw = bands ? bands[j] : 0;
-    const target = Math.min(1, Math.max(0, (raw - 0.25) / 0.75) * (1 + (0.9 * j) / (LIVE_BANDS - 1)));
-    for (const i of [LIVE_BANDS - 1 - j, LIVE_BANDS + j]) {
-      heights[i] = Math.max(target, heights[i] * LIVE_DECAY);
-      if (heights[i] < 0.02) continue;
-      const bh = heights[i] * (h - 2);
-      const x = i * step + (step - bar) / 2;
+  const dot = 2.5 / (h - 2);
+  const sound = !!bands && bands.some((b) => b > 0);
+  for (let k = 0; k < half; k++) {
+    const d = k / (half - 1);
+    let target = 0;
+    if (sound) {
+      const at = d * (bands!.length - 1);
+      const a = Math.floor(at);
+      const raw = bands![a] + (bands![Math.min(a + 1, bands!.length - 1)] - bands![a]) * (at - a);
+      target = (0.1 + 0.9 * Math.pow(raw, 1.4)) * (1 - 0.5 * d * d);
+    }
+    heights[k] = Math.max(target, heights[k] * LIVE_FALL);
+  }
+  if (!sound && heights.every((v) => v < 0.01)) return false;
+  for (let k = 0; k < half; k++) {
+    const bh = Math.max(dot, heights[k]) * (h - 2);
+    for (const x0 of [w / 2 - (k + 1) * step, w / 2 + k * step]) {
+      const x = x0 + (step - bar) / 2;
       ctx.fillStyle = x + bar / 2 <= played ? PLAYED : AHEAD;
       roundBar(ctx, x, mid - bh / 2, bar, bh);
     }
   }
+  return true;
 }
 
 function roundBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {

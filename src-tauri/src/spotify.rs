@@ -144,8 +144,12 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     tauri::async_runtime::spawn(async move {
         while let Some(event) = events.recv().await {
             let ui = match event {
-                PlayerEvent::Loading { track_id, .. } => Some(UiEvent::Loading { uri: track_id.to_string() }),
+                PlayerEvent::Loading { track_id, .. } => {
+                    hub2.set_local_stopped(false);
+                    Some(UiEvent::Loading { uri: track_id.to_string() })
+                }
                 PlayerEvent::Playing { track_id, position_ms, .. } => {
+                    hub2.set_local_stopped(false);
                     Some(UiEvent::Playing { uri: track_id.to_string(), position_ms })
                 }
                 PlayerEvent::Paused { track_id, position_ms, .. } => {
@@ -155,7 +159,10 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
                 | PlayerEvent::PositionCorrection { track_id, position_ms, .. } => {
                     Some(UiEvent::Seeked { uri: track_id.to_string(), position_ms })
                 }
-                PlayerEvent::Stopped { .. } => Some(UiEvent::Stopped),
+                PlayerEvent::Stopped { .. } => {
+                    hub2.set_local_stopped(true);
+                    Some(UiEvent::Stopped)
+                }
                 PlayerEvent::Unavailable { track_id, .. } => Some(UiEvent::Unavailable { uri: track_id.to_string() }),
                 PlayerEvent::TrackChanged { audio_item } => {
                     hub2.announce_track(audio_item.uri.clone());
