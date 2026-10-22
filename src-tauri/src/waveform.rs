@@ -8,6 +8,7 @@ use librespot_audio::{AudioDecrypt, AudioFile};
 use librespot_core::{Session, SpotifyId, SpotifyUri};
 use librespot_metadata::audio::{AudioFileFormat, AudioItem};
 use librespot_playback::decoder::{AudioDecoder, AudioPacket, SymphoniaDecoder};
+use librespot_playback::SAMPLE_RATE;
 use symphonia::core::io::MediaSource;
 use symphonia::core::probe::Hint;
 
@@ -50,18 +51,42 @@ fn bars<R: Read + Seek + Send + Sync + 'static>(file: R, length: u64, duration_m
     let mut hint = Hint::new();
     hint.with_extension("ogg");
     let mut decoder = SymphoniaDecoder::new(source, hint).map_err(|e| e.to_string())?;
-    let mut sum = vec![0f64; BINS];
-    let mut count = vec![0u64; BINS];
+    let mut acc = Bins::new(duration_ms);
     while let Some((at, packet)) = decoder.next_packet().map_err(|e| e.to_string())? {
-        let AudioPacket::Samples(samples) = packet else { continue };
-        let i = ((u64::from(at.position_ms) * BINS as u64) / duration_ms).min(BINS as u64 - 1) as usize;
-        for pair in samples.chunks_exact(2) {
-            let mono = (pair[0] + pair[1]) * 0.5;
-            sum[i] += mono * mono;
+        if let AudioPacket::Samples(samples) = packet {
+            acc.add(at.position_ms, &samples);
         }
-        count[i] += (samples.len() / 2) as u64;
     }
-    Ok((0..BINS).map(|i| if count[i] > 0 { (sum[i] / count[i] as f64).sqrt() as f32 } else { 0.0 }).collect())
+    Ok(acc.rms())
+}
+
+/// Loudness per stretch of the song, frame by frame (a packet can cross from one bar to the next).
+struct Bins {
+    duration_ms: u64,
+    sum: Vec<f64>,
+    count: Vec<u64>,
+}
+
+impl Bins {
+    fn new(duration_ms: u64) -> Self {
+        Self { duration_ms: duration_ms.max(1), sum: vec![0.0; BINS], count: vec![0; BINS] }
+    }
+
+    /// Interleaved stereo starting at `start_ms`.
+    fn add(&mut self, start_ms: u32, samples: &[f64]) {
+        let start = f64::from(start_ms);
+        for (k, pair) in samples.chunks_exact(2).enumerate() {
+            let ms = start + k as f64 * 1000.0 / f64::from(SAMPLE_RATE);
+            let i = ((ms as u64 * BINS as u64) / self.duration_ms).min(BINS as u64 - 1) as usize;
+            // The two channels' energy, so sound in opposite phase does not cancel out.
+            self.sum[i] += (pair[0] * pair[0] + pair[1] * pair[1]) * 0.5;
+            self.count[i] += 1;
+        }
+    }
+
+    fn rms(&self) -> Vec<f32> {
+        (0..BINS).map(|i| if self.count[i] > 0 { (self.sum[i] / self.count[i] as f64).sqrt() as f32 } else { 0.0 }).collect()
+    }
 }
 
 /// The file past Spotify's header, as the decoder expects it (librespot's own is private).
@@ -86,11 +111,16 @@ impl<T: Read> Read for Subfile<T> {
 
 impl<T: Seek> Seek for Subfile<T> {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        let pos = match pos {
-            SeekFrom::Start(n) => SeekFrom::Start(n + self.offset),
-            other => other,
+        // Every target is worked out first, so a seek into the hidden header fails and moves nothing.
+        let target = match pos {
+            SeekFrom::Start(n) => Some(n + self.offset),
+            SeekFrom::End(n) => self.length.checked_add_signed(n),
+            SeekFrom::Current(n) => self.stream.stream_position()?.checked_add_signed(n),
         };
-        Ok(self.stream.seek(pos)?.saturating_sub(self.offset))
+        match target {
+            Some(t) if t >= self.offset => Ok(self.stream.seek(SeekFrom::Start(t))? - self.offset),
+            _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "seek before the start of the audio")),
+        }
     }
 }
 
@@ -121,5 +151,25 @@ mod tests {
         assert_eq!(f.seek(SeekFrom::Start(0)).unwrap(), 0);
         assert_eq!(f.byte_len(), Some(9));
         assert_eq!(f.seek(SeekFrom::End(0)).unwrap(), 9);
+        f.seek(SeekFrom::Start(2)).unwrap();
+        assert!(f.seek(SeekFrom::Current(-3)).is_err(), "into the header");
+        assert_eq!(f.stream_position().unwrap(), 2, "a failed seek moves nothing");
+    }
+
+    #[test]
+    fn opposite_phase_still_counts() {
+        let mut b = Bins::new(1000);
+        b.add(0, &[0.5, -0.5, 0.5, -0.5]);
+        assert!((b.rms()[0] - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn a_packet_across_two_bars_splits_between_them() {
+        // 120 bars over 1.2 s: one bar every 10 ms. A 20 ms packet from 0 ms fills the first two.
+        let mut b = Bins::new(1200);
+        let frames = SAMPLE_RATE as usize / 50;
+        b.add(0, &vec![0.3; frames * 2]);
+        let r = b.rms();
+        assert!(r[0] > 0.29 && r[1] > 0.29 && r[2] == 0.0, "{:?}", &r[..3]);
     }
 }
