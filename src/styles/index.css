@@ -18,6 +18,7 @@
 @import "./components/player.css";
 @import "./views/entry.css";
 @import "./components/devices.css";
+@import "./components/jam.css";
 @import "./components/menus.css";
 @import "./components/playlists.css";
 @import "./views/song.css";

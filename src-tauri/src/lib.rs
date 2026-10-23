@@ -1,5 +1,7 @@
 mod connect;
 mod desktop;
+mod discord;
+mod jam;
 mod links;
 mod media;
 mod meter;
@@ -27,6 +29,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(spotify::SpotifyState::default())
+        .manage(discord::Discord::default())
         .setup(|app| {
             let hashes = app
                 .path()
@@ -89,6 +92,10 @@ pub fn run() {
             spotify::spotify_rootlist_has,
             spotify::spotify_lyrics,
             spotify::spotify_waveform,
+            jam::jam_current,
+            jam::jam_start,
+            jam::jam_stop,
+            discord::discord_presence,
             settings::settings_get,
             settings::settings_set,
             settings::settings_set_start_with_windows,
