@@ -13,7 +13,7 @@ pub const LABEL: &str = "mini";
 const WIDTH: f64 = 330.0;
 const HEIGHT: f64 = 162.0;
 /// Taller, with the lyrics in the middle.
-const LYRICS_HEIGHT: f64 = 250.0;
+const LYRICS_HEIGHT: f64 = 220.0;
 /// How far from an edge, in logical pixels, a dropped window snaps to it.
 const SNAP: f64 = 24.0;
 /// The gap kept between the window and the edge it snaps to.
