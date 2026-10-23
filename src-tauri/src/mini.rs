@@ -1,17 +1,19 @@
 // The mini player: a second window, small and always on top, made when first opened. It loads
 // the same page as the main window, which draws the mini player when its label is "mini".
-// Dropped near an edge of the screen's work area, it snaps to it; where it was is kept for next
-// time.
+// Dropped near an edge of the screen's work area, it snaps to it; where it was, and whether it
+// shows the lyrics (a taller window), is kept for next time.
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
 pub const LABEL: &str = "mini";
 const WIDTH: f64 = 330.0;
 const HEIGHT: f64 = 162.0;
+/// Taller, with the lyrics in the middle.
+const LYRICS_HEIGHT: f64 = 380.0;
 /// How far from an edge, in logical pixels, a dropped window snaps to it.
 const SNAP: f64 = 24.0;
 /// The gap kept between the window and the edge it snaps to.
@@ -26,6 +28,16 @@ static MOVES: AtomicU64 = AtomicU64::new(0);
 struct Place {
     x: i32,
     y: i32,
+    #[serde(default)]
+    lyrics: bool,
+}
+
+fn height(lyrics: bool) -> f64 {
+    if lyrics {
+        LYRICS_HEIGHT
+    } else {
+        HEIGHT
+    }
 }
 
 fn place_file(app: &AppHandle) -> Option<PathBuf> {
@@ -59,9 +71,10 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
         let _ = app.emit("mini-player", true);
         return Ok(());
     }
+    let lyrics = saved_place(app).is_some_and(|p| p.lyrics);
     let window = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
         .title(format!("{} mini player", crate::variant::name(app)))
-        .inner_size(WIDTH, HEIGHT)
+        .inner_size(WIDTH, height(lyrics))
         .resizable(false)
         .maximizable(false)
         .minimizable(false)
@@ -73,7 +86,7 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
         .visible(false)
         .build()
         .map_err(|e| e.to_string())?;
-    place(app, &window);
+    place(app, &window, lyrics);
     window.show().map_err(|e| e.to_string())?;
     let _ = window.set_focus();
     let _ = app.emit("mini-player", true);
@@ -82,7 +95,7 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
 
 /// Puts the window where it was last time, if that is still on a screen; otherwise in the
 /// bottom right corner of the main window's screen.
-fn place(app: &AppHandle, window: &WebviewWindow) {
+fn place(app: &AppHandle, window: &WebviewWindow, lyrics: bool) {
     if let Some(p) = saved_place(app) {
         if window.monitor_from_point(p.x as f64, p.y as f64).ok().flatten().is_some() {
             let _ = window.set_position(PhysicalPosition::new(p.x, p.y));
@@ -97,7 +110,7 @@ fn place(app: &AppHandle, window: &WebviewWindow) {
     let area = monitor.work_area();
     let scale = monitor.scale_factor();
     let x = area.position.x + area.size.width as i32 - ((WIDTH + MARGIN) * scale) as i32;
-    let y = area.position.y + area.size.height as i32 - ((HEIGHT + MARGIN) * scale) as i32;
+    let y = area.position.y + area.size.height as i32 - ((height(lyrics) + MARGIN) * scale) as i32;
     let _ = window.set_position(PhysicalPosition::new(x, y));
 }
 
@@ -183,7 +196,8 @@ fn snap(window: &tauri::Window) {
         // Its own move event comes back and lands here again, where nothing changes.
         let _ = window.set_position(PhysicalPosition::new(x, y));
     }
-    save_place(window.app_handle(), Place { x, y });
+    let lyrics = shows_lyrics(window.app_handle());
+    save_place(window.app_handle(), Place { x, y, lyrics });
 }
 
 // Async: a window made from a synchronous command blocks the thread that has to make it, on
@@ -213,6 +227,44 @@ pub fn mini_player_is_open(app: AppHandle) -> bool {
 pub fn mini_player_on_top(app: AppHandle, on: bool) -> Result<(), String> {
     let w = app.get_webview_window(LABEL).ok_or("The mini player is not open")?;
     w.set_always_on_top(on).map_err(|e| e.to_string())
+}
+
+fn shows_lyrics(app: &AppHandle) -> bool {
+    saved_place(app).is_some_and(|p| p.lyrics)
+}
+
+/// Whether the mini player shows the lyrics (saved with its place).
+#[tauri::command]
+pub fn mini_player_lyrics(app: AppHandle) -> bool {
+    shows_lyrics(&app)
+}
+
+/// Switches the mini player between the compact card and the lyrics: the window grows or
+/// shrinks keeping the edge nearest the screen's middle where it was (a window on the bottom
+/// half grows up), then snaps back inside the work area. The choice is saved.
+#[tauri::command]
+pub fn mini_player_set_lyrics(app: AppHandle, on: bool) -> Result<(), String> {
+    let w = app.get_window(LABEL).ok_or("The mini player is not open")?;
+    let scale = w.scale_factor().map_err(|e| e.to_string())?;
+    let pos = w.outer_position().map_err(|e| e.to_string())?;
+    let before = w.outer_size().map_err(|e| e.to_string())?;
+    let center = pos.y as f64 + before.height as f64 / 2.0;
+    let low = w
+        .current_monitor()
+        .ok()
+        .flatten()
+        .map(|m| center > m.work_area().position.y as f64 + m.work_area().size.height as f64 / 2.0)
+        .unwrap_or(true);
+    // Saved first: the snap that follows the resize keeps it.
+    let place = saved_place(&app).unwrap_or(Place { x: pos.x, y: pos.y, lyrics: on });
+    save_place(&app, Place { lyrics: on, ..place });
+    w.set_size(LogicalSize::new(WIDTH, height(on))).map_err(|e| e.to_string())?;
+    if low {
+        let grown = (height(on) * scale) as i32 - before.height as i32;
+        let _ = w.set_position(PhysicalPosition::new(pos.x, pos.y - grown));
+    }
+    snap(&w);
+    Ok(())
 }
 
 /// From the mini player: the main window comes forward and is told what to show.

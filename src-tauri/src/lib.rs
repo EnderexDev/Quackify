@@ -116,6 +116,8 @@ pub fn run() {
             mini::mini_player_close,
             mini::mini_player_is_open,
             mini::mini_player_on_top,
+            mini::mini_player_lyrics,
+            mini::mini_player_set_lyrics,
             mini::mini_player_show_main,
         ])
         .run(tauri::generate_context!())

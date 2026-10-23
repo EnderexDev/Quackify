@@ -143,3 +143,106 @@
 .mini-pin.on::after {
   display: none;
 }
+
+/* A click from outside the window focuses the mic: no ring for the mouse. */
+.mini button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* The lyrics version: the song on top, smaller, the lyrics filling the middle. */
+.mini.with-lyrics .mini-cover {
+  width: 44px;
+  height: 44px;
+}
+
+.mini-cover-btn {
+  flex: none;
+  border-radius: var(--r-sm);
+  transition: transform var(--t-fast) var(--ease-spring);
+}
+
+.mini-cover-btn:hover {
+  transform: scale(1.06);
+}
+
+.mini-lyrics,
+.mini-lyrics-note {
+  flex: 1;
+  min-height: 0;
+  margin: 4px -12px 0;
+  padding: 0 16px;
+}
+
+.mini-lyrics {
+  position: relative;
+  overflow: hidden;
+  mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+}
+
+.mini-lyrics.unsynced {
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-block: 24px;
+  mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent);
+}
+
+.mini-lyrics-track {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 500ms var(--ease-out);
+}
+
+.mini-line {
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: rgba(246, 244, 238, 0.38);
+  transform-origin: left center;
+  transition:
+    color 400ms var(--ease-out),
+    transform 400ms var(--ease-out);
+}
+
+.mini-lyrics.synced .mini-line {
+  cursor: pointer;
+}
+
+.mini-lyrics.synced .mini-line:hover,
+.mini-lyrics.unsynced .mini-line {
+  color: rgba(246, 244, 238, 0.8);
+}
+
+.mini-line.past {
+  color: rgba(246, 244, 238, 0.28);
+}
+
+.mini-line.active {
+  color: var(--text);
+  transform: scale(1.14);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.mini-lyrics-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.mini-lyrics-note .pill-btn.white {
+  background: var(--text);
+  border-color: var(--text);
+  color: #111;
+  font-weight: 700;
+}
+
+.mini.with-lyrics .progress {
+  margin-top: 4px;
+}
