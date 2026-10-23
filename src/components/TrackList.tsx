@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { areSaved } from "../api/library";
 import type { Track } from "../api/types";
 import { t } from "../i18n";
@@ -157,9 +157,10 @@ export function TrackList({
   };
 
   // What the rows do, read at the moment they do it: every row gets this one ref, which never
-  // changes, so a row re-renders only when what it shows changes.
+  // changes, so a row re-renders only when what it shows changes. It takes this render's
+  // handlers once the render is committed, so a row never acts on rows it does not show.
   const handlers = useRef<RowHandlers>(null!);
-  handlers.current = {
+  const latest: RowHandlers = {
     play: (i) => onPlay(i),
     toggle: () => getPlayer().toggle(),
     open: (uri) => nav.open(uri),
@@ -194,6 +195,9 @@ export function TrackList({
       setDropAt(null);
     },
   };
+  useLayoutEffect(() => {
+    handlers.current = latest;
+  });
 
   return (
     <div
