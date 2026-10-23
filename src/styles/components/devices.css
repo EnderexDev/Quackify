@@ -53,8 +53,76 @@
   transform: scale(1.04);
 }
 
+/* Closed: the pill shrinks down toward the player and goes into the devices button. */
+.remote-pill.leaving {
+  animation: remote-out 180ms var(--ease-spring) forwards;
+}
+
+@keyframes remote-out {
+  to {
+    transform: translateX(-50%) translateY(14px) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.remote-close {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: -2px;
+  border-radius: 50%;
+  color: rgba(246, 244, 238, 0.55);
+}
+
+.remote-close:hover {
+  color: #f6f4ee;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .icon-btn.remote {
   color: var(--green);
+}
+
+/* The pill was closed: its dot moves to the devices button, which hops once as it lands. */
+.icon-btn.remote-min {
+  animation: remote-land 520ms var(--ease-spring);
+}
+
+@keyframes remote-land {
+  35% {
+    transform: scale(1.22);
+  }
+}
+
+.icon-btn.remote-min::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow:
+    0 0 0 2px rgba(20, 20, 20, 0.95),
+    0 0 0 2px color-mix(in srgb, var(--green) 70%, transparent);
+  animation: remote-ping 2.2s ease-out infinite;
+}
+
+/* A soft ring leaves the dot and fades, then a rest before the next one. */
+@keyframes remote-ping {
+  0% {
+    box-shadow:
+      0 0 0 2px rgba(20, 20, 20, 0.95),
+      0 0 0 2px color-mix(in srgb, var(--green) 70%, transparent);
+  }
+  60%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(20, 20, 20, 0.95),
+      0 0 0 9px color-mix(in srgb, var(--green) 0%, transparent);
+  }
 }
 
 .devices {
