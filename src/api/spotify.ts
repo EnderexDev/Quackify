@@ -404,6 +404,9 @@ export type QueueEdit =
   | { kind: "move"; tracks: QueueRef[]; before: QueueRef | null }
   | { kind: "clear" };
 
+/** The shuffle and repeat the player shows; a new context starts with them, as in Spotify. */
+export const modes: { shuffle: boolean; repeat: Repeat } = { shuffle: false, repeat: "off" };
+
 export const play = {
   /** Plays an album, playlist or podcast, from `trackUri` when given, `positionMs` into it. */
   context: (contextUri: string, trackUri?: string, positionMs?: number) =>
@@ -411,8 +414,9 @@ export const play = {
       contextUri,
       trackUri: trackUri ?? null,
       positionMs: positionMs ? Math.max(0, Math.round(positionMs)) : null,
+      modes,
     }),
-  tracks: (uris: string[], index: number) => invoke("spotify_play_tracks", { uris, index }),
+  tracks: (uris: string[], index: number) => invoke("spotify_play_tracks", { uris, index, modes }),
   pause: () => invoke("spotify_pause"),
   resume: () => invoke("spotify_resume"),
   next: () => invoke("spotify_next"),

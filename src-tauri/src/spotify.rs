@@ -19,7 +19,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex;
 
-use crate::connect::{ConnectView, Hub, NowPlaying, Repeat};
+use crate::connect::{ConnectView, Hub, Modes, NowPlaying, Repeat};
 use crate::pathfinder::Pathfinder;
 use crate::settings::{ProgressMode, Quality};
 
@@ -417,15 +417,21 @@ pub async fn spotify_play_context(
     context_uri: String,
     track_uri: Option<String>,
     position_ms: Option<u32>,
+    modes: Modes,
     state: State<'_, SpotifyState>,
 ) -> Result<(), String> {
-    hub(&state).await?.play_context(context_uri, track_uri, position_ms).await
+    hub(&state).await?.play_context(context_uri, track_uri, position_ms, modes).await
 }
 
 /// Plays a loose list of tracks (search results) from `index`.
 #[tauri::command]
-pub async fn spotify_play_tracks(uris: Vec<String>, index: usize, state: State<'_, SpotifyState>) -> Result<(), String> {
-    hub(&state).await?.play_tracks(uris, index).await
+pub async fn spotify_play_tracks(
+    uris: Vec<String>,
+    index: usize,
+    modes: Modes,
+    state: State<'_, SpotifyState>,
+) -> Result<(), String> {
+    hub(&state).await?.play_tracks(uris, index, modes).await
 }
 
 #[tauri::command]

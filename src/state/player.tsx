@@ -5,7 +5,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { play, type Repeat } from "../api/spotify";
+import { modes, play, type Repeat } from "../api/spotify";
 import type { Named } from "../api/types";
 import { t } from "../i18n";
 import { flush, observe } from "./listening";
@@ -287,13 +287,15 @@ export function PlayerProvider({ children, record = true }: { children: ReactNod
   };
 
   liveQueue = pb?.next_tracks ?? [];
+  modes.shuffle = pending.shuffle ?? pb?.shuffle ?? false;
+  modes.repeat = repeat;
   const value: Player = {
     track,
     contextUri: pageUri(pb?.context_uri ?? null),
     index: pb?.index ?? null,
     playing,
     volume: pending.volume ?? (active ?? local)?.volume ?? 0.5,
-    shuffle: pending.shuffle ?? pb?.shuffle ?? false,
+    shuffle: modes.shuffle,
     repeat,
     devices: view?.devices ?? [],
     queue: pb?.next_tracks ?? [],

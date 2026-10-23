@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
 use http::{header, HeaderMap, HeaderValue, Method};
-use librespot_connect::{LoadRequest, LoadRequestOptions, PlayingTrack, Spirc};
+use librespot_connect::{LoadContextOptions, LoadRequest, LoadRequestOptions, Options, PlayingTrack, Spirc};
 use librespot_playback::mixer::Mixer;
 use librespot_core::{dealer::protocol::Message, session::Session, spotify_uri::SpotifyUri};
 use librespot_metadata::{Episode, Metadata, Track};
@@ -35,6 +35,32 @@ pub enum Repeat {
     Off,
     All,
     One,
+}
+
+/// The shuffle and repeat a new context starts with.
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+pub struct Modes {
+    pub shuffle: bool,
+    pub repeat: Repeat,
+}
+
+impl Modes {
+    fn load_options(self) -> LoadContextOptions {
+        LoadContextOptions::Options(Options {
+            shuffle: self.shuffle,
+            repeat: self.repeat != Repeat::Off,
+            repeat_track: self.repeat == Repeat::One,
+        })
+    }
+
+    /// The same, as a remote device reads it in a play command.
+    fn overrides(self) -> Value {
+        json!({
+            "shuffling_context": self.shuffle,
+            "repeating_context": self.repeat != Repeat::Off,
+            "repeating_track": self.repeat == Repeat::One,
+        })
+    }
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -382,9 +408,10 @@ impl Hub {
                 // The song ended with nothing after it: play it again, in its album or playlist
                 // when it had one.
                 let Some(p) = self.view().playback else { return Ok(()) };
+                let modes = Modes { shuffle: p.shuffle, repeat: p.repeat };
                 match p.context_uri.filter(|c| c.starts_with("spotify:") && !c.starts_with("spotify:web-api")) {
-                    Some(context) => self.play_context(context, Some(p.track_uri), None).await,
-                    None => self.play_tracks(vec![p.track_uri], 0).await,
+                    Some(context) => self.play_context(context, Some(p.track_uri), None, modes).await,
+                    None => self.play_tracks(vec![p.track_uri], 0, modes).await,
                 }
             }
             Target::Local => self.local(self.spirc.play()),
@@ -481,12 +508,14 @@ impl Hub {
     /// Plays a playlist, album, artist or Liked Songs from `track_uri`, on the active device
     /// (this one when nothing is playing anywhere).
     /// Plays a context, from `track_uri` when given and `position_ms` into it (Continue picks up
-    /// where the user left).
+    /// where the user left). `modes` are the shuffle and repeat the player shows: a load resets
+    /// them otherwise, and with shuffle on and no track it starts on a random one.
     pub async fn play_context(
         self: &Arc<Self>,
         context_uri: String,
         track_uri: Option<String>,
         position_ms: Option<u32>,
+        modes: Modes,
     ) -> Result<(), String> {
         let context_uri = self.resolvable(&context_uri);
         match self.target() {
@@ -497,13 +526,13 @@ impl Hub {
                     LoadRequestOptions {
                         start_playing: true,
                         seek_to: position_ms.unwrap_or(0),
+                        context_options: Some(modes.load_options()),
                         playing_track: track_uri.map(PlayingTrack::Uri),
-                        ..Default::default()
                     },
                 )))
             }
             Target::Remote(to) => {
-                let mut options = json!({});
+                let mut options = json!({ "player_options_override": modes.overrides() });
                 if let Some(t) = track_uri {
                     options["skip_to"] = json!({ "track_uri": t });
                 }
@@ -525,7 +554,7 @@ impl Hub {
     }
 
     /// Plays a loose list of tracks (search results) from `index`.
-    pub async fn play_tracks(self: &Arc<Self>, uris: Vec<String>, index: usize) -> Result<(), String> {
+    pub async fn play_tracks(self: &Arc<Self>, uris: Vec<String>, index: usize, modes: Modes) -> Result<(), String> {
         match self.target() {
             Target::Local => {
                 self.local(self.spirc.activate())?;
@@ -533,6 +562,7 @@ impl Hub {
                     uris,
                     LoadRequestOptions {
                         start_playing: true,
+                        context_options: Some(modes.load_options()),
                         playing_track: Some(PlayingTrack::Index(index as u32)),
                         ..Default::default()
                     },
@@ -547,7 +577,10 @@ impl Hub {
                         "endpoint": "play",
                         "context": { "uri": first, "pages": [{ "tracks": tracks }] },
                         "play_origin": { "feature_identifier": "quackify" },
-                        "options": { "skip_to": { "track_index": index, "track_uri": first } },
+                        "options": {
+                            "skip_to": { "track_index": index, "track_uri": first },
+                            "player_options_override": modes.overrides(),
+                        },
                     }),
                 )
                 .await
