@@ -97,10 +97,11 @@ export function JamButton() {
 
 /** A member's picture, or their initial on a colour when they have none. */
 function Face({ member, size }: { member: JamMember; size: number }) {
-  const [broken, setBroken] = useState(false);
+  // The picture that failed to load; a new one is tried.
+  const [broken, setBroken] = useState<string | null>(null);
   const style = { width: size, height: size };
-  if (member.image && !broken) {
-    return <img className="jam-face" style={style} src={member.image} alt="" onError={() => setBroken(true)} />;
+  if (member.image && member.image !== broken) {
+    return <img className="jam-face" style={style} src={member.image} alt="" onError={() => setBroken(member.image)} />;
   }
   return (
     <span className="jam-face jam-initial" style={{ ...style, fontSize: size * 0.45 }} aria-hidden>

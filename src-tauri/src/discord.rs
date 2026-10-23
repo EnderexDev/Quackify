@@ -169,7 +169,13 @@ fn run(rx: Receiver<Option<Presence>>) {
                     want = p;
                 }
             }
-            Err(RecvTimeoutError::Timeout) => {}
+            // Sent again now and then: a Discord that restarted, or refused an update over its
+            // rate limit, gets it back without waiting for the next song.
+            Err(RecvTimeoutError::Timeout) => {
+                if want.is_some() {
+                    shown = None;
+                }
+            }
             Err(RecvTimeoutError::Disconnected) => return,
         }
         if pipe.is_none() {

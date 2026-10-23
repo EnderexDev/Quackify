@@ -29,6 +29,8 @@ let jam: Jam | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 // Each read has a number: an older answer arriving late never overwrites a newer one.
 let generation = 0;
+// Starts and stops in flight: no read runs meanwhile, it could answer from before them.
+let changing = 0;
 const listeners = new Set<() => void>();
 
 const same = (a: Jam | null, b: Jam | null) => JSON.stringify(a) === JSON.stringify(b);
@@ -45,6 +47,7 @@ function schedule() {
 }
 
 async function read() {
+  if (changing) return;
   const mine = ++generation;
   try {
     const next = await invoke<Jam | null>("jam_current");
@@ -70,22 +73,26 @@ function subscribe(f: () => void) {
 /** The Jam now, or null. */
 export const useJam = () => useSyncExternalStore(subscribe, () => jam);
 
-/** Starts a Jam hosted here; the page shows it at once. */
-export async function startJam(): Promise<Jam> {
+/** Runs a start or a stop; reads resume after it, whether it worked or not. */
+async function change<T>(work: () => Promise<T>, after: (result: T) => Jam | null): Promise<T> {
+  changing++;
   generation++;
-  const started = await invoke<Jam>("jam_start");
-  set(started);
-  schedule();
-  return started;
+  try {
+    const result = await work();
+    generation++;
+    set(after(result));
+    return result;
+  } finally {
+    changing--;
+    schedule();
+  }
 }
 
+/** Starts a Jam hosted here; the page shows it at once. */
+export const startJam = () => change(() => invoke<Jam>("jam_start"), (started) => started);
+
 /** Ends the Jam (host) or leaves it (guest). */
-export async function stopJam(j: Jam): Promise<void> {
-  generation++;
-  await invoke("jam_stop", { id: j.id, host: j.is_host });
-  set(null);
-  schedule();
-}
+export const stopJam = (j: Jam) => change(() => invoke("jam_stop", { id: j.id, host: j.is_host }), () => null);
 
 /** Everyone in the Jam but this account. */
 export const others = (j: Jam | null) => (j ? j.members.filter((m) => !m.is_me) : []);
