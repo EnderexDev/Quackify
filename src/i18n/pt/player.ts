@@ -117,6 +117,7 @@ export default {
   "Looking for devices…": "Procurando aparelhos…",
   "Playing on {name}": "Tocando em {name}",
   "Play here": "Tocar aqui",
+  "Hide": "Esconder",
   "Computer": "Computador",
   "Smartphone": "Celular",
   "Tablet": "Tablet",

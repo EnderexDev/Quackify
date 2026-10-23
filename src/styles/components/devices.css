@@ -53,8 +53,61 @@
   transform: scale(1.04);
 }
 
+/* Closed: the pill shrinks down toward the player and goes into the devices button. */
+.remote-pill.leaving {
+  animation: remote-out 180ms var(--ease-spring) forwards;
+}
+
+@keyframes remote-out {
+  to {
+    transform: translateX(-50%) translateY(14px) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.remote-close {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: -2px;
+  border-radius: 50%;
+  color: rgba(246, 244, 238, 0.55);
+}
+
+.remote-close:hover {
+  color: #f6f4ee;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .icon-btn.remote {
   color: var(--green);
+}
+
+/* The pill was closed: its dot moves to the devices button. */
+.icon-btn.remote-min {
+  position: relative;
+}
+
+.icon-btn.remote-min::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow:
+    0 0 0 2px rgba(20, 20, 20, 0.95),
+    0 0 8px var(--green);
+  animation: remote-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes remote-pulse {
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .devices {

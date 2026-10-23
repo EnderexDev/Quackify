@@ -1,13 +1,34 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { t } from "../i18n";
 import { usePlayer, type Device } from "../state/player";
-import { DeviceIcon, DevicesIcon } from "./icons";
+import { CloseIcon, DeviceIcon, DevicesIcon } from "./icons";
+
+// The device whose "Playing on" pill was closed. Only for this session, and only for that
+// device: another one taking over, or the music coming back here, brings the pill back.
+let hiddenFor: string | null = null;
+const hiddenListeners = new Set<() => void>();
+function setHiddenFor(id: string | null) {
+  if (hiddenFor === id) return;
+  hiddenFor = id;
+  hiddenListeners.forEach((f) => f());
+}
+const useHiddenFor = () =>
+  useSyncExternalStore(
+    (f) => {
+      hiddenListeners.add(f);
+      return () => hiddenListeners.delete(f);
+    },
+    () => hiddenFor,
+  );
 
 /** The Spotify Connect picker: every device on the account, click one to move playback there. */
 export function DevicePicker() {
   const player = usePlayer();
+  const hidden = useHiddenFor();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  // The pill was closed: the button carries its dot, and opening the picker is the way back.
+  const minimized = !!player.remoteDevice && hidden === player.remoteDevice.id;
 
   // Close on a click outside or Escape.
   useEffect(() => {
@@ -33,7 +54,7 @@ export function DevicePicker() {
   return (
     <div className="devices" ref={box}>
       <button
-        className={`icon-btn ${player.remoteDevice ? "remote" : ""}`}
+        className={`icon-btn ${player.remoteDevice ? "remote" : ""} ${minimized ? "remote-min" : ""}`}
         onClick={() => setOpen(!open)}
         aria-label={t("Connect to a device")}
         title={t("Connect to a device")}
@@ -72,11 +93,24 @@ export function DevicePicker() {
 /** Over the player while another device is the one playing: its name and a way to bring the music here. */
 export function RemotePill() {
   const player = usePlayer();
+  const hidden = useHiddenFor();
+  const [leaving, setLeaving] = useState(false);
   const d = player.remoteDevice;
   const local = player.devices.find((x) => x.is_local);
-  if (!d) return null;
+
+  // Another device took over, or the music came back here: the pill shows again.
+  useEffect(() => {
+    if (d?.id !== hiddenFor) setHiddenFor(null);
+    setLeaving(false);
+  }, [d?.id]);
+
+  if (!d || hidden === d.id) return null;
   return (
-    <div className="remote-pill" role="status">
+    <div
+      className={`remote-pill ${leaving ? "leaving" : ""}`}
+      role="status"
+      onAnimationEnd={(e) => leaving && e.target === e.currentTarget && setHiddenFor(d.id)}
+    >
       <span className="remote-dot" />
       <DeviceIcon kind={d.kind} size={16} />
       <span className="remote-name">{t("Playing on {name}", { name: d.name })}</span>
@@ -85,6 +119,9 @@ export function RemotePill() {
           {t("Play here")}
         </button>
       )}
+      <button className="remote-close" onClick={() => setLeaving(true)} aria-label={t("Hide")} title={t("Hide")}>
+        <CloseIcon size={14} />
+      </button>
     </div>
   );
 }
