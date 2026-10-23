@@ -12,7 +12,7 @@ use futures_util::StreamExt;
 use http::{header, HeaderMap, HeaderValue, Method};
 use librespot_connect::{LoadRequest, LoadRequestOptions, PlayingTrack, Spirc};
 use librespot_playback::mixer::Mixer;
-use librespot_core::{dealer::protocol::Message, session::Session, spotify_uri::SpotifyUri};
+use librespot_core::{dealer::protocol::Message, session::Session, spotify_uri::SpotifyUri, error::ErrorKind};
 use librespot_metadata::{Episode, Metadata, Track};
 use librespot_protocol::connect::ClusterUpdate;
 use serde::{Deserialize, Serialize};
@@ -343,19 +343,45 @@ impl Hub {
     async fn remote_command(self: &Arc<Self>, to: &str, mut command: Value) -> Result<(), String> {
         command["logging_params"] = json!({ "command_id": random_hex() });
         let body = json!({ "command": command }).to_string();
-        let from = self.session.device_id();
-        let mut headers = HeaderMap::new();
-        headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        self.session
-            .spclient()
-            .request(
-                &Method::POST,
-                &format!("/connect-state/v1/player/command/from/{from}/to/{to}"),
-                Some(headers),
-                Some(body.as_bytes()),
-            )
-            .await
-            .map_err(|e| e.to_string())?;
+        self.send_remote(Method::POST, "player/command", to, &body).await
+    }
+
+    /// Sends `body` to `/connect-state/v1/{route}/from/{this}/to/{to}`. A 404 means `to` is no
+    /// longer a device (the view still held an id the cluster dropped, like a device that
+    /// restarted under a new one): the cluster is read again, and the request goes once more
+    /// to the device playing now.
+    async fn send_remote(self: &Arc<Self>, method: Method, route: &str, to: &str, body: &str) -> Result<(), String> {
+        let from = self.session.device_id().to_string();
+        let mut to = to.to_string();
+        let mut retried = false;
+        loop {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
+            let sent = self
+                .session
+                .spclient()
+                .request(&method, &format!("/connect-state/v1/{route}/from/{from}/to/{to}"), Some(headers), Some(body.as_bytes()))
+                .await;
+            match sent {
+                Ok(_) => break,
+                Err(e) if !retried && e.kind == ErrorKind::NotFound => {
+                    {
+                        let _turn = self.refreshing.lock().await;
+                        self.refresh().await?;
+                    }
+                    // Even when the one playing now is this device: the server delivers to it too.
+                    let active = self.view.lock().unwrap().active_device_id.clone();
+                    match active {
+                        Some(now) if now != to => {
+                            to = now;
+                            retried = true;
+                        }
+                        _ => return Err(e.to_string()),
+                    }
+                }
+                Err(e) => return Err(e.to_string()),
+            }
+        }
         self.schedule_refresh();
         Ok(())
     }
@@ -459,21 +485,7 @@ impl Hub {
                 Ok(())
             }
             Target::Remote(to) => {
-                let from = self.session.device_id();
-                let mut headers = HeaderMap::new();
-                headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
-                self.session
-                    .spclient()
-                    .request(
-                        &Method::PUT,
-                        &format!("/connect-state/v1/connect/volume/from/{from}/to/{to}"),
-                        Some(headers),
-                        Some(json!({ "volume": v }).to_string().as_bytes()),
-                    )
-                    .await
-                    .map_err(|e| e.to_string())?;
-                self.schedule_refresh();
-                Ok(())
+                self.send_remote(Method::PUT, "connect/volume", &to, &json!({ "volume": v }).to_string()).await
             }
         }
     }
