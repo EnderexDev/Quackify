@@ -249,13 +249,16 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
             let ui = match event {
                 PlayerEvent::Loading { track_id, .. } => {
                     hub2.set_local_stopped(false);
+                    hub2.local_track(track_id.to_string());
                     Some(UiEvent::Loading { uri: track_id.to_string() })
                 }
                 PlayerEvent::Playing { track_id, position_ms, .. } => {
                     hub2.set_local_stopped(false);
+                    hub2.local_track(track_id.to_string());
                     Some(UiEvent::Playing { uri: track_id.to_string(), position_ms })
                 }
                 PlayerEvent::Paused { track_id, position_ms, .. } => {
+                    hub2.local_track(track_id.to_string());
                     Some(UiEvent::Paused { uri: track_id.to_string(), position_ms })
                 }
                 PlayerEvent::Seeked { track_id, position_ms, .. }
@@ -267,10 +270,9 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
                     Some(UiEvent::Stopped)
                 }
                 PlayerEvent::Unavailable { track_id, .. } => Some(UiEvent::Unavailable { uri: track_id.to_string() }),
-                PlayerEvent::TrackChanged { audio_item } => {
-                    hub2.announce_track(audio_item.uri.clone());
-                    None
-                }
+                // Its URI can be another version of the song asked for (relinked), which the
+                // cluster never shows: the song is told by the events that carry the one asked for.
+                PlayerEvent::TrackChanged { .. } => None,
                 // Shuffle, repeat and volume can change from another Spotify app: re-read the state.
                 PlayerEvent::ShuffleChanged { .. }
                 | PlayerEvent::RepeatChanged { .. }
