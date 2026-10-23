@@ -37,5 +37,9 @@ export const lyricsSize = pref<LyricsSize>("lyricsSize", ["s", "m", "l"], "m");
 /** The cinema mode opens by itself after 5 minutes without touching the app while music plays. */
 export const cinemaAuto = pref<"off" | "on">("cinemaAuto", ["off", "on"], "off");
 
+/** How many times a second the Live bars move: 30, 60, 120, or every frame of the screen. */
+export type LiveFps = "30" | "60" | "120" | "screen";
+export const liveFps = pref<LiveFps>("liveFps", ["30", "60", "120", "screen"], "60");
+
 /** The lyrics in the cinema mode (the mic there turns them off, the cover goes to the middle). */
 export const cinemaLyrics = pref<"off" | "on">("cinemaLyrics", ["off", "on"], "on");

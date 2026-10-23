@@ -138,3 +138,9 @@
 .reduce-motion .like-btn.pop svg {
   animation: none !important;
 }
+
+/* Out of focus or hidden, the decorative loops rest where they are (state/motion.ts). */
+.window-away .pb-cover,
+.window-away .eq i {
+  animation-play-state: paused;
+}

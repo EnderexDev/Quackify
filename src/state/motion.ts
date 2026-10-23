@@ -48,3 +48,14 @@ export const useReducedMotion = () =>
     },
     reducedMotion,
   );
+
+// The loops that only decorate (the cover breathing, the equalizers) rest while the window is
+// out of focus or hidden, like the aura: each one running made the window compose every frame
+// at the screen's rate, about a third of a core at 165 Hz (23/10/26). "window-away" on <html>.
+function away() {
+  document.documentElement.classList.toggle("window-away", document.hidden || !document.hasFocus());
+}
+away();
+window.addEventListener("focus", away);
+window.addEventListener("blur", away);
+document.addEventListener("visibilitychange", away);

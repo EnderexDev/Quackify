@@ -29,19 +29,89 @@ import type {
 const TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { at: number; value: Promise<unknown> }>();
 
+// Home and the first page of Your Library are also kept on disk: at the next start they show at
+// once, while Spotify is still connecting (about a second), and the fresh answer replaces them.
+// The components that showed a kept copy hear it through onRefreshed.
+const DISK = "read:";
+const keptOnDisk = (key: string) => key === "home" || key === "library:counts" || /^library:[^:]*:[^:]*::null:0$/.test(key);
+const refreshed = new Set<(key: string) => void>();
+
+/** Calls `f` with the key of a read whose kept copy was shown and has now been replaced. */
+export function onRefreshed(f: (key: string) => void): () => void {
+  refreshed.add(f);
+  return () => refreshed.delete(f);
+}
+
+function fromDisk(key: string): string | null {
+  try {
+    return localStorage.getItem(DISK + key);
+  } catch {
+    return null;
+  }
+}
+
+function toDisk(key: string, json: string) {
+  try {
+    localStorage.setItem(DISK + key, json);
+  } catch {
+    // Storage full or off: the next start waits for Spotify, as before.
+  }
+}
+
+// The reads a load makes before its first await, for useAsync to know what it showed.
+let reading: Set<string> | null = null;
+
+/** Runs `load`, noting the cached reads it starts, so a refreshed one can run it again. */
+export function readsOf<T>(load: () => Promise<T>): [Promise<T>, Set<string>] {
+  const outer = reading;
+  const keys = new Set<string>();
+  reading = keys;
+  try {
+    return [load(), keys];
+  } finally {
+    reading = outer;
+  }
+}
+
 function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+  reading?.add(key);
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.value as Promise<T>;
   const value = load();
   cache.set(key, { at: Date.now(), value });
   value.catch(() => cache.delete(key));
-  return value;
+  if (!keptOnDisk(key)) return value;
+  // A kept copy only stands in for the first read of this run.
+  const kept = hit ? null : fromDisk(key);
+  value.then(
+    (fresh) => {
+      const json = JSON.stringify(fresh);
+      if (json === kept) return;
+      toDisk(key, json);
+      if (kept !== null) refreshed.forEach((f) => f(key));
+    },
+    () => {},
+  );
+  if (kept === null) return value;
+  try {
+    return Promise.resolve(JSON.parse(kept) as T);
+  } catch {
+    return value;
+  }
 }
 
-/** Drops cached reads: all of them, or those whose key starts with `prefix`. */
+/** Drops cached reads: all of them, or those whose key starts with `prefix`; the copies kept on
+ * disk go too, so a changed library or another language is never shown from them. */
 export function clearCache(prefix?: string) {
-  if (!prefix) return cache.clear();
-  for (const key of [...cache.keys()]) if (key.startsWith(prefix)) cache.delete(key);
+  for (const key of [...cache.keys()]) if (!prefix || key.startsWith(prefix)) cache.delete(key);
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(DISK) && (!prefix || k.slice(DISK.length).startsWith(prefix))) localStorage.removeItem(k);
+    }
+  } catch {
+    // No storage: nothing kept.
+  }
 }
 
 function query(op: string, variables: Record<string, unknown>): Promise<unknown> {
@@ -91,10 +161,16 @@ export function search(term: string): Promise<SearchResults> {
 
 export type LibraryQuery = { filter: LibraryFilter; sort?: LibrarySort; text?: string; folder?: string | null };
 
+/** The cache key of one page of Your Library. */
+export function libraryKey(q: LibraryQuery, offset = 0): string {
+  const { filter, sort = "Recents", text = "", folder = null } = q;
+  return `library:${filter}:${sort}:${text}:${folder}:${offset}`;
+}
+
 /** One page of Your Library: filtered, sorted, searched, or inside a folder. */
 export function library(q: LibraryQuery, offset = 0): Promise<LibraryPage> {
   const { filter, sort = "Recents", text = "", folder = null } = q;
-  return cached(`library:${filter}:${sort}:${text}:${folder}:${offset}`, async () =>
+  return cached(libraryKey(q, offset), async () =>
     n.toLibrary(
       await query("libraryV3", {
         filters: filter ? [filter] : [],

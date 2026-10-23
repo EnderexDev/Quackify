@@ -57,8 +57,20 @@ function withSavedProfile(s: Status): Status {
   return s;
 }
 
+/** The account seen last, to open the app with it at once while Spotify connects. */
+function lastStatus(): Status | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) ?? "null");
+    return saved?.username ? { logged_in: true, username: saved.username, profile: saved.profile } : null;
+  } catch {
+    return null;
+  }
+}
+
 function App() {
-  const [status, setStatus] = useState<Status | null>(null);
+  // The last account opens the app straight away (its Home and Your Library come from the copies
+  // kept on disk); Spotify's answer confirms it a moment later, or sends it to the login screen.
+  const [status, setStatus] = useState<Status | null>(lastStatus);
   // Every text re-reads the language: the shell starts over when it changes (the page open and
   // the player stay, they live above it).
   const language = useLang();
@@ -104,7 +116,12 @@ function App() {
   useEffect(() => {
     // A failed restore (stale credentials, no network) still has to land on the login screen.
     invoke<Status>("spotify_restore")
-      .then(showStatus)
+      .then((s) => {
+        // Not that account anymore: nothing it kept may show.
+        const shown = lastStatus();
+        if (shown && (!s.logged_in || s.username !== shown.username)) clearCache();
+        showStatus(s);
+      })
       .catch((e) => {
         toast(e);
         setStatus({ logged_in: false, username: null });
@@ -143,6 +160,7 @@ function App() {
     try {
       await invoke("spotify_logout");
       clearCache();
+      localStorage.removeItem(PROFILE_KEY);
       setStatus({ logged_in: false, username: null });
     } catch (e) {
       toast(e);

@@ -2,7 +2,11 @@
 // playlist, and window.__emit to fire the Rust events by hand.
 const TRACKS = 2000;
 const PLAYLIST = "spotify:playlist:bench";
-const delay = <T,>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 5));
+const delay = <T,>(v: T, ms = 5) => new Promise<T>((r) => setTimeout(() => r(v), ms));
+// Bench knobs, set in localStorage: how long the login takes, and a suffix on Home's names so a
+// fresh Home can be told from a kept one.
+const restoreMs = () => Number(localStorage.getItem("bench:restoreMs") ?? 5);
+const homeTag = () => localStorage.getItem("bench:homeTag") ?? "";
 
 const rawTrack = (i: number) => ({
   uid: `uid${i}`,
@@ -23,7 +27,7 @@ const rawTrack = (i: number) => ({
 const playlistCard = (i: number) => ({
   item: {
     _uri: i === 0 ? PLAYLIST : `spotify:playlist:p${i}`,
-    data: { __typename: "Playlist", uri: i === 0 ? PLAYLIST : `spotify:playlist:p${i}`, name: i === 0 ? "Bench 2000" : `Playlist ${i}`, images: { items: [] } },
+    data: { __typename: "Playlist", uri: i === 0 ? PLAYLIST : `spotify:playlist:p${i}`, name: i === 0 ? "Bench 2000" : `Playlist ${i}${homeTag()}`, images: { items: [] } },
   },
   pinned: false,
   pinnable: true,
@@ -92,19 +96,31 @@ function query(op: string, v: Record<string, unknown>): unknown {
 /** Every command the app sent, for checks. */
 export const calls: { cmd: string; args: Record<string, unknown> }[] = [];
 
+const started = performance.now();
+
 export async function invoke(cmd: string, args: Record<string, unknown> = {}): Promise<unknown> {
   calls.push({ cmd, args });
   switch (cmd) {
     case "spotify_restore":
-      return delay({ logged_in: true, username: "bench", profile: { display_name: "Bench", image: null } });
+      return delay({ logged_in: true, username: "bench", profile: { display_name: "Bench", image: null } }, restoreMs());
     case "spotify_player_state":
       return delay({ connect: view, now_playing: nowPlaying(500) });
     case "spotify_query":
-      return delay(query(args.op as string, args.variables as Record<string, unknown>));
+      // Queries wait for the login, as the Rust side does.
+      return delay(query(args.op as string, args.variables as Record<string, unknown>), Math.max(5, restoreMs() - (performance.now() - started)));
     case "spotify_rootlist_has":
       return delay((args.uris as string[]).map(() => false));
     case "spotify_tracks":
       return delay((args.uris as string[]).map((u) => nowPlaying(Number(u.slice("spotify:track:t".length)))));
+    case "settings_get":
+      return delay({
+        settings: { close_to_tray: true, quality: "very_high", normalize: false, loudness: "normal", autoplay: true, gapless: true, audio_cache: true, cache_size_gb: 2, device_name: "Quackify", start_minimized: true, cache_parent: null, progress_mode: "live", language: "pt" },
+        start_with_windows: false,
+      });
+    case "settings_cache_size":
+      return delay(0);
+    case "settings_cache_folder":
+      return delay({ folder: "C:\Users\bench\Quackify audio-cache", custom: false, problem: null });
     default:
       return delay(null);
   }
