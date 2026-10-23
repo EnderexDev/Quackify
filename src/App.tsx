@@ -50,11 +50,14 @@ function App() {
   useEffect(() => {
     syncLang();
   }, []);
-  // Reads already cached carry the old language in what the app wrote into them ("Album • …").
-  const firstLanguage = useRef(language);
-  useEffect(() => {
-    if (language !== firstLanguage.current) clearCache();
-  }, [language]);
+  // Reads already cached carry the old language in what the app wrote into them ("Album • …"):
+  // dropped on every change, here in render, before the new shell reads them again (an effect
+  // would run after the shell's own, which already read the old ones).
+  const shownLanguage = useRef(language);
+  if (shownLanguage.current !== language) {
+    shownLanguage.current = language;
+    clearCache();
+  }
   const [webPlayer, setWebPlayer] = useState(() => localStorage.getItem(WEB_PLAYER_KEY) === "1");
 
   useEffect(() => {
