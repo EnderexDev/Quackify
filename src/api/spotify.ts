@@ -35,6 +35,9 @@ const cache = new Map<string, { at: number; value: Promise<unknown> }>();
 const DISK = "read:";
 const keptOnDisk = (key: string) => key === "home" || key === "library:counts" || /^library:[^:]*:[^:]*::null:0$/.test(key);
 const refreshed = new Set<(key: string) => void>();
+// Bumped by every clearCache: an answer asked for before it is not written to disk, so a read
+// started before a library change or a language switch cannot bring the old copy back.
+let clears = 0;
 
 /** Calls `f` with the key of a read whose kept copy was shown and has now been replaced. */
 export function onRefreshed(f: (key: string) => void): () => void {
@@ -83,10 +86,11 @@ function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
   if (!keptOnDisk(key)) return value;
   // A kept copy only stands in for the first read of this run.
   const kept = hit ? null : fromDisk(key);
+  const asked = clears;
   value.then(
     (fresh) => {
       const json = JSON.stringify(fresh);
-      if (json === kept) return;
+      if (json === kept || asked !== clears) return;
       toDisk(key, json);
       if (kept !== null) refreshed.forEach((f) => f(key));
     },
@@ -103,6 +107,7 @@ function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
 /** Drops cached reads: all of them, or those whose key starts with `prefix`; the copies kept on
  * disk go too, so a changed library or another language is never shown from them. */
 export function clearCache(prefix?: string) {
+  clears++;
   for (const key of [...cache.keys()]) if (!prefix || key.startsWith(prefix)) cache.delete(key);
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
