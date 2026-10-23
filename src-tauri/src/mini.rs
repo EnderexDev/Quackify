@@ -256,9 +256,13 @@ pub fn mini_player_set_lyrics(app: AppHandle, on: bool) -> Result<(), String> {
         .map(|m| center > m.work_area().position.y as f64 + m.work_area().size.height as f64 / 2.0)
         .unwrap_or(true);
     // Saved first: the snap that follows the resize keeps it.
-    let place = saved_place(&app).unwrap_or(Place { x: pos.x, y: pos.y, lyrics: on });
+    let place = saved_place(&app).unwrap_or(Place { x: pos.x, y: pos.y, lyrics: false });
     save_place(&app, Place { lyrics: on, ..place });
-    w.set_size(LogicalSize::new(WIDTH, height(on))).map_err(|e| e.to_string())?;
+    if let Err(e) = w.set_size(LogicalSize::new(WIDTH, height(on))) {
+        // Still the old size: so is the saved mode.
+        save_place(&app, place);
+        return Err(e.to_string());
+    }
     if low {
         // The size it really took: at 125% a computed one is a pixel off, and the bottom
         // edge crept a pixel down at every switch.
