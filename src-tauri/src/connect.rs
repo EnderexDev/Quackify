@@ -23,6 +23,9 @@ const REFRESH_DEBOUNCE: Duration = Duration::from_millis(250);
 // The device registers itself shortly after start, and the server does not tell the device
 // about its own registration: read the cluster again after this long.
 const SETTLE_REREAD: Duration = Duration::from_secs(3);
+// Nor about a change it publishes itself: a command sent to this device is read again after
+// this long, in case the read right after it came before the player had published the change.
+const OWN_COMMAND_REREAD: Duration = Duration::from_secs(1);
 /// How long a queue edit waits, at most, for Spotify to show it (tries x step).
 const QUEUE_SETTLE_TRIES: u32 = 12;
 const QUEUE_SETTLE_STEP: Duration = Duration::from_millis(250);
@@ -385,6 +388,13 @@ impl Hub {
             .await
             .map_err(|e| e.to_string())?;
         self.schedule_refresh();
+        if to == from {
+            let hub = self.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(OWN_COMMAND_REREAD).await;
+                hub.schedule_refresh();
+            });
+        }
         Ok(())
     }
 
