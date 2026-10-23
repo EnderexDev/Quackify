@@ -36,6 +36,8 @@ pub fn run() {
             app.manage(pathfinder::Pathfinder::new(hashes));
             // Before the tray and the player, which read it.
             app.manage(settings::Store::load(app.handle()));
+            // After the settings, which the player reads.
+            spotify::restore_early(app.handle());
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_title(&variant::name(app.handle()));
             }

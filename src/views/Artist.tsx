@@ -13,7 +13,7 @@ import { CheckIcon, ChevronDownIcon, ChevronRightIcon, GridIcon, ListIcon, Shuff
 import { followMenu } from "../components/menus";
 import { useNav } from "../state/nav";
 import { useSaved } from "../state/saved";
-import { usePlayer } from "../state/player";
+import { usePlayerNow, usePlayerSelect } from "../state/player";
 import { toast } from "../state/toast";
 import { formatCount } from "../util/format";
 import { useAsync } from "../util/useAsync";
@@ -32,7 +32,10 @@ const DISCO_VIEW_KEY = "discographyView";
 
 /** An artist: header and actions, then Overview, Discography and About. */
 export function Artist({ uri }: { uri: string }) {
-  const player = usePlayer();
+  const getPlayer = usePlayerNow();
+  const trackUri = usePlayerSelect((p) => p.track?.uri ?? null);
+  const playing = usePlayerSelect((p) => p.playing);
+  const shuffle = usePlayerSelect((p) => p.shuffle);
   const openMenu = useContextMenu();
   const [following] = useSaved(uri);
   const [tab, setTab] = useState<Tab>("overview");
@@ -42,7 +45,7 @@ export function Artist({ uri }: { uri: string }) {
 
   const top = data.topTracks;
   const topUris = top.map((t) => t.uri);
-  const isCurrent = !!player.track && topUris.includes(player.track.uri);
+  const isCurrent = !!trackUri && topUris.includes(trackUri);
 
   return (
     <div className="page artist">
@@ -67,14 +70,14 @@ export function Artist({ uri }: { uri: string }) {
       <div className="actions artist-actions">
         <PlayButton
           size={56}
-          playing={isCurrent && player.playing}
-          onClick={() => (isCurrent ? player.toggle() : top.length && play.tracks(topUris, 0).catch(toast))}
+          playing={isCurrent && playing}
+          onClick={() => (isCurrent ? getPlayer().toggle() : top.length && play.tracks(topUris, 0).catch(toast))}
         />
         <button
-          className={`icon-btn big ${player.shuffle ? "on" : ""}`}
-          onClick={() => player.setShuffle(!player.shuffle)}
-          aria-label={player.shuffle ? t("Disable shuffle") : t("Enable shuffle")}
-          title={player.shuffle ? t("Disable shuffle") : t("Enable shuffle")}
+          className={`icon-btn big ${shuffle ? "on" : ""}`}
+          onClick={() => getPlayer().setShuffle(!shuffle)}
+          aria-label={shuffle ? t("Disable shuffle") : t("Enable shuffle")}
+          title={shuffle ? t("Disable shuffle") : t("Enable shuffle")}
         >
           <ShuffleIcon size={28} />
         </button>
@@ -230,7 +233,9 @@ function DiscographyPages({
 
 /** One release of the list: closed it is a line; open it lists its songs. */
 function Release({ card, artist: artistName }: { card: CardData; artist: string }) {
-  const player = usePlayer();
+  const getPlayer = usePlayerNow();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
+  const playing = usePlayerSelect((p) => p.playing);
   const [open, setOpen] = useState(false);
   // A retry is a new key: the failed read is already out of the cache.
   const [attempt, setAttempt] = useState(0);
@@ -250,8 +255,8 @@ function Release({ card, artist: artistName }: { card: CardData; artist: string 
         <PlayButton
           size={36}
           className="release-play"
-          playing={player.contextUri === card.uri && player.playing}
-          onClick={() => (player.contextUri === card.uri ? player.toggle() : play.context(card.uri).catch(toast))}
+          playing={playingContext === card.uri && playing}
+          onClick={() => (playingContext === card.uri ? getPlayer().toggle() : play.context(card.uri).catch(toast))}
         />
       </div>
       {open &&

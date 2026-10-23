@@ -2,7 +2,7 @@
 // with Pin, and songs dropped on a playlist or Liked Songs.
 import { useEffect, useRef, useState } from "react";
 import { areSaved, save } from "../api/library";
-import { library, pinInLibrary, type LibraryQuery } from "../api/spotify";
+import { library, pinInLibrary, type LibraryQuery, libraryKey, onRefreshed } from "../api/spotify";
 import type { Card } from "../api/types";
 import { t } from "../i18n";
 import { useNav } from "../state/nav";
@@ -108,6 +108,26 @@ export function useLibraryPages(query: LibraryQuery, all = false) {
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryKey, version]);
+
+  // A first page shown from the copy kept on disk is replaced in place by Spotify's answer
+  // (unless more pages came in since; a later reload brings them up to date).
+  useEffect(
+    () =>
+      onRefreshed((k) => {
+        if (k !== libraryKey(query, 0) || nextOffset.current > LIBRARY_PAGE) return;
+        const gen = generation.current;
+        library(query, 0).then(
+          (page) => {
+            if (gen !== generation.current) return;
+            setItems(page.items);
+            setTotal(page.total);
+          },
+          () => {},
+        );
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queryKey],
+  );
 
   const loadMore = () => {
     if (loadingMore.current || !loaded || nextOffset.current >= total) return;

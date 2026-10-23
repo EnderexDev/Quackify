@@ -13,7 +13,7 @@ import { newPlaylist } from "../state/newPlaylist";
 import { DRAGGABLE, dragCard } from "../state/drag";
 import { peekProps } from "../state/peek";
 import { useNav } from "../state/nav";
-import { usePlayer } from "../state/player";
+import { usePlayerSelect } from "../state/player";
 import { formatAgo } from "../util/format";
 import { kindLabel } from "../util/kinds";
 import { useAsync } from "../util/useAsync";
@@ -234,7 +234,7 @@ function groupItems(items: CardData[], filter: Filter) {
 
 function Items({ view, items, actions }: { view: View; items: CardData[]; actions: ReturnType<typeof useLibraryActions> }) {
   const nav = useNav();
-  const player = usePlayer();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
   if (view === "grid") {
     return (
       <div className="card-grid">
@@ -257,7 +257,7 @@ function Items({ view, items, actions }: { view: View; items: CardData[]; action
         <span>{t("Played")}</span>
       </div>
       {items.map((c) => {
-        const playing = player.contextUri === c.uri;
+        const playing = playingContext === c.uri;
         return (
           <div
             key={c.uri}

@@ -9,7 +9,7 @@ import { Segmented } from "../components/Segmented";
 import { Toggle } from "../components/Toggle";
 import type { ProgressMode } from "../state/meter";
 import { useNav } from "../state/nav";
-import { cinemaAuto, playerLyrics } from "../state/prefs";
+import { cinemaAuto, liveFps, playerLyrics, type LiveFps } from "../state/prefs";
 import { setTheme, useTheme } from "../state/theme";
 import { setMotion, useMotion } from "../state/motion";
 import { notify, toast  } from "../state/toast";
@@ -72,6 +72,7 @@ export function SettingsView({ account }: { account: Account }) {
   const nav = useNav();
   const lyricsInPlayer = playerLyrics.use();
   const cinemaOn = cinemaAuto.use() === "on";
+  const fps = liveFps.use();
   const motion = useMotion();
   const language = useLangChoice();
   const readCache = () => {
@@ -285,6 +286,21 @@ export function SettingsView({ account }: { account: Account }) {
                 );
               })}
             </div>
+            {s.progress_mode === "live" && (
+              <Row title={t("Live bars smoothness")} note={t("How many times a second the bars move. More is smoother and uses more of the processor; Screen follows your monitor.")}>
+                <Segmented
+                  label={t("Live bars smoothness")}
+                  options={[
+                    { id: "30", label: "30 fps" },
+                    { id: "60", label: "60 fps" },
+                    { id: "120", label: "120 fps" },
+                    { id: "screen", label: t("Screen") },
+                  ]}
+                  value={fps}
+                  onChange={(v: LiveFps) => liveFps.set(v)}
+                />
+              </Row>
+            )}
           </Group>
 
           <Group id="audio" title={t("Audio")}>

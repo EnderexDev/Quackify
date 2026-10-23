@@ -14,7 +14,7 @@ import { OPEN_PALETTE_EVENT } from "../components/Palette";
 import { PlayButton } from "../components/PlayButton";
 import { TrackList } from "../components/TrackList";
 import { useNav } from "../state/nav";
-import { usePlayer } from "../state/player";
+import { usePlayerNow, usePlayerSelect } from "../state/player";
 import { notifyLibraryChanged } from "../state/saved";
 import { notify, toast } from "../state/toast";
 import { formatCount, formatLength } from "../util/format";
@@ -54,7 +54,10 @@ export function Collection({ uri }: { uri: string }) {
 }
 
 function Loaded({ first }: { first: Data }) {
-  const player = usePlayer();
+  const getPlayer = usePlayerNow();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
+  const playing = usePlayerSelect((p) => p.playing);
+  const shuffle = usePlayerSelect((p) => p.shuffle);
   const nav = useNav();
   const openMenu = useContextMenu();
   const [title, setTitle] = useState(first.title);
@@ -211,8 +214,8 @@ function Loaded({ first }: { first: Data }) {
     });
   };
 
-  const isCurrent = player.contextUri === uri;
-  const playList = () => (isCurrent ? player.toggle() : play.context(uri).catch(toast));
+  const isCurrent = playingContext === uri;
+  const playList = () => (isCurrent ? getPlayer().toggle() : play.context(uri).catch(toast));
   const openMore = (e: React.MouseEvent) =>
     openMenu(
       e,
@@ -288,12 +291,12 @@ function Loaded({ first }: { first: Data }) {
         </div>
       </header>
       <div className="actions">
-        <PlayButton size={56} playing={isCurrent && player.playing} onClick={playList} />
+        <PlayButton size={56} playing={isCurrent && playing} onClick={playList} />
         <button
-          className={`icon-btn big ${player.shuffle ? "on" : ""}`}
-          onClick={() => player.setShuffle(!player.shuffle)}
-          aria-label={player.shuffle ? t("Disable shuffle") : t("Enable shuffle")}
-          title={player.shuffle ? t("Disable shuffle") : t("Enable shuffle")}
+          className={`icon-btn big ${shuffle ? "on" : ""}`}
+          onClick={() => getPlayer().setShuffle(!shuffle)}
+          aria-label={shuffle ? t("Disable shuffle") : t("Enable shuffle")}
+          title={shuffle ? t("Disable shuffle") : t("Enable shuffle")}
         >
           <ShuffleIcon size={28} />
         </button>

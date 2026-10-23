@@ -6,6 +6,7 @@
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { level, meterNow, onMeter, type ProgressMode } from "../state/meter";
+import { liveFps } from "../state/prefs";
 import { Slider } from "./Slider";
 
 /** Bars of a waveform, across the whole song. */
@@ -22,12 +23,15 @@ const WAVE_SAVED_WEIGHT = 4;
 const WAVE_MAX_WEIGHT = 40;
 /** Live: about one bar every this many pixels, mirrored around the middle. */
 const LIVE_PITCH = 5;
-/** Live: a bar rises at once and falls by this share per frame (about 300 ms to nothing). */
+/** Live: a bar rises at once and falls by this share every 60th of a second (about 300 ms to
+ * nothing), whatever the frame rate. */
 const LIVE_FALL = 0.82;
+/** The 60th of a second the Live bars' fall and drift are counted in, in ms. */
+const LIVE_TICK = 1000 / 60;
 /**
  * Live: each band is read against its own recent quietest and loudest (they drift back towards
- * the band by this much per frame, about 5 s to forget), since the lows sit around 0.6 on the
- * meter and the highs around 0.2.
+ * the band by this much every 60th of a second, about 5 s to forget), since the lows sit around
+ * 0.6 on the meter and the highs around 0.2.
  */
 const LIVE_ADAPT = 0.0015;
 /** Live: a band whose loudest stays under this is silence (the top octave of many songs). */
@@ -61,6 +65,14 @@ export function ProgressBar({
   // Read by the drawing loop, which outlives renders.
   const live = useRef({ position, duration, playing });
   live.current = { position, duration, playing };
+  // Live: the frames a second chosen in Settings, read by the loop.
+  const fps = liveFps.use();
+  const fpsRef = useRef(fps);
+  fpsRef.current = fps;
+  // Asks the drawing loop for a frame when it is asleep (see below). Every render may have moved
+  // something: where the song is, playing or paused.
+  const wake = useRef<() => void>(() => {});
+  useEffect(() => wake.current());
 
   // The waveform of the song playing. A song's whole waveform is measured from its file before it
   // plays (Rust waveform.rs, once, then kept), so the bar only lights up as the song goes. Until
@@ -87,6 +99,7 @@ export function ProgressBar({
           w.version++;
           w.dirty = false;
           saveWave(uri, w.bins, true);
+          wake.current();
         },
         (e) => console.warn("waveform not measured", uri, e),
       );
@@ -118,8 +131,10 @@ export function ProgressBar({
   }, [mode, uri]);
 
   // The drawing loop, only in Wave and Live. It draws only when something changed (where the
-  // song is, the size, the waveform, the sound), so a paused bar costs nothing; the browser
-  // stops it while the window is hidden.
+  // song is, the size, the waveform, the sound), and it asks for frames only while something can
+  // change: sound in Live, the song going in Wave. Otherwise it sleeps until a meter frame, a
+  // render or a resize wakes it; awake for nothing, it ran 165 times a second (about 5% of a
+  // core, 23/10/26). The browser stops it while the window is hidden.
   useEffect(() => {
     if (mode === "simple") return;
     const c = canvas.current;
@@ -131,8 +146,11 @@ export function ProgressBar({
     // What the canvas shows now: a Wave frame's inputs, or "idle" for a cleared Live bar.
     let shown = "";
     let raf = 0;
-    const draw = () => {
-      raf = requestAnimationFrame(draw);
+    // Live: when the last frame was drawn, and when the next one is due at the chosen rate.
+    let drawnAt = 0;
+    let dueAt = 0;
+    /** Draws what changed; whether the next frame may show something new. */
+    const draw = (): boolean => {
       const dpr = window.devicePixelRatio || 1;
       const w = c.clientWidth;
       const h = c.clientHeight;
@@ -147,29 +165,61 @@ export function ProgressBar({
       if (mode === "wave") {
         const wv = wave.current;
         const inputs = `${Math.round(played * 2)}:${wv?.uri ?? ""}:${wv?.version ?? 0}`;
-        if (inputs === shown) return;
-        shown = inputs;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, w, h);
-        return drawWave(ctx, w, h, played, wv?.bins ?? null);
+        if (inputs !== shown) {
+          shown = inputs;
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+          drawWave(ctx, w, h, played, wv?.bins ?? null);
+        }
+        return playing;
       }
       const half = Math.max(8, Math.floor(w / LIVE_PITCH / 2));
       if (heights.length !== half) heights = new Float32Array(half);
-      const bands = normalize(playing ? meterNow().bands : null, range);
-      if (!bands && shown === "idle") return;
+      const now = performance.now();
+      const rate = fpsRef.current;
+      if (rate !== "screen") {
+        // A frame early by up to 3 ms still counts, so 60 on a 165 Hz screen averages 60.
+        if (now < dueAt - 3) return true;
+        const gap = 1000 / Number(rate);
+        dueAt = now - dueAt > gap ? now + gap : dueAt + gap;
+      }
+      // The fall and the drift go by the time passed, so every rate moves the same; after a
+      // sleep the bars just start from where the sound is.
+      const ticks = drawnAt ? Math.min(6, (now - drawnAt) / LIVE_TICK) : 1;
+      const bands = normalize(playing ? meterNow().bands : null, range, ticks);
+      if (!bands && shown === "idle") {
+        drawnAt = 0;
+        return false;
+      }
+      drawnAt = now;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      const loud = drawLive(ctx, w, h, played, heights, bands);
+      const loud = drawLive(ctx, w, h, played, heights, bands, ticks);
       shown = loud ? "" : "idle";
       // While there is sound the bars are the bar; without it, the line comes back.
       if (loud !== sounding) {
         sounding = loud;
         box.current?.classList.toggle("sounding", loud);
       }
+      return true;
     };
-    draw();
+    const frame = () => {
+      raf = 0;
+      if (draw()) raf = requestAnimationFrame(frame);
+    };
+    wake.current = () => {
+      if (!raf) raf = requestAnimationFrame(frame);
+    };
+    const offMeter = mode === "live" ? onMeter(() => wake.current()) : () => {};
+    // The device pixels too, so moving to a screen of another scale redraws it sharp.
+    const resized = new ResizeObserver(() => wake.current());
+    resized.observe(c, { box: "device-pixel-content-box" });
+    frame();
     return () => {
       cancelAnimationFrame(raf);
+      wake.current = () => {};
+      offMeter();
+      resized.disconnect();
       box.current?.classList.remove("sounding");
     };
   }, [mode]);
@@ -219,15 +269,15 @@ function drawWave(ctx: CanvasRenderingContext2D, w: number, h: number, played: n
 }
 
 /** Each band as 0 to 1 between its own recent quietest and loudest; null without sound. */
-function normalize(bands: number[] | null, range: { lo: Float32Array; hi: Float32Array }): number[] | null {
+function normalize(bands: number[] | null, range: { lo: Float32Array; hi: Float32Array }, ticks: number): number[] | null {
   if (!bands || !bands.some((b) => b > 0)) return null;
   if (range.lo.length !== bands.length) {
     range.lo = Float32Array.from(bands, (b) => Math.max(0, b - 0.1));
     range.hi = Float32Array.from(bands, (b) => b + 0.1);
   }
   return bands.map((b, i) => {
-    range.lo[i] = Math.min(b, range.lo[i] + LIVE_ADAPT);
-    range.hi[i] = Math.max(b, range.hi[i] - LIVE_ADAPT);
+    range.lo[i] = Math.min(b, range.lo[i] + LIVE_ADAPT * ticks);
+    range.hi[i] = Math.max(b, range.hi[i] - LIVE_ADAPT * ticks);
     if (range.hi[i] < LIVE_QUIET) return 0;
     return Math.min(1, Math.max(0, (b - range.lo[i]) / Math.max(0.12, range.hi[i] - range.lo[i])));
   });
@@ -245,6 +295,8 @@ function drawLive(
   played: number,
   heights: Float32Array,
   bands: number[] | null,
+  /** 60ths of a second since the last frame. */
+  ticks: number,
 ): boolean {
   const half = heights.length;
   const step = w / (half * 2);
@@ -261,7 +313,7 @@ function drawLive(
       const raw = bands![a] + (bands![Math.min(a + 1, bands!.length - 1)] - bands![a]) * (at - a);
       target = (0.1 + 0.9 * Math.pow(raw, 1.4)) * (1 - 0.5 * d * d);
     }
-    heights[k] = Math.max(target, heights[k] * LIVE_FALL);
+    heights[k] = Math.max(target, heights[k] * Math.pow(LIVE_FALL, ticks));
   }
   if (!sound && heights.every((v) => v < 0.01)) return false;
   for (let k = 0; k < half; k++) {

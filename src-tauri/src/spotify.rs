@@ -47,10 +47,71 @@ fn login_done_page(language: &str) -> String {
 
 
 struct Engine {
+    // Which connection this is, so a dropped one only revives itself, never a newer engine.
+    generation: u64,
     session: Session,
     spirc: Arc<Spirc>,
     hub: Arc<Hub>,
-    profile: Profile,
+    /// Filled a moment after the login (the "spotify-profile" event says when), so the app does
+    /// not wait for it to open.
+    profile: Arc<std::sync::Mutex<Profile>>,
+}
+
+/// How often the watcher looks at whether the session is still alive.
+const SESSION_CHECK: std::time::Duration = std::time::Duration::from_secs(5);
+
+static GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Waits between tries to come back after the connection drops, the last one repeating.
+const REVIVE_WAITS: &[std::time::Duration] = &[
+    std::time::Duration::from_secs(2),
+    std::time::Duration::from_secs(5),
+    std::time::Duration::from_secs(15),
+    std::time::Duration::from_secs(30),
+    std::time::Duration::from_secs(60),
+];
+
+/// The connection to Spotify dropped by itself (network gone, the PC slept, the server closed
+/// it): librespot ends the session and takes the device out of Connect, and does not reconnect.
+/// This logs back in with the saved login, retrying while the network is down, until it works
+/// or the engine is replaced (logout, a new login, a settings reconnect, quitting).
+/// Boxed: connect starts the next watcher, which calls revive again.
+fn revive(app: AppHandle, generation: u64) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+    Box::pin(revive_inner(app, generation))
+}
+
+async fn revive_inner(app: AppHandle, generation: u64) {
+    let state = app.state::<SpotifyState>();
+    let still_mine = |slot: &Option<Engine>| slot.as_ref().is_some_and(|e| e.generation == generation);
+    for attempt in 0.. {
+        // A deliberate shutdown (quit, logout, a settings reconnect) already took this engine out.
+        if attempt == 0 && !still_mine(&*state.0.lock().await) {
+            return;
+        }
+        let wait = REVIVE_WAITS[attempt.min(REVIVE_WAITS.len() - 1)];
+        eprintln!("[spotify] connection lost, reconnecting in {}s (try {})", wait.as_secs(), attempt + 1);
+        tokio::time::sleep(wait).await;
+        // Checked after the wait: a logout or a new login during it means nothing to revive.
+        if !still_mine(&*state.0.lock().await) {
+            return;
+        }
+        let Some(credentials) = open_cache(&app, None).ok().and_then(|c| c.credentials()) else { return };
+        match connect(&app, credentials).await {
+            Ok(engine) => {
+                let mut slot = state.0.lock().await;
+                if !still_mine(&slot) {
+                    engine.shutdown();
+                    return;
+                }
+                if let Some(old) = slot.replace(engine) {
+                    old.shutdown();
+                }
+                eprintln!("[spotify] reconnected");
+                return;
+            }
+            Err(e) => eprintln!("[spotify] reconnect failed: {e}"),
+        }
+    }
 }
 
 impl Engine {
@@ -104,12 +165,28 @@ fn open_cache(app: &AppHandle, audio_limit: Option<u64>) -> Result<Cache, String
     Cache::new(Some(&dir), Some(&dir), audio.as_ref(), audio_limit).map_err(|e| e.to_string())
 }
 
+/// This install's Connect device id, made once and kept. librespot makes a new one on every
+/// launch, which leaves controllers holding an id that is gone after a restart.
+fn device_id(app: &AppHandle) -> String {
+    let fresh = || SessionConfig::default().device_id;
+    let Ok(path) = cache_dir(app).map(|dir| dir.join("device_id")) else { return fresh() };
+    if let Some(id) = std::fs::read_to_string(&path).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+        return id;
+    }
+    let id = fresh();
+    let _ = std::fs::create_dir_all(path.parent().unwrap_or(&path)).and_then(|_| std::fs::write(&path, &id));
+    id
+}
+
 /// Logs in and registers this app as a Spotify Connect device.
 async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, String> {
     let settings = crate::settings::current(app);
     let cache = open_cache(app, settings.audio_cache.then(|| settings.cache_limit_bytes()))?;
     let initial_volume = cache.volume().unwrap_or(u16::MAX / 2);
-    let session = Session::new(SessionConfig { autoplay: Some(settings.autoplay), ..Default::default() }, Some(cache));
+    let session = Session::new(
+        SessionConfig { autoplay: Some(settings.autoplay), device_id: device_id(app), ..Default::default() },
+        Some(cache),
+    );
 
     // librespot's default volume curve (log, 60 dB), the one Spotify's own apps use.
     let mixer = mixer::find(None).ok_or("no mixer")?(MixerConfig::default())
@@ -148,7 +225,20 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     let (spirc, task) = Spirc::new(config, session.clone(), credentials, player.clone(), mixer.clone())
         .await
         .map_err(|e| e.to_string())?;
-    tauri::async_runtime::spawn(task);
+    let generation = GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+    // A dead session does not always end the Spirc task (it can sit waiting on the dealer), so
+    // the watcher also checks the session itself.
+    let mut running = tauri::async_runtime::spawn(task);
+    let (watcher, watched) = (app.clone(), session.clone());
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::select! {
+                _ = &mut running => break,
+                _ = tokio::time::sleep(SESSION_CHECK) => if watched.is_invalid() { break },
+            }
+        }
+        revive(watcher, generation).await;
+    });
     let spirc = Arc::new(spirc);
     let hub = Hub::start(app.clone(), session.clone(), spirc.clone(), mixer);
 
@@ -159,13 +249,16 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
             let ui = match event {
                 PlayerEvent::Loading { track_id, .. } => {
                     hub2.set_local_stopped(false);
+                    hub2.local_track(track_id.to_string());
                     Some(UiEvent::Loading { uri: track_id.to_string() })
                 }
                 PlayerEvent::Playing { track_id, position_ms, .. } => {
                     hub2.set_local_stopped(false);
+                    hub2.local_track(track_id.to_string());
                     Some(UiEvent::Playing { uri: track_id.to_string(), position_ms })
                 }
                 PlayerEvent::Paused { track_id, position_ms, .. } => {
+                    hub2.local_track(track_id.to_string());
                     Some(UiEvent::Paused { uri: track_id.to_string(), position_ms })
                 }
                 PlayerEvent::Seeked { track_id, position_ms, .. }
@@ -177,10 +270,9 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
                     Some(UiEvent::Stopped)
                 }
                 PlayerEvent::Unavailable { track_id, .. } => Some(UiEvent::Unavailable { uri: track_id.to_string() }),
-                PlayerEvent::TrackChanged { audio_item } => {
-                    hub2.announce_track(audio_item.uri.clone());
-                    None
-                }
+                // Its URI can be another version of the song asked for (relinked), which the
+                // cluster never shows: the song is told by the events that carry the one asked for.
+                PlayerEvent::TrackChanged { .. } => None,
                 // Shuffle, repeat and volume can change from another Spotify app: re-read the state.
                 PlayerEvent::ShuffleChanged { .. }
                 | PlayerEvent::RepeatChanged { .. }
@@ -194,8 +286,19 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
         }
     });
 
-    let profile = fetch_profile(&session).await;
-    Ok(Engine { session, spirc, hub, profile })
+    // The name and picture come after: the app opens without waiting for them (about 0.2 s).
+    let profile = Arc::new(std::sync::Mutex::new(Profile::default()));
+    let (app3, session3, profile3) = (app.clone(), session.clone(), profile.clone());
+    tauri::async_runtime::spawn(async move {
+        let fetched = fetch_profile(&session3).await;
+        *profile3.lock().unwrap() = fetched.clone();
+        // With the account, so a late answer for an account logged out meanwhile is left out.
+        let _ = app3.emit(
+            "spotify-profile",
+            serde_json::json!({ "username": session3.username(), "display_name": fetched.display_name, "image": fetched.image }),
+        );
+    });
+    Ok(Engine { generation, session, spirc, hub, profile })
 }
 
 async fn fetch_profile(session: &Session) -> Profile {
@@ -214,7 +317,7 @@ fn status_of(engine: &Option<Engine>) -> Status {
         Some(e) if !e.session.is_invalid() => Status {
             logged_in: true,
             username: Some(e.session.username()),
-            profile: e.profile.clone(),
+            profile: e.profile.lock().unwrap().clone(),
         },
         _ => Status { logged_in: false, username: None, profile: Profile::default() },
     }
@@ -233,11 +336,15 @@ pub async fn reconnect(app: &AppHandle) -> Result<(), String> {
     let state = app.state::<SpotifyState>();
     let mut slot = state.0.lock().await;
     let Some(old) = slot.take() else { return Ok(()) };
-    let credentials = match open_cache(app, None)?.credentials() {
-        Some(c) => c,
-        None => {
+    let credentials = match open_cache(app, None).map(|c| c.credentials()) {
+        Ok(Some(c)) => c,
+        Ok(None) => {
             *slot = Some(old);
             return Err("the saved login is gone; log in again".into());
+        }
+        Err(e) => {
+            *slot = Some(old);
+            return Err(e);
         }
     };
     let engine = match connect(app, credentials).await {
@@ -290,6 +397,25 @@ async fn hub(state: &State<'_, SpotifyState>) -> Result<Arc<Hub>, String> {
 #[tauri::command]
 pub async fn spotify_status(state: State<'_, SpotifyState>) -> Result<Status, String> {
     Ok(status_of(&*state.0.lock().await))
+}
+
+/// Starts logging back in as the app starts, while the window and the page are still loading
+/// (about 0.6 s), so spotify_restore finds it under way or done.
+pub fn restore_early(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<SpotifyState>();
+        let mut slot = state.0.lock().await;
+        if slot.is_some() {
+            return;
+        }
+        let Some(credentials) = open_cache(&app, None).ok().and_then(|c| c.credentials()) else { return };
+        match connect(&app, credentials).await {
+            Ok(engine) => *slot = Some(engine),
+            // spotify_restore tries again and reports it.
+            Err(e) => eprintln!("spotify: early login failed: {e}"),
+        }
+    });
 }
 
 /// Logs back in with the credentials librespot cached after the last OAuth login, if any.

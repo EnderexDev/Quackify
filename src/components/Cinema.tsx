@@ -9,7 +9,7 @@ import { activeLine, useLyrics } from "../state/lyrics";
 import { useProgressMode } from "../state/meter";
 import { useNav } from "../state/nav";
 import { t } from "../i18n";
-import { repeatLabel, usePlayer, type NowPlaying } from "../state/player";
+import { repeatLabel, usePlayerSelect, usePlayer, type NowPlaying } from "../state/player";
 import { cinemaAuto, cinemaLyrics, lyricsSize, type LyricsSize } from "../state/prefs";
 import { toast } from "../state/toast";
 import { setCinema, toggleMini, useMiniOpen } from "../state/windows";
@@ -362,9 +362,10 @@ function UpNext({ show }: { show: boolean }) {
  * app while music plays here in front of you (the window shown and focused).
  */
 export function useCinemaAuto(open: boolean) {
-  const p = usePlayer();
+  // Only whether it plays: this runs in the shell, which must not re-render on every player change.
+  const playing = usePlayerSelect((p) => p.playing);
   const auto = cinemaAuto.use() === "on";
-  const armed = auto && p.playing && !open;
+  const armed = auto && playing && !open;
   useEffect(() => {
     if (!armed) return;
     let timer = 0;

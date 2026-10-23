@@ -6,7 +6,7 @@ import { peekProps } from "../state/peek";
 import { useNav } from "../state/nav";
 import { t } from "../i18n";
 import { kindLabel, TAGGED_KINDS } from "../util/kinds";
-import { usePlayer } from "../state/player";
+import { usePlayerNow, usePlayerSelect } from "../state/player";
 import { toast } from "../state/toast";
 import { useContextMenu } from "./ContextMenu";
 import { cardMenuHandler } from "./menus";
@@ -31,9 +31,12 @@ export function Card({
   onMenu?: (e: React.MouseEvent) => void;
 }) {
   const nav = useNav();
-  const player = usePlayer();
+  const getPlayer = usePlayerNow();
+  const trackUri = usePlayerSelect((p) => p.track?.uri ?? null);
+  const playingContext = usePlayerSelect((p) => p.contextUri);
+  const playing = usePlayerSelect((p) => p.playing);
   const isTrack = card.kind === "track" || card.kind === "episode";
-  const isCurrent = isTrack ? player.track?.uri === card.uri : player.contextUri === card.uri;
+  const isCurrent = isTrack ? trackUri === card.uri : playingContext === card.uri;
   const openMenu = useContextMenu();
   // A card can be dragged to the queue or onto a playlist, as a whole (not a removable one).
   const canDrag = DRAGGABLE.has(card.kind) && !onRemove;
@@ -41,7 +44,7 @@ export function Card({
 
   const onPlay = () => {
     onPick?.();
-    if (isCurrent) player.toggle();
+    if (isCurrent) getPlayer().toggle();
     else (isTrack ? play.tracks([card.uri], 0) : play.context(card.uri)).catch(toast);
   };
 
@@ -70,7 +73,7 @@ export function Card({
             <PinIcon size={13} />
           </span>
         )}
-        {card.kind !== "folder" && <PlayButton className="card-play" playing={isCurrent && player.playing} onClick={onPlay} />}
+        {card.kind !== "folder" && <PlayButton className="card-play" playing={isCurrent && playing} onClick={onPlay} />}
         {onRemove && (
           <button
             className="card-remove"

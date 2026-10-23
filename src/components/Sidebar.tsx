@@ -3,7 +3,7 @@ import { libraryCounts, type LibraryCounts } from "../api/spotify";
 import type { Card, LibraryFilter, LibrarySort } from "../api/types";
 import { locale, t } from "../i18n";
 import { useNav } from "../state/nav";
-import { usePlayer } from "../state/player";
+import { usePlayerSelect } from "../state/player";
 import { newPlaylist } from "../state/newPlaylist";
 import { onLibraryChanged } from "../state/saved";
 import { DRAGGABLE, dragCard } from "../state/drag";
@@ -12,6 +12,7 @@ import { useAsync } from "../util/useAsync";
 import { Cover } from "./Cover";
 import { ChevronDownIcon, ChevronRightIcon, DiscIcon, HeartIcon, LibraryIcon, PinIcon, PlaylistIcon, PlusIcon, PodcastIcon, SearchIcon, UserIcon } from "./icons";
 import { librarySubtitle, pressable, readStored, useLibraryActions, useLibraryPages, usePersisted, writeStored } from "./libraryItems";
+import { Eq } from "./Eq";
 
 type Filter = Exclude<LibraryFilter, null>;
 
@@ -67,7 +68,8 @@ function useCounts() {
  */
 export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; onExpand?: () => void }) {
   const nav = useNav();
-  const player = usePlayer();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
+  const isPlaying = usePlayerSelect((p) => p.playing);
   const actions = useLibraryActions();
   const counts = useCounts();
   // Pinned items come first in Your Library, whatever the kind.
@@ -100,7 +102,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
           {pinned.map((c) => (
             <button
               key={c.uri}
-              className={`side-pin ${player.contextUri === c.uri ? "playing" : ""} ${openUri === c.uri ? "open" : ""}`}
+              className={`side-pin ${playingContext === c.uri ? "playing" : ""} ${openUri === c.uri ? "open" : ""}`}
               title={c.title}
               aria-label={c.title}
               onClick={() => nav.open(c.uri, c.title)}
@@ -184,7 +186,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
               {pinsOpen === "1" && (
                 <div className="side-pin-grid">
                   {pinned.map((c) => {
-                    const playing = player.contextUri === c.uri;
+                    const playing = playingContext === c.uri;
                     return (
                       <button
                         key={c.uri}
@@ -201,7 +203,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
                         <Cover src={c.image} kind={c.kind} />
                         {playing && (
                           <span className="side-pin-eq">
-                            <span className={`eq ${player.playing ? "" : "paused"}`} />
+                            <Eq paused={!isPlaying} />
                           </span>
                         )}
                       </button>
@@ -358,7 +360,8 @@ function Branch({
   actions: Actions;
 }) {
   const nav = useNav();
-  const player = usePlayer();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
+  const isPlaying = usePlayerSelect((p) => p.playing);
   const [savedSort] = usePersisted<LibrarySort>("librarySort", "Recents", ["Recents", "Recently Added", "Alphabetical", "Creator"]);
   // Spotify answers nothing for artists sorted by creator.
   const sort = filter === "Artists" && savedSort === "Creator" ? "Recents" : savedSort;
@@ -373,7 +376,7 @@ function Branch({
       {!pages.loaded && !pages.error && <div className="side-leaf side-leaf-loading" />}
       {pages.loaded && items.length === 0 && <div className="side-leaf-note">{folder ? t("This folder is empty") : t("Nothing here yet")}</div>}
       {shown.map((c, i) => {
-        const playing = player.contextUri === c.uri;
+        const playing = playingContext === c.uri;
         const isFolder = c.kind === "folder";
         const folderOpen = isFolder && opened.has(c.uri);
         return (
@@ -393,7 +396,7 @@ function Branch({
               <Cover src={c.image} kind={c.kind} className="side-leaf-cover" />
               <span className="side-leaf-name">{c.title}</span>
               {playing ? (
-                <span className={`eq ${player.playing ? "" : "paused"}`} />
+                <Eq paused={!isPlaying} />
               ) : isFolder ? (
                 <span className="side-leaf-count">
                   {/^\d+/.exec(c.subtitle)?.[0] ?? ""}
@@ -440,7 +443,7 @@ function LibrarySearch({
   actions: Actions;
 }) {
   const nav = useNav();
-  const player = usePlayer();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
   const term = text.trim();
   const pages = useLibraryPages({ filter: null, sort: "Recents", text: term });
   return (
@@ -472,7 +475,7 @@ function LibrarySearch({
           >
             <Cover src={c.image} kind={c.kind} className="library-cover" />
             <div className="library-text">
-              <div className={`library-title ${player.contextUri === c.uri ? "accent" : ""}`}>{c.title}</div>
+              <div className={`library-title ${playingContext === c.uri ? "accent" : ""}`}>{c.title}</div>
               <div className="library-sub">{librarySubtitle(c)}</div>
             </div>
           </div>

@@ -31,7 +31,7 @@ import {
   type Log,
   type Spot,
 } from "../state/listening";
-import { usePlayer } from "../state/player";
+import { usePlayerNow, usePlayerSelect } from "../state/player";
 import { toast } from "../state/toast";
 import { formatCount } from "../util/format";
 import { kindLabel } from "../util/kinds";
@@ -182,8 +182,10 @@ export function Home({ name }: { name: string }) {
 
 function Shortcut({ card }: { card: CardData }) {
   const nav = useNav();
-  const player = usePlayer();
-  const isCurrent = player.contextUri === card.uri;
+  const getPlayer = usePlayerNow();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
+  const playing = usePlayerSelect((p) => p.playing);
+  const isCurrent = playingContext === card.uri;
   return (
     <div className="shortcut" onClick={() => nav.open(card.uri)} title={card.title}>
       <Cover src={card.image} kind={card.kind} className="shortcut-cover" />
@@ -191,8 +193,8 @@ function Shortcut({ card }: { card: CardData }) {
       <PlayButton
         size={36}
         className="shortcut-play"
-        playing={isCurrent && player.playing}
-        onClick={() => (isCurrent ? player.toggle() : play.context(card.uri).catch(toast))}
+        playing={isCurrent && playing}
+        onClick={() => (isCurrent ? getPlayer().toggle() : play.context(card.uri).catch(toast))}
       />
     </div>
   );
@@ -345,11 +347,13 @@ function ContinueGrid({ items }: { items: Halfway[] }) {
 
 function ContinueTile({ episode: e }: { episode: Episode }) {
   const nav = useNav();
-  const player = usePlayer();
-  const isCurrent = player.track?.uri === e.uri;
+  const getPlayer = usePlayerNow();
+  const trackUri = usePlayerSelect((p) => p.track?.uri ?? null);
+  const playing = usePlayerSelect((p) => p.playing);
+  const isCurrent = trackUri === e.uri;
   const left = Math.max(1, Math.round((e.durationMs - e.playedMs) / 60000));
   const playThis = () =>
-    isCurrent ? player.toggle() : (e.show.uri ? play.context(e.show.uri, e.uri) : play.tracks([e.uri], 0)).catch(toast);
+    isCurrent ? getPlayer().toggle() : (e.show.uri ? play.context(e.show.uri, e.uri) : play.tracks([e.uri], 0)).catch(toast);
   return (
     <div className="continue-tile" onClick={() => nav.open(e.uri)} title={e.name}>
       <Cover src={e.image} kind="show" className="continue-cover" />
@@ -360,7 +364,7 @@ function ContinueTile({ episode: e }: { episode: Episode }) {
           {t("{n} min left", { n: left })}
         </div>
       </div>
-      <PlayButton size={32} className="continue-play" playing={isCurrent && player.playing} onClick={playThis} />
+      <PlayButton size={32} className="continue-play" playing={isCurrent && playing} onClick={playThis} />
       <div className="continue-progress" style={{ width: `${Math.min(100, (100 * e.playedMs) / Math.max(1, e.durationMs))}%` }} />
     </div>
   );
@@ -372,12 +376,14 @@ function ContinueTile({ episode: e }: { episode: Episode }) {
  * Play picks up at that song and place. */
 function ContinueContext({ card, spot }: { card: ContextCard; spot: Spot }) {
   const nav = useNav();
-  const player = usePlayer();
-  const isCurrent = player.contextUri === card.uri;
+  const getPlayer = usePlayerNow();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
+  const playing = usePlayerSelect((p) => p.playing);
+  const isCurrent = playingContext === card.uri;
   const row = (spot.index ?? 0) + 1;
   const total = Math.max(card.total ?? row, row);
   const done = Math.min(1, ((spot.index ?? 0) + (spot.dur ? spot.pos / spot.dur : 0)) / total);
-  const playThis = () => (isCurrent ? player.toggle() : play.context(card.uri, spot.track, spot.pos).catch(toast));
+  const playThis = () => (isCurrent ? getPlayer().toggle() : play.context(card.uri, spot.track, spot.pos).catch(toast));
   return (
     <div className="continue-tile" onClick={() => nav.open(card.uri, card.title)} title={card.title}>
       <Cover src={card.image} kind={card.kind} className="continue-cover" />
@@ -385,7 +391,7 @@ function ContinueContext({ card, spot }: { card: ContextCard; spot: Spot }) {
         <div className={`continue-title ${isCurrent ? "accent" : ""}`}>{card.title}</div>
         <div className="continue-sub">{spot.shuffle ? t("Shuffling • {kind}", { kind: kindLabel(card) }) : t("Track {n} of {total}", { n: formatCount(row), total: formatCount(total) })}</div>
       </div>
-      <PlayButton size={32} className="continue-play" playing={isCurrent && player.playing} onClick={playThis} />
+      <PlayButton size={32} className="continue-play" playing={isCurrent && playing} onClick={playThis} />
       {!spot.shuffle && <div className="continue-progress" style={{ width: `${100 * done}%` }} />}
     </div>
   );

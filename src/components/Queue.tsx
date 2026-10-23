@@ -13,6 +13,7 @@ import { ClockIcon, CloseIcon, RepeatIcon, ShuffleIcon } from "./icons";
 import { Empty } from "../views/common";
 import { trackMenu } from "./menus";
 import { Segmented } from "./Segmented";
+import { Eq } from "./Eq";
 
 /** How many tracks each group shows, with names and covers. */
 const SHOWN = 30;
@@ -356,7 +357,7 @@ export function QueueRow({
         <div className="queue-artists">{track?.artists.map((a) => a.name).join(", ")}</div>
       </div>
       {current ? (
-        <span className={`eq ${player.playing ? "" : "paused"}`} />
+        <Eq paused={!player.playing} />
       ) : (
         <span className="queue-time">{track ? formatDuration(track.duration_ms) : ""}</span>
       )}

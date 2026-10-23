@@ -1,5 +1,5 @@
 // The right-click menu. `useContextMenu()` gives `open(event, items)`; one menu shows at a time.
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { t } from "../i18n";
 import { CheckIcon, ChevronRightIcon } from "./icons";
 
@@ -42,10 +42,11 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
     };
   }, [menu]);
 
-  const open: Open = (e, items) => {
+  // The same function every render, so opening a menu does not re-render everything that can open one.
+  const open: Open = useCallback((e, items) => {
     e.preventDefault();
     setMenu({ x: e.clientX, y: e.clientY, items });
-  };
+  }, []);
 
   return (
     <MenuContext.Provider value={open}>

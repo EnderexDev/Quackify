@@ -45,7 +45,8 @@ export const shortcutList = (): { keys: string; what: string }[] => [
 
 /** Listens for the shortcuts; returns whether the list is open and how to close it. */
 export function useShortcuts(
-  player: Player,
+  /** Read at the key press, so the shell does not re-render on every player change. */
+  getPlayer: () => Player,
   nav: Nav,
   panel: Panel,
   togglePanel: (p: Exclude<Panel, null>) => void,
@@ -55,6 +56,7 @@ export function useShortcuts(
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
+      const player = getPlayer();
       const typing = (e.target as HTMLElement)?.closest?.("input, textarea, select");
       // Space and Enter on a focused button press that button, not play/pause.
       const onControl = (e.target as HTMLElement)?.closest?.("button, a, [role=switch], [role=button]");
@@ -104,7 +106,7 @@ export function useShortcuts(
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [player, nav, panel, togglePanel, app]);
+  }, [getPlayer, nav, panel, togglePanel, app]);
   return { listOpen, openList: () => setListOpen(true), closeList: () => setListOpen(false) };
 }
 

@@ -18,7 +18,7 @@ import { newPlaylist } from "./state/newPlaylist";
 import { ShortcutsDialog, useShortcuts } from "./components/Shortcuts";
 import { TopBar } from "./components/TopBar";
 import { NavProvider, useNav, type Nav } from "./state/nav";
-import { PlayerProvider, usePlayer, type NowPlaying } from "./state/player";
+import { PlayerProvider, usePlayerNow, type NowPlaying } from "./state/player";
 import { setTheme } from "./state/theme";
 import { syncLang, t, useLang } from "./i18n";
 import { setCinema, toggleCinema, toggleMini, useCinema } from "./state/windows";
@@ -42,8 +42,35 @@ type Status = { logged_in: boolean; username: string | null; profile?: Profile }
 // Someone who chose the web player gets it again at the next start, until they leave it.
 const WEB_PLAYER_KEY = "webPlayer";
 
+// The account's name and picture arrive a moment after the login ("spotify-profile"), so the app
+// opens without waiting for them; until then it shows the ones seen last time.
+const PROFILE_KEY = "profile";
+const hasProfile = (p?: Profile) => !!(p?.display_name || p?.image);
+function withSavedProfile(s: Status): Status {
+  if (!s.logged_in || hasProfile(s.profile)) return s;
+  try {
+    const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) ?? "null");
+    if (saved?.username === s.username) return { ...s, profile: saved.profile };
+  } catch {
+    // Nothing saved yet.
+  }
+  return s;
+}
+
+/** The account seen last, to open the app with it at once while Spotify connects. */
+function lastStatus(): Status | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) ?? "null");
+    return saved?.username ? { logged_in: true, username: saved.username, profile: saved.profile } : null;
+  } catch {
+    return null;
+  }
+}
+
 function App() {
-  const [status, setStatus] = useState<Status | null>(null);
+  // The last account opens the app straight away (its Home and Your Library come from the copies
+  // kept on disk); Spotify's answer confirms it a moment later, or sends it to the login screen.
+  const [status, setStatus] = useState<Status | null>(lastStatus);
   // Every text re-reads the language: the shell starts over when it changes (the page open and
   // the player stay, they live above it).
   const language = useLang();
@@ -60,10 +87,41 @@ function App() {
   }
   const [webPlayer, setWebPlayer] = useState(() => localStorage.getItem(WEB_PLAYER_KEY) === "1");
 
+  // The last profile heard, kept in case it comes before the login's status does.
+  const heard = useRef<(Profile & { username: string }) | null>(null);
+  const showStatus = (s: Status) => {
+    const p = heard.current;
+    setStatus(withSavedProfile(s.logged_in && p && p.username === s.username && hasProfile(p) ? { ...s, profile: p } : s));
+  };
+  useEffect(() => {
+    const off = listen<Profile & { username: string }>("spotify-profile", ({ payload }) => {
+      if (!hasProfile(payload)) return;
+      heard.current = payload;
+      const profile = { display_name: payload.display_name, image: payload.image };
+      setStatus((s) => (s?.logged_in && s.username === payload.username ? { ...s, profile } : s));
+    });
+    return () => {
+      off.then((f) => f());
+    };
+  }, []);
+  useEffect(() => {
+    if (!status?.logged_in || !hasProfile(status.profile)) return;
+    try {
+      localStorage.setItem(PROFILE_KEY, JSON.stringify({ username: status.username, profile: status.profile }));
+    } catch {
+      // Storage full or off: the next start just waits for the profile.
+    }
+  }, [status]);
+
   useEffect(() => {
     // A failed restore (stale credentials, no network) still has to land on the login screen.
     invoke<Status>("spotify_restore")
-      .then(setStatus)
+      .then((s) => {
+        // Not that account anymore: nothing it kept may show.
+        const shown = lastStatus();
+        if (shown && (!s.logged_in || s.username !== shown.username)) clearCache();
+        showStatus(s);
+      })
       .catch((e) => {
         toast(e);
         setStatus({ logged_in: false, username: null });
@@ -91,7 +149,7 @@ function App() {
         {webPlayer ? (
           <WebPlayer onLeave={() => openWebPlayer(false)} />
         ) : (
-          <Login onLoggedIn={setStatus} onWebPlayer={() => openWebPlayer(true)} />
+          <Login onLoggedIn={showStatus} onWebPlayer={() => openWebPlayer(true)} />
         )}
         <Toasts />
       </>
@@ -102,6 +160,7 @@ function App() {
     try {
       await invoke("spotify_logout");
       clearCache();
+      localStorage.removeItem(PROFILE_KEY);
       setStatus({ logged_in: false, username: null });
     } catch (e) {
       toast(e);
@@ -163,7 +222,7 @@ const SIDEBAR_KEY = "sidebarCollapsed";
 
 function Shell({ name, image, onLogout }: { name: string; image: string | null; onLogout: () => void }) {
   const nav = useNav();
-  const player = usePlayer();
+  const getPlayer = usePlayerNow();
   const route = nav.route;
   // The right-hand panel. Whether it was open is kept for the next start, like Spotify does;
   // a "nowplaying" saved before the song page existed reads as closed.
@@ -199,7 +258,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
   const openPalette = () => setPalette(route.page === "search" ? route.term : "");
 
   const app = useMemo(() => ({ openPalette, toggleSidebar }), [route, collapsed, compact]);
-  const shortcuts = useShortcuts(player, nav, panel, togglePanel, app);
+  const shortcuts = useShortcuts(getPlayer, nav, panel, togglePanel, app);
   useEffect(() => {
     const open = () => setPalette("");
     window.addEventListener(OPEN_PALETTE_EVENT, open);
