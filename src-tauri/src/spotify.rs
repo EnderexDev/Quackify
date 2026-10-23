@@ -47,10 +47,69 @@ fn login_done_page(language: &str) -> String {
 
 
 struct Engine {
+    // Which connection this is, so a dropped one only revives itself, never a newer engine.
+    generation: u64,
     session: Session,
     spirc: Arc<Spirc>,
     hub: Arc<Hub>,
     profile: Profile,
+}
+
+/// How often the watcher looks at whether the session is still alive.
+const SESSION_CHECK: std::time::Duration = std::time::Duration::from_secs(5);
+
+static GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Waits between tries to come back after the connection drops, the last one repeating.
+const REVIVE_WAITS: &[std::time::Duration] = &[
+    std::time::Duration::from_secs(2),
+    std::time::Duration::from_secs(5),
+    std::time::Duration::from_secs(15),
+    std::time::Duration::from_secs(30),
+    std::time::Duration::from_secs(60),
+];
+
+/// The connection to Spotify dropped by itself (network gone, the PC slept, the server closed
+/// it): librespot ends the session and takes the device out of Connect, and does not reconnect.
+/// This logs back in with the saved login, retrying while the network is down, until it works
+/// or the engine is replaced (logout, a new login, a settings reconnect, quitting).
+/// Boxed: connect starts the next watcher, which calls revive again.
+fn revive(app: AppHandle, generation: u64) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+    Box::pin(revive_inner(app, generation))
+}
+
+async fn revive_inner(app: AppHandle, generation: u64) {
+    let state = app.state::<SpotifyState>();
+    let still_mine = |slot: &Option<Engine>| slot.as_ref().is_some_and(|e| e.generation == generation);
+    for attempt in 0.. {
+        // A deliberate shutdown (quit, logout, a settings reconnect) already took this engine out.
+        if attempt == 0 && !still_mine(&*state.0.lock().await) {
+            return;
+        }
+        let wait = REVIVE_WAITS[attempt.min(REVIVE_WAITS.len() - 1)];
+        eprintln!("[spotify] connection lost, reconnecting in {}s (try {})", wait.as_secs(), attempt + 1);
+        tokio::time::sleep(wait).await;
+        // Checked after the wait: a logout or a new login during it means nothing to revive.
+        if !still_mine(&*state.0.lock().await) {
+            return;
+        }
+        let Some(credentials) = open_cache(&app, None).ok().and_then(|c| c.credentials()) else { return };
+        match connect(&app, credentials).await {
+            Ok(engine) => {
+                let mut slot = state.0.lock().await;
+                if !still_mine(&slot) {
+                    engine.shutdown();
+                    return;
+                }
+                if let Some(old) = slot.replace(engine) {
+                    old.shutdown();
+                }
+                eprintln!("[spotify] reconnected");
+                return;
+            }
+            Err(e) => eprintln!("[spotify] reconnect failed: {e}"),
+        }
+    }
 }
 
 impl Engine {
@@ -164,7 +223,20 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     let (spirc, task) = Spirc::new(config, session.clone(), credentials, player.clone(), mixer.clone())
         .await
         .map_err(|e| e.to_string())?;
-    tauri::async_runtime::spawn(task);
+    let generation = GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+    // A dead session does not always end the Spirc task (it can sit waiting on the dealer), so
+    // the watcher also checks the session itself.
+    let mut running = tauri::async_runtime::spawn(task);
+    let (watcher, watched) = (app.clone(), session.clone());
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::select! {
+                _ = &mut running => break,
+                _ = tokio::time::sleep(SESSION_CHECK) => if watched.is_invalid() { break },
+            }
+        }
+        revive(watcher, generation).await;
+    });
     let spirc = Arc::new(spirc);
     let hub = Hub::start(app.clone(), session.clone(), spirc.clone(), mixer);
 
@@ -211,7 +283,7 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     });
 
     let profile = fetch_profile(&session).await;
-    Ok(Engine { session, spirc, hub, profile })
+    Ok(Engine { generation, session, spirc, hub, profile })
 }
 
 async fn fetch_profile(session: &Session) -> Profile {
@@ -249,11 +321,15 @@ pub async fn reconnect(app: &AppHandle) -> Result<(), String> {
     let state = app.state::<SpotifyState>();
     let mut slot = state.0.lock().await;
     let Some(old) = slot.take() else { return Ok(()) };
-    let credentials = match open_cache(app, None)?.credentials() {
-        Some(c) => c,
-        None => {
+    let credentials = match open_cache(app, None).map(|c| c.credentials()) {
+        Ok(Some(c)) => c,
+        Ok(None) => {
             *slot = Some(old);
             return Err("the saved login is gone; log in again".into());
+        }
+        Err(e) => {
+            *slot = Some(old);
+            return Err(e);
         }
     };
     let engine = match connect(app, credentials).await {
