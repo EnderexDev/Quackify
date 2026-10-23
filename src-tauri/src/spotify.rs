@@ -220,7 +220,7 @@ fn status_of(engine: &Option<Engine>) -> Status {
     }
 }
 
-async fn session(state: &State<'_, SpotifyState>) -> Result<Session, String> {
+pub(crate) async fn session(state: &State<'_, SpotifyState>) -> Result<Session, String> {
     let slot = state.0.lock().await;
     Ok(slot.as_ref().ok_or("not logged in")?.session.clone())
 }

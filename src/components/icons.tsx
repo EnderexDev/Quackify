@@ -336,6 +336,15 @@ export const UserIcon = (p: P) => (
   </Icon>
 );
 
+/** Two people: the Jam. */
+export const JamIcon = (p: P) => (
+  <Icon {...p}>
+    <circle cx="9" cy="8.6" r="3.3" />
+    <path d="M2.8 19.5c.8-3.2 3.2-5 6.2-5s5.4 1.8 6.2 5z" />
+    <path d="M15.2 5.6a3.3 3.3 0 0 1 0 6.1M17.6 14.8c1.8.6 3 2.2 3.6 4.7h-2.6" />
+  </Icon>
+);
+
 export const PodcastIcon = (p: P) => (
   <Icon {...p}>
     <circle cx="12" cy="10.4" r="2.4" />

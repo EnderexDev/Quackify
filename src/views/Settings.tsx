@@ -1,5 +1,6 @@
 // Settings (spec "Configurações"): an index of the sections on the left, each section a glass
-// card: account, appearance, progress bar, audio, playback, storage, Connect, links, window, about.
+// card: account, appearance, progress bar, audio, playback, storage, Connect, links, Discord,
+// window, about.
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -31,6 +32,7 @@ type Settings = {
   start_minimized: boolean;
   cache_parent: string | null;
   progress_mode: ProgressMode;
+  discord_presence: boolean;
 };
 type CacheFolder = { folder: string; custom: boolean; problem: string | null };
 type View = { settings: Settings; start_with_windows: boolean };
@@ -403,6 +405,12 @@ export function SettingsView({ account }: { account: Account }) {
             </Row>
           </Group>
 
+          <Group id="discord" title={t("Discord")}>
+            <Row title={t("Show what you're playing on Discord")} note={t("Your profile shows the song. Friends get a button to listen on Spotify and, during a Jam, one to join it.")}>
+              <Toggle on={s.discord_presence} disabled={applying} onChange={(on) => save({ discord_presence: on })} />
+            </Row>
+          </Group>
+
           <Group id="window" title={t("Window")}>
             <Row title={t("Close button keeps Quackify in the tray")} note={t("The music keeps playing; quit from the tray icon.")}>
               <Toggle on={s.close_to_tray} disabled={applying} onChange={(on) => save({ close_to_tray: on })} />
@@ -447,6 +455,7 @@ const sections = () => [
   { id: "storage", label: t("Storage") },
   { id: "connect", label: t("Spotify Connect") },
   { id: "links", label: t("Spotify links") },
+  { id: "discord", label: t("Discord") },
   { id: "window", label: t("Window") },
   { id: "about", label: t("About") },
 ];

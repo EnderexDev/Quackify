@@ -184,4 +184,7 @@ export default {
   "Spotify Free?": "Spotify Free?",
   "Spotify only lets Premium accounts into apps like Quackify. With Free you can still listen here, with Spotify's own web player inside Quackify. Quackify's player, queue, lyrics and the rest need Premium.": "O Spotify só deixa contas Premium entrarem em apps como o Quackify. Com Free tu ainda pode ouvir aqui, com o web player do próprio Spotify dentro do Quackify. O player do Quackify, a fila, a letra e o resto precisam do Premium.",
   "Open the web player": "Abrir o web player",
+  "Discord": "Discord",
+  "Show what you're playing on Discord": "Mostrar no Discord o que está tocando",
+  "Your profile shows the song. Friends get a button to listen on Spotify and, during a Jam, one to join it.": "O teu perfil mostra a música. Os amigos ganham um botão pra ouvir no Spotify e, durante uma Jam, um pra entrar nela.",
 };

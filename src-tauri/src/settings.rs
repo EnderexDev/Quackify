@@ -81,6 +81,8 @@ pub struct Settings {
     /// The language the app shows, "en" or "pt", as the page resolved it (System included): the
     /// tray menu and the browser page after login follow it. The choice itself lives in the page.
     pub language: String,
+    /// What plays shows on the user's Discord profile (discord.rs).
+    pub discord_presence: bool,
 }
 
 /// The cache's own folder inside a folder the user picks: only it is ever cleared.
@@ -106,6 +108,7 @@ impl Default for Settings {
             cache_parent: None,
             progress_mode: ProgressMode::default(),
             language: "en".to_string(),
+            discord_presence: true,
         }
     }
 }
@@ -220,6 +223,9 @@ pub async fn settings_set(app: AppHandle, settings: Settings) -> Result<(), Stri
     // The startup entry carries "start minimized" in its command line: rewrite it.
     if before.start_minimized != settings.start_minimized && crate::desktop::start_with_windows(&app) {
         crate::desktop::set_start_with_windows(&app, true)?;
+    }
+    if before.discord_presence != settings.discord_presence {
+        crate::discord::refresh(&app);
     }
     // Other windows' views (Your Library's layout) follow.
     let _ = app.emit("settings-changed", ());

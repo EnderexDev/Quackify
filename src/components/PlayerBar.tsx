@@ -1,9 +1,11 @@
 // The player: a glass pill in the colours of the cover playing (greyed while paused). On the
 // left the song, in the middle the controls and the progress, on the right lyrics, queue,
-// devices and volume. An episode swaps shuffle and repeat for 15 seconds back and forward and
+// the Jam, devices and volume. An episode swaps shuffle and repeat for 15 seconds back and forward and
 // the sleep timer.
 import { useEffect, useRef, useState } from "react";
 import { play } from "../api/spotify";
+import { useDiscordPresence } from "../state/discord";
+import { useJam } from "../state/jam";
 import { activeLine, useLyrics } from "../state/lyrics";
 import { useProgressMode } from "../state/meter";
 import { useNav } from "../state/nav";
@@ -20,6 +22,7 @@ import type { Panel } from "../App";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
 import { Cover } from "./Cover";
 import { DevicePicker, RemotePill } from "./Devices";
+import { JamButton } from "./Jam";
 import {
   Back15Icon,
   ChevronDownIcon,
@@ -68,6 +71,7 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
   const miniOpen = useMiniOpen();
   const sleep = useSleep();
   useSleepTimer(p);
+  useDiscordPresence(p, useJam());
   const [saved] = useSaved(song?.uri.startsWith("spotify:track:") ? song.uri : null);
   // The volume as last set here, so several wheel notches between renders add up.
   const volume = useRef(p.volume);
@@ -244,6 +248,7 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
         <button className={`icon-btn ${panel === "queue" ? "on" : ""}`} onClick={() => onPanel("queue")} aria-label={t("Queue")} title={t("Queue")}>
           <QueueIcon size={20} />
         </button>
+        <JamButton />
         <DevicePicker />
         <button
           className="icon-btn"
