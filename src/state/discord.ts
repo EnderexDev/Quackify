@@ -24,9 +24,14 @@ export function useDiscordPresence(p: Player, jam: Jam | null) {
   const playing = p.playing && !!song;
   // When the song started, as Discord counts it; kept while the clock only drifts.
   const start = useRef(0);
+  const startUri = useRef<string | null>(null);
   // Whole milliseconds: the Rust side takes integers, and the position is extrapolated.
   const now = playing ? Math.round(Date.now() - p.position()) : 0;
-  if (Math.abs(now - start.current) > DRIFT_MS) start.current = now;
+  // A new song always takes its own start; within one song only a real jump (a seek) does.
+  if (song?.uri !== startUri.current || Math.abs(now - start.current) > DRIFT_MS) {
+    start.current = now;
+    startUri.current = song?.uri ?? null;
+  }
   const startMs = start.current;
 
   useEffect(() => {
