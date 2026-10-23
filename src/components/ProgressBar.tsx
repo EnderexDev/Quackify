@@ -61,6 +61,10 @@ export function ProgressBar({
   // Read by the drawing loop, which outlives renders.
   const live = useRef({ position, duration, playing });
   live.current = { position, duration, playing };
+  // Asks the drawing loop for a frame when it is asleep (see below). Every render may have moved
+  // something: where the song is, playing or paused.
+  const wake = useRef<() => void>(() => {});
+  useEffect(() => wake.current());
 
   // The waveform of the song playing. A song's whole waveform is measured from its file before it
   // plays (Rust waveform.rs, once, then kept), so the bar only lights up as the song goes. Until
@@ -87,6 +91,7 @@ export function ProgressBar({
           w.version++;
           w.dirty = false;
           saveWave(uri, w.bins, true);
+          wake.current();
         },
         (e) => console.warn("waveform not measured", uri, e),
       );
@@ -118,8 +123,10 @@ export function ProgressBar({
   }, [mode, uri]);
 
   // The drawing loop, only in Wave and Live. It draws only when something changed (where the
-  // song is, the size, the waveform, the sound), so a paused bar costs nothing; the browser
-  // stops it while the window is hidden.
+  // song is, the size, the waveform, the sound), and it asks for frames only while something can
+  // change: sound in Live, the song going in Wave. Otherwise it sleeps until a meter frame, a
+  // render or a resize wakes it; awake for nothing, it ran 165 times a second (about 5% of a
+  // core, 23/10/26). The browser stops it while the window is hidden.
   useEffect(() => {
     if (mode === "simple") return;
     const c = canvas.current;
@@ -131,8 +138,8 @@ export function ProgressBar({
     // What the canvas shows now: a Wave frame's inputs, or "idle" for a cleared Live bar.
     let shown = "";
     let raf = 0;
-    const draw = () => {
-      raf = requestAnimationFrame(draw);
+    /** Draws what changed; whether the next frame may show something new. */
+    const draw = (): boolean => {
       const dpr = window.devicePixelRatio || 1;
       const w = c.clientWidth;
       const h = c.clientHeight;
@@ -147,16 +154,18 @@ export function ProgressBar({
       if (mode === "wave") {
         const wv = wave.current;
         const inputs = `${Math.round(played * 2)}:${wv?.uri ?? ""}:${wv?.version ?? 0}`;
-        if (inputs === shown) return;
-        shown = inputs;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, w, h);
-        return drawWave(ctx, w, h, played, wv?.bins ?? null);
+        if (inputs !== shown) {
+          shown = inputs;
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+          drawWave(ctx, w, h, played, wv?.bins ?? null);
+        }
+        return playing;
       }
       const half = Math.max(8, Math.floor(w / LIVE_PITCH / 2));
       if (heights.length !== half) heights = new Float32Array(half);
       const bands = normalize(playing ? meterNow().bands : null, range);
-      if (!bands && shown === "idle") return;
+      if (!bands && shown === "idle") return false;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
       const loud = drawLive(ctx, w, h, played, heights, bands);
@@ -166,10 +175,25 @@ export function ProgressBar({
         sounding = loud;
         box.current?.classList.toggle("sounding", loud);
       }
+      return true;
     };
-    draw();
+    const frame = () => {
+      raf = 0;
+      if (draw()) raf = requestAnimationFrame(frame);
+    };
+    wake.current = () => {
+      if (!raf) raf = requestAnimationFrame(frame);
+    };
+    const offMeter = mode === "live" ? onMeter(() => wake.current()) : () => {};
+    // The device pixels too, so moving to a screen of another scale redraws it sharp.
+    const resized = new ResizeObserver(() => wake.current());
+    resized.observe(c, { box: "device-pixel-content-box" });
+    frame();
     return () => {
       cancelAnimationFrame(raf);
+      wake.current = () => {};
+      offMeter();
+      resized.disconnect();
       box.current?.classList.remove("sounding");
     };
   }, [mode]);

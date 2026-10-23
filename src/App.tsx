@@ -42,6 +42,21 @@ type Status = { logged_in: boolean; username: string | null; profile?: Profile }
 // Someone who chose the web player gets it again at the next start, until they leave it.
 const WEB_PLAYER_KEY = "webPlayer";
 
+// The account's name and picture arrive a moment after the login ("spotify-profile"), so the app
+// opens without waiting for them; until then it shows the ones seen last time.
+const PROFILE_KEY = "profile";
+const hasProfile = (p?: Profile) => !!(p?.display_name || p?.image);
+function withSavedProfile(s: Status): Status {
+  if (!s.logged_in || hasProfile(s.profile)) return s;
+  try {
+    const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) ?? "null");
+    if (saved?.username === s.username) return { ...s, profile: saved.profile };
+  } catch {
+    // Nothing saved yet.
+  }
+  return s;
+}
+
 function App() {
   const [status, setStatus] = useState<Status | null>(null);
   // Every text re-reads the language: the shell starts over when it changes (the page open and
@@ -60,10 +75,24 @@ function App() {
   }
   const [webPlayer, setWebPlayer] = useState(() => localStorage.getItem(WEB_PLAYER_KEY) === "1");
 
+  const showStatus = (s: Status) => setStatus(withSavedProfile(s));
+  useEffect(() => {
+    const off = listen<Profile>("spotify-profile", ({ payload }) => {
+      if (hasProfile(payload)) setStatus((s) => (s?.logged_in ? { ...s, profile: payload } : s));
+    });
+    return () => {
+      off.then((f) => f());
+    };
+  }, []);
+  useEffect(() => {
+    if (status?.logged_in && hasProfile(status.profile))
+      localStorage.setItem(PROFILE_KEY, JSON.stringify({ username: status.username, profile: status.profile }));
+  }, [status]);
+
   useEffect(() => {
     // A failed restore (stale credentials, no network) still has to land on the login screen.
     invoke<Status>("spotify_restore")
-      .then(setStatus)
+      .then(showStatus)
       .catch((e) => {
         toast(e);
         setStatus({ logged_in: false, username: null });
@@ -91,7 +120,7 @@ function App() {
         {webPlayer ? (
           <WebPlayer onLeave={() => openWebPlayer(false)} />
         ) : (
-          <Login onLoggedIn={setStatus} onWebPlayer={() => openWebPlayer(true)} />
+          <Login onLoggedIn={showStatus} onWebPlayer={() => openWebPlayer(true)} />
         )}
         <Toasts />
       </>

@@ -335,14 +335,9 @@
 .side-pin-eq .eq {
   width: 11px;
   height: 11px;
-  background:
-    linear-gradient(var(--on-accent), var(--on-accent)) 0 100% / 2.5px 60% no-repeat,
-    linear-gradient(var(--on-accent), var(--on-accent)) 4.25px 100% / 2.5px 100% no-repeat,
-    linear-gradient(var(--on-accent), var(--on-accent)) 8.5px 100% / 2.5px 40% no-repeat;
-}
-
-.eq.paused {
-  animation-play-state: paused;
+  gap: 1.75px;
+  --eq-bar: 2.5px;
+  --eq-color: var(--on-accent);
 }
 
 .side-pin-big.drop-target .cover,
@@ -517,6 +512,8 @@ button.side-cat-toggle:hover {
   width: 12px;
   height: 12px;
   flex: none;
+  /* The three bars need 13px; the last one shows 2px of its 3, as it always did. */
+  overflow: hidden;
 }
 
 .side-leaf-count {

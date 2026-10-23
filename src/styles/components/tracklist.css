@@ -184,24 +184,70 @@
   opacity: 0.4;
 }
 
-/* Little equalizer shown on the playing row. */
+/* Little equalizer shown on the playing row (Eq.tsx): three 3px bars 2px apart, each grown
+   from the bottom by transform, which the GPU animates without repainting. */
 .eq {
-  display: inline-block;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
   width: 14px;
   height: 14px;
-  background:
-    linear-gradient(var(--accent), var(--accent)) 0 100% / 3px 60% no-repeat,
-    linear-gradient(var(--accent), var(--accent)) 5px 100% / 3px 100% no-repeat,
-    linear-gradient(var(--accent), var(--accent)) 10px 100% / 3px 40% no-repeat;
-  animation: eq 0.9s infinite alternate ease-in-out;
+  --eq-bar: 3px;
+  --eq-color: var(--accent);
 }
 
-@keyframes eq {
+.eq i {
+  flex: none;
+  width: var(--eq-bar);
+  height: 100%;
+  background: var(--eq-color);
+  transform-origin: 50% 100%;
+  animation: 0.9s infinite alternate ease-in-out;
+}
+
+.eq i:nth-child(1) {
+  transform: scaleY(0.6);
+  animation-name: eq-1;
+}
+
+.eq i:nth-child(2) {
+  transform: scaleY(1);
+  animation-name: eq-2;
+}
+
+.eq i:nth-child(3) {
+  transform: scaleY(0.4);
+  animation-name: eq-3;
+}
+
+.eq.paused i {
+  animation-play-state: paused;
+}
+
+@keyframes eq-1 {
+  from {
+    transform: scaleY(0.6);
+  }
   to {
-    background-size:
-      3px 30%,
-      3px 50%,
-      3px 90%;
+    transform: scaleY(0.3);
+  }
+}
+
+@keyframes eq-2 {
+  from {
+    transform: scaleY(1);
+  }
+  to {
+    transform: scaleY(0.5);
+  }
+}
+
+@keyframes eq-3 {
+  from {
+    transform: scaleY(0.4);
+  }
+  to {
+    transform: scaleY(0.9);
   }
 }
 

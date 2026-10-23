@@ -12,6 +12,7 @@ import { useAsync } from "../util/useAsync";
 import { Cover } from "./Cover";
 import { ChevronDownIcon, ChevronRightIcon, DiscIcon, HeartIcon, LibraryIcon, PinIcon, PlaylistIcon, PlusIcon, PodcastIcon, SearchIcon, UserIcon } from "./icons";
 import { librarySubtitle, pressable, readStored, useLibraryActions, useLibraryPages, usePersisted, writeStored } from "./libraryItems";
+import { Eq } from "./Eq";
 
 type Filter = Exclude<LibraryFilter, null>;
 
@@ -202,7 +203,7 @@ export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; 
                         <Cover src={c.image} kind={c.kind} />
                         {playing && (
                           <span className="side-pin-eq">
-                            <span className={`eq ${isPlaying ? "" : "paused"}`} />
+                            <Eq paused={!isPlaying} />
                           </span>
                         )}
                       </button>
@@ -395,7 +396,7 @@ function Branch({
               <Cover src={c.image} kind={c.kind} className="side-leaf-cover" />
               <span className="side-leaf-name">{c.title}</span>
               {playing ? (
-                <span className={`eq ${isPlaying ? "" : "paused"}`} />
+                <Eq paused={!isPlaying} />
               ) : isFolder ? (
                 <span className="side-leaf-count">
                   {/^\d+/.exec(c.subtitle)?.[0] ?? ""}

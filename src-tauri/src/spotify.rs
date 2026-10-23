@@ -50,7 +50,9 @@ struct Engine {
     session: Session,
     spirc: Arc<Spirc>,
     hub: Arc<Hub>,
-    profile: Profile,
+    /// Filled a moment after the login (the "spotify-profile" event says when), so the app does
+    /// not wait for it to open.
+    profile: Arc<std::sync::Mutex<Profile>>,
 }
 
 impl Engine {
@@ -194,7 +196,14 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
         }
     });
 
-    let profile = fetch_profile(&session).await;
+    // The name and picture come after: the app opens without waiting for them (about 0.2 s).
+    let profile = Arc::new(std::sync::Mutex::new(Profile::default()));
+    let (app3, session3, profile3) = (app.clone(), session.clone(), profile.clone());
+    tauri::async_runtime::spawn(async move {
+        let fetched = fetch_profile(&session3).await;
+        *profile3.lock().unwrap() = fetched.clone();
+        let _ = app3.emit("spotify-profile", fetched);
+    });
     Ok(Engine { session, spirc, hub, profile })
 }
 
@@ -214,7 +223,7 @@ fn status_of(engine: &Option<Engine>) -> Status {
         Some(e) if !e.session.is_invalid() => Status {
             logged_in: true,
             username: Some(e.session.username()),
-            profile: e.profile.clone(),
+            profile: e.profile.lock().unwrap().clone(),
         },
         _ => Status { logged_in: false, username: None, profile: Profile::default() },
     }
@@ -290,6 +299,25 @@ async fn hub(state: &State<'_, SpotifyState>) -> Result<Arc<Hub>, String> {
 #[tauri::command]
 pub async fn spotify_status(state: State<'_, SpotifyState>) -> Result<Status, String> {
     Ok(status_of(&*state.0.lock().await))
+}
+
+/// Starts logging back in as the app starts, while the window and the page are still loading
+/// (about 0.6 s), so spotify_restore finds it under way or done.
+pub fn restore_early(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<SpotifyState>();
+        let mut slot = state.0.lock().await;
+        if slot.is_some() {
+            return;
+        }
+        let Some(credentials) = open_cache(&app, None).ok().and_then(|c| c.credentials()) else { return };
+        match connect(&app, credentials).await {
+            Ok(engine) => *slot = Some(engine),
+            // spotify_restore tries again and reports it.
+            Err(e) => eprintln!("spotify: early login failed: {e}"),
+        }
+    });
 }
 
 /// Logs back in with the credentials librespot cached after the last OAuth login, if any.

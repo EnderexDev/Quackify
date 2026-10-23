@@ -14,6 +14,7 @@ import { CheckIcon, ClockIcon, CloseIcon, HeartIcon, HeartOutlineIcon, MoreIcon,
 import { LikeButton } from "./LikeButton";
 import { TRACKS_MIME, trackMenu, tracksMenu } from "./menus";
 import { beginDrag } from "../state/drag";
+import { Eq } from "./Eq";
 
 /**
  * Track rows. Double-click a row, or click its number, to play it; `onPlay` gets the row index
@@ -398,7 +399,7 @@ const TrackRow = memo(function TrackRow({
       onDragEnd={() => h.current.dragEnd()}
     >
       <span className="track-num">
-        <span className="num">{playing ? <span className="eq" /> : index + 1}</span>
+        <span className="num">{playing ? <Eq /> : index + 1}</span>
         {selected && (
           <span className="row-check" aria-hidden>
             <CheckIcon size={12} />
