@@ -190,6 +190,12 @@ impl Hub {
         view
     }
 
+    /// The context the cluster says `track_uri` plays from, while that is the track playing.
+    pub fn context_of(&self, track_uri: &str) -> Option<String> {
+        let view = self.view.lock().unwrap();
+        view.playback.as_ref().filter(|p| p.track_uri == track_uri).and_then(|p| p.context_uri.clone())
+    }
+
     pub fn now_playing(&self) -> Option<NowPlaying> {
         self.now_playing.lock().unwrap().clone()
     }

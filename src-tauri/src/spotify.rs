@@ -20,6 +20,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex;
 
 use crate::connect::{ConnectView, Hub, NowPlaying, Repeat};
+use crate::listening::Listening;
 use crate::pathfinder::Pathfinder;
 use crate::settings::{ProgressMode, Quality};
 
@@ -50,11 +51,14 @@ struct Engine {
     session: Session,
     spirc: Arc<Spirc>,
     hub: Arc<Hub>,
+    listening: Arc<Listening>,
     profile: Profile,
 }
 
 impl Engine {
-    fn shutdown(&self) {
+    async fn shutdown(&self) {
+        // The song playing still goes to the history, while the session can send it.
+        self.listening.flush().await;
         let _ = self.spirc.shutdown();
         self.session.shutdown();
     }
@@ -115,12 +119,13 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     let mixer = mixer::find(None).ok_or("no mixer")?(MixerConfig::default())
         .map_err(|e| e.to_string())?;
     let backend = audio_backend::find(None).ok_or("no audio backend")?;
+    let bitrate = match settings.quality {
+        Quality::Normal => Bitrate::Bitrate96,
+        Quality::High => Bitrate::Bitrate160,
+        Quality::VeryHigh => Bitrate::Bitrate320,
+    };
     let player_config = PlayerConfig {
-        bitrate: match settings.quality {
-            Quality::Normal => Bitrate::Bitrate96,
-            Quality::High => Bitrate::Bitrate160,
-            Quality::VeryHigh => Bitrate::Bitrate320,
-        },
+        bitrate,
         normalisation: settings.normalize,
         normalisation_pregain_db: settings.loudness.pregain_db(),
         gapless: settings.gapless,
@@ -151,11 +156,13 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     tauri::async_runtime::spawn(task);
     let spirc = Arc::new(spirc);
     let hub = Hub::start(app.clone(), session.clone(), spirc.clone(), mixer);
+    let listening = Listening::new(app.clone(), session.clone(), hub.clone(), bitrate);
 
     let mut events = player.get_player_event_channel();
-    let (app2, hub2) = (app.clone(), hub.clone());
+    let (app2, hub2, listening2) = (app.clone(), hub.clone(), listening.clone());
     tauri::async_runtime::spawn(async move {
         while let Some(event) = events.recv().await {
+            listening2.on_event(&event);
             let ui = match event {
                 PlayerEvent::Loading { track_id, .. } => {
                     hub2.set_local_stopped(false);
@@ -195,7 +202,7 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     });
 
     let profile = fetch_profile(&session).await;
-    Ok(Engine { session, spirc, hub, profile })
+    Ok(Engine { session, spirc, hub, listening, profile })
 }
 
 async fn fetch_profile(session: &Session) -> Profile {
@@ -261,7 +268,7 @@ pub async fn reconnect(app: &AppHandle) -> Result<(), String> {
             eprintln!("settings: playback not handed over: {e}");
         }
     }
-    old.shutdown();
+    old.shutdown().await;
     *slot = Some(engine);
     Ok(())
 }
@@ -270,7 +277,7 @@ pub async fn reconnect(app: &AppHandle) -> Result<(), String> {
 pub async fn shutdown(app: &AppHandle) {
     let state = app.state::<SpotifyState>();
     if let Some(engine) = state.0.lock().await.take() {
-        engine.shutdown();
+        engine.shutdown().await;
     }
     crate::media::publish(app, None);
 }
@@ -356,7 +363,7 @@ pub async fn spotify_login(app: AppHandle, state: State<'_, SpotifyState>) -> Re
     let engine = connect(&app, Credentials::with_access_token(token.access_token)).await?;
     let mut slot = state.0.lock().await;
     if let Some(old) = slot.replace(engine) {
-        old.shutdown();
+        old.shutdown().await;
     }
     Ok(status_of(&slot))
 }
@@ -377,7 +384,7 @@ pub async fn spotify_logout(app: AppHandle, state: State<'_, SpotifyState>) -> R
         std::fs::remove_file(file).map_err(|e| e.to_string())?;
     }
     if let Some(old) = slot.take() {
-        old.shutdown();
+        old.shutdown().await;
     }
     crate::media::publish(&app, None);
     Ok(())

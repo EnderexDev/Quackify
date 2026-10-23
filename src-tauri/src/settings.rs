@@ -81,6 +81,9 @@ pub struct Settings {
     /// The language the app shows, "en" or "pt", as the page resolved it (System included): the
     /// tray menu and the browser page after login follow it. The choice itself lives in the page.
     pub language: String,
+    /// Songs played here go to the account's listening history, as Spotify's own apps report
+    /// them (listening.rs). Off unless switched on: Spotify does not allow it for unofficial apps.
+    pub report_listening: bool,
 }
 
 /// The cache's own folder inside a folder the user picks: only it is ever cleared.
@@ -106,6 +109,7 @@ impl Default for Settings {
             cache_parent: None,
             progress_mode: ProgressMode::default(),
             language: "en".to_string(),
+            report_listening: false,
         }
     }
 }

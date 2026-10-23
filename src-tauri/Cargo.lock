@@ -3789,6 +3789,7 @@ version = "0.1.0"
 dependencies = [
  "auto-launch",
  "cpal",
+ "flate2",
  "futures-util",
  "http",
  "librespot-audio",
@@ -3803,6 +3804,7 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sha1",
  "souvlaki",
  "symphonia",
  "tauri",
@@ -3811,6 +3813,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "tokio",
+ "uuid",
  "windows 0.61.3",
  "winreg",
 ]
