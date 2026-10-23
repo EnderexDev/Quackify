@@ -185,6 +185,20 @@
   animation-duration: 14s;
 }
 
+/* The blur drawn once into a mask (Aura.tsx): each blob grows by the blur's reach on every
+   side, around the same centre, and the mask gives it its soft edge. */
+.aura-blobs.baked .aura-blob {
+  filter: none;
+  box-sizing: content-box;
+  padding: 270px;
+  margin: -270px;
+  border-radius: 0;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
 @keyframes aura-drift {
   from {
     transform: translate(0, 0) scale(1);

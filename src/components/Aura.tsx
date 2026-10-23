@@ -51,6 +51,8 @@ export function Aura() {
     };
   }, []);
 
+  useBakedBlur(blobs);
+
   // The pulse: the lows of the sound playing grow the blobs a little.
   useEffect(() => {
     const el = blobs.current;
@@ -78,4 +80,62 @@ export function Aura() {
       <div className="aura-grain" />
     </div>
   );
+}
+
+/** The blur of each blob, as the CSS filter had it. */
+const BLUR_PX = 90;
+/** How far the blur reaches past a blob's edge (three times its spread). */
+const BLUR_REACH = 3 * BLUR_PX;
+/** The masks are drawn this many times smaller: a blur has no fine detail to lose. */
+const MASK_SCALE = 4;
+
+/**
+ * Each blob's blur made once, as a mask of a blurred ellipse the size of the blob, instead of
+ * a CSS blur the GPU ran again on every frame that anything on the window moved (about a
+ * quarter of a core at 165 Hz, 23/10/26). Drawn again when the blobs change size; the colour
+ * still crossfades and the blobs still drift and pulse.
+ */
+function useBakedBlur(blobs: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const box = blobs.current;
+    if (!box) return;
+    box.classList.add("baked");
+    const bake = () => {
+      for (const el of box.querySelectorAll<HTMLElement>(".aura-blob")) {
+        // The box takes the blur's reach on every side (shell.css); the blob is what is inside.
+        const w = el.clientWidth - 2 * BLUR_REACH;
+        const h = el.clientHeight - 2 * BLUR_REACH;
+        if (w <= 0 || h <= 0) continue;
+        const c = document.createElement("canvas");
+        c.width = Math.ceil(el.clientWidth / MASK_SCALE);
+        c.height = Math.ceil(el.clientHeight / MASK_SCALE);
+        const ctx = c.getContext("2d");
+        if (!ctx) continue;
+        ctx.filter = `blur(${BLUR_PX / MASK_SCALE}px)`;
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.ellipse(c.width / 2, c.height / 2, w / 2 / MASK_SCALE, h / 2 / MASK_SCALE, 0, 0, Math.PI * 2);
+        ctx.fill();
+        const url = `url(${c.toDataURL()})`;
+        el.style.maskImage = url;
+        el.style.webkitMaskImage = url;
+      }
+    };
+    let timer = 0;
+    const resized = new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = window.setTimeout(bake, 150);
+    });
+    resized.observe(box);
+    bake();
+    return () => {
+      resized.disconnect();
+      clearTimeout(timer);
+      box.classList.remove("baked");
+      for (const el of box.querySelectorAll<HTMLElement>(".aura-blob")) {
+        el.style.maskImage = "";
+        el.style.webkitMaskImage = "";
+      }
+    };
+  }, [blobs]);
 }
