@@ -373,7 +373,8 @@
 }
 
 .volume-pct input {
-  width: 3ch;
+  /* Three digits plus the 1px border on each side (border-box), or "100" gets clipped. */
+  width: calc(3ch + 2px);
   padding: 2px 0;
   border: 1px solid transparent;
   border-radius: 4px;
