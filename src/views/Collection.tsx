@@ -12,7 +12,7 @@ import { SearchIcon, ShuffleIcon } from "../components/icons";
 import { PlayButton } from "../components/PlayButton";
 import { TrackList } from "../components/TrackList";
 import { useNav } from "../state/nav";
-import { usePlayer } from "../state/player";
+import { usePlayerNow, usePlayerSelect } from "../state/player";
 import { notifyLibraryChanged } from "../state/saved";
 import { toast } from "../state/toast";
 import { formatCount, formatDuration } from "../util/format";
@@ -52,7 +52,7 @@ export function Collection({ uri }: { uri: string }) {
 }
 
 function Loaded({ first }: { first: Data }) {
-  const player = usePlayer();
+  const getPlayer = usePlayerNow();
   const nav = useNav();
   const openMenu = useContextMenu();
   const [title, setTitle] = useState(first.title);
@@ -66,6 +66,10 @@ function Loaded({ first }: { first: Data }) {
   const loadingMore = useRef(false);
   const sentinel = useRef<HTMLDivElement>(null);
   const uri = first.uri;
+  // Read one by one, so a volume change or a cluster update does not re-render the page.
+  const isCurrent = usePlayerSelect((p) => p.contextUri === uri);
+  const playing = usePlayerSelect((p) => isCurrent && p.playing);
+  const shuffle = usePlayerSelect((p) => p.shuffle);
   const [saved] = useSaved(first.kind === "album" || (first.kind === "playlist" && !own) ? uri : undefined);
   // Search and sort, for playlists and Liked Songs. Liked Songs comes newest first already.
   const listTools = first.kind !== "album";
@@ -210,8 +214,7 @@ function Loaded({ first }: { first: Data }) {
     });
   };
 
-  const isCurrent = player.contextUri === uri;
-  const playList = () => (isCurrent ? player.toggle() : play.context(uri).catch(toast));
+  const playList = () => (isCurrent ? getPlayer().toggle() : play.context(uri).catch(toast));
   const openMore = (e: React.MouseEvent) =>
     openMenu(
       e,
@@ -263,12 +266,12 @@ function Loaded({ first }: { first: Data }) {
         </div>
       </header>
       <div className="actions">
-        <PlayButton size={56} playing={isCurrent && player.playing} onClick={playList} />
+        <PlayButton size={56} playing={playing} onClick={playList} />
         <button
-          className={`icon-btn big ${player.shuffle ? "on" : ""}`}
-          onClick={() => player.setShuffle(!player.shuffle)}
-          aria-label={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
-          title={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
+          className={`icon-btn big ${shuffle ? "on" : ""}`}
+          onClick={() => getPlayer().setShuffle(!shuffle)}
+          aria-label={shuffle ? "Disable shuffle" : "Enable shuffle"}
+          title={shuffle ? "Disable shuffle" : "Enable shuffle"}
         >
           <ShuffleIcon size={28} />
         </button>

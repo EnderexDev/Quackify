@@ -4,7 +4,7 @@ import { Shelf } from "../components/Card";
 import { Cover } from "../components/Cover";
 import { PlayButton } from "../components/PlayButton";
 import { useNav } from "../state/nav";
-import { usePlayer } from "../state/player";
+import { usePlayerNow, usePlayerSelect } from "../state/player";
 import { toast } from "../state/toast";
 import { useAsync } from "../util/useAsync";
 import { Failed, Loading } from "./common";
@@ -45,8 +45,9 @@ export function Home() {
 
 function Shortcut({ card }: { card: CardData }) {
   const nav = useNav();
-  const player = usePlayer();
-  const isCurrent = player.contextUri === card.uri;
+  const getPlayer = usePlayerNow();
+  const isCurrent = usePlayerSelect((p) => p.contextUri === card.uri);
+  const playing = usePlayerSelect((p) => isCurrent && p.playing);
   return (
     <div className="shortcut" onClick={() => nav.open(card.uri)} title={card.title}>
       <Cover src={card.image} round={card.kind === "artist"} liked={card.kind === "liked"} className="shortcut-cover" />
@@ -54,8 +55,8 @@ function Shortcut({ card }: { card: CardData }) {
       <PlayButton
         size={36}
         className="shortcut-play"
-        playing={isCurrent && player.playing}
-        onClick={() => (isCurrent ? player.toggle() : play.context(card.uri).catch(toast))}
+        playing={playing}
+        onClick={() => (isCurrent ? getPlayer().toggle() : play.context(card.uri).catch(toast))}
       />
     </div>
   );

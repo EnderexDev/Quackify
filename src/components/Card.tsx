@@ -1,7 +1,7 @@
 import type { Card as CardData } from "../api/types";
 import { play } from "../api/spotify";
 import { useNav } from "../state/nav";
-import { usePlayer } from "../state/player";
+import { usePlayerNow, usePlayerSelect } from "../state/player";
 import { toast } from "../state/toast";
 import { useContextMenu } from "./ContextMenu";
 import { cardMenuHandler } from "./menus";
@@ -14,15 +14,16 @@ import { PlayButton } from "./PlayButton";
  */
 export function Card({ card, onPick, onRemove }: { card: CardData; onPick?: () => void; onRemove?: () => void }) {
   const nav = useNav();
-  const player = usePlayer();
+  const getPlayer = usePlayerNow();
   const isTrack = card.kind === "track" || card.kind === "episode";
-  const isCurrent = isTrack ? player.track?.uri === card.uri : player.contextUri === card.uri;
+  const isCurrent = usePlayerSelect((p) => (isTrack ? p.track?.uri === card.uri : p.contextUri === card.uri));
+  const playing = usePlayerSelect((p) => isCurrent && p.playing);
   const round = card.kind === "artist" || card.kind === "user";
   const openMenu = useContextMenu();
 
   const onPlay = () => {
     onPick?.();
-    if (isCurrent) player.toggle();
+    if (isCurrent) getPlayer().toggle();
     else (isTrack ? play.tracks([card.uri], 0) : play.context(card.uri)).catch(toast);
   };
 
@@ -35,7 +36,7 @@ export function Card({ card, onPick, onRemove }: { card: CardData; onPick?: () =
     >
       <div className="card-art">
         <Cover src={card.image} round={round} liked={card.kind === "liked"} />
-        <PlayButton className="card-play" playing={isCurrent && player.playing} onClick={onPlay} />
+        <PlayButton className="card-play" playing={playing} onClick={onPlay} />
         {onRemove && (
           <button
             className="card-remove"

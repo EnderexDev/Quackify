@@ -3,7 +3,7 @@ import { createPlaylist, save } from "../api/library";
 import { clearCache, library, pinInLibrary } from "../api/spotify";
 import type { Card, LibraryFilter, LibrarySort } from "../api/types";
 import { useNav } from "../state/nav";
-import { usePlayer } from "../state/player";
+import { usePlayerSelect } from "../state/player";
 import { markSaved, notifyLibraryChanged, onLibraryChanged } from "../state/saved";
 import { toast } from "../state/toast";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
@@ -58,7 +58,7 @@ function usePersisted<T extends string>(key: string, fallback: T, allowed: reado
  */
 export function Sidebar() {
   const nav = useNav();
-  const player = usePlayer();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
   const openMenu = useContextMenu();
   const [filter, setFilter] = useState<LibraryFilter>(null);
   const [sort, setSort] = usePersisted<LibrarySort>("librarySort", "Recents", SORTS.map((s) => s.id));
@@ -278,7 +278,7 @@ export function Sidebar() {
         {error && <div className="muted small pad">{error}</div>}
         {!error && items.length === 0 && text.trim() && <div className="muted small pad">Nothing in Your Library matches “{text.trim()}”.</div>}
         {items.map((c) => {
-          const playingHere = player.contextUri === c.uri;
+          const playingHere = playingContext === c.uri;
           return (
             <div
               key={c.uri}

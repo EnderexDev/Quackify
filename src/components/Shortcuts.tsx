@@ -38,12 +38,14 @@ export const SHORTCUTS: { keys: string; what: string }[] = [
   { keys: "Ctrl + /", what: "This list" },
 ];
 
-/** Listens for the shortcuts; returns whether the list is open and how to close it. */
-export function useShortcuts(player: Player, nav: Nav, panel: Panel, togglePanel: (p: Exclude<Panel, null>) => void) {
+/** Listens for the shortcuts; returns whether the list is open and how to close it. `getPlayer`
+ * reads the player at the key press, so the shell does not re-render on every player change. */
+export function useShortcuts(getPlayer: () => Player, nav: Nav, panel: Panel, togglePanel: (p: Exclude<Panel, null>) => void) {
   const [listOpen, setListOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
+      const player = getPlayer();
       const typing = (e.target as HTMLElement)?.closest?.("input, textarea, select");
       // Space and Enter on a focused button press that button, not play/pause.
       const onControl = (e.target as HTMLElement)?.closest?.("button, a, [role=switch], [role=button]");
@@ -88,7 +90,7 @@ export function useShortcuts(player: Player, nav: Nav, panel: Panel, togglePanel
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [player, nav, panel, togglePanel]);
+  }, [getPlayer, nav, panel, togglePanel]);
   return { listOpen, closeList: () => setListOpen(false) };
 }
 

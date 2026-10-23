@@ -649,6 +649,13 @@ h2 {
   color: var(--muted);
 }
 
+/* Rows out of view skip layout and paint: a long list resizes in a third of the time. Rows are
+   all 56px, so the scroll height does not change. */
+.track-row:not(.track-head) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 56px;
+}
+
 .track-row:not(.track-head):hover {
   background: rgba(255, 255, 255, 0.08);
 }

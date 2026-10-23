@@ -11,7 +11,7 @@ import { Sidebar, useNewPlaylist } from "./components/Sidebar";
 import { ShortcutsDialog, useShortcuts } from "./components/Shortcuts";
 import { TopBar } from "./components/TopBar";
 import { NavProvider, useNav } from "./state/nav";
-import { PlayerProvider, usePlayer } from "./state/player";
+import { PlayerProvider, usePlayerNow } from "./state/player";
 import { toast, Toasts } from "./state/toast";
 import { Artist } from "./views/Artist";
 import { BrowseView } from "./views/Browse";
@@ -85,7 +85,7 @@ export type Panel = "queue" | "nowplaying" | null;
 
 function Shell({ name, image, onLogout }: { name: string; image: string | null; onLogout: () => void }) {
   const nav = useNav();
-  const player = usePlayer();
+  const getPlayer = usePlayerNow();
   const route = nav.route;
   // The right-hand panel. Which one was open is kept for the next start, like Spotify does.
   const [panel, setPanelState] = useState<Panel>(() => {
@@ -98,7 +98,7 @@ function Shell({ name, image, onLogout }: { name: string; image: string | null; 
     else localStorage.removeItem("panel");
   };
 
-  const shortcuts = useShortcuts(player, nav, panel, (p) => setPanel(panel === p ? null : p));
+  const shortcuts = useShortcuts(getPlayer, nav, panel, (p) => setPanel(panel === p ? null : p));
   useNewPlaylist();
 
   const key = JSON.stringify(route);

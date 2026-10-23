@@ -6,7 +6,7 @@ import { Cover } from "../components/Cover";
 import { PlayButton } from "../components/PlayButton";
 import { TrackList } from "../components/TrackList";
 import { useNav } from "../state/nav";
-import { usePlayer } from "../state/player";
+import { usePlayerNow, usePlayerSelect } from "../state/player";
 import { toast } from "../state/toast";
 import { useAsync } from "../util/useAsync";
 import { BrowseAll } from "./Browse";
@@ -166,14 +166,16 @@ function RecentSearches() {
 
 function Results({ term }: { term: string }) {
   const nav = useNav();
-  const player = usePlayer();
+  const getPlayer = usePlayerNow();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
+  const playing = usePlayerSelect((p) => p.playing);
   const { data, error, loading } = useAsync(() => search(term), term);
   if (error) return <Failed error={error} />;
   if (loading || !data) return <Loading />;
 
   const top = data.top;
   const songs = data.tracks.slice(0, 5);
-  const topIsCurrent = !!top && player.contextUri === top.uri;
+  const topIsCurrent = !!top && playingContext === top.uri;
   const nothing =
     !top && !data.tracks.length && !data.artists.length && !data.albums.length && !data.playlists.length && !data.podcasts.length;
   if (nothing) {
@@ -205,10 +207,10 @@ function Results({ term }: { term: string }) {
               </div>
               <PlayButton
                 className="top-play"
-                playing={topIsCurrent && player.playing}
+                playing={topIsCurrent && playing}
                 onClick={() => {
                   remember(top.uri);
-                  if (topIsCurrent) player.toggle();
+                  if (topIsCurrent) getPlayer().toggle();
                   else play.context(top.uri).catch(toast);
                 }}
               />

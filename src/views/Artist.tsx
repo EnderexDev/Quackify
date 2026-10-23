@@ -9,7 +9,7 @@ import { ShuffleIcon } from "../components/icons";
 import { followMenu } from "../components/menus";
 import { useNav } from "../state/nav";
 import { useSaved } from "../state/saved";
-import { usePlayer } from "../state/player";
+import { usePlayerNow, usePlayerSelect } from "../state/player";
 import { toast } from "../state/toast";
 import { formatCount } from "../util/format";
 import { useAsync } from "../util/useAsync";
@@ -17,7 +17,10 @@ import { Failed, Loading } from "./common";
 
 /** An artist: header, popular tracks, releases (all of them one click away), related artists. */
 export function Artist({ uri }: { uri: string }) {
-  const player = usePlayer();
+  const getPlayer = usePlayerNow();
+  const trackUri = usePlayerSelect((p) => p.track?.uri ?? null);
+  const playing = usePlayerSelect((p) => p.playing);
+  const shuffle = usePlayerSelect((p) => p.shuffle);
   const nav = useNav();
   const openMenu = useContextMenu();
   const [following] = useSaved(uri);
@@ -28,7 +31,7 @@ export function Artist({ uri }: { uri: string }) {
 
   const top = data.topTracks;
   const topUris = top.map((t) => t.uri);
-  const isCurrent = !!player.track && topUris.includes(player.track.uri);
+  const isCurrent = !!trackUri && topUris.includes(trackUri);
   const shownReleases = data.albums.length + data.singles.length;
   const showDiscography =
     data.releaseCount > shownReleases ? () => nav.go({ page: "cards", source: "discography", uri, title: data.name }) : undefined;
@@ -48,14 +51,14 @@ export function Artist({ uri }: { uri: string }) {
       <div className="actions">
         <PlayButton
           size={56}
-          playing={isCurrent && player.playing}
-          onClick={() => (isCurrent ? player.toggle() : top.length && play.tracks(topUris, 0).catch(toast))}
+          playing={isCurrent && playing}
+          onClick={() => (isCurrent ? getPlayer().toggle() : top.length && play.tracks(topUris, 0).catch(toast))}
         />
         <button
-          className={`icon-btn big ${player.shuffle ? "on" : ""}`}
-          onClick={() => player.setShuffle(!player.shuffle)}
-          aria-label={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
-          title={player.shuffle ? "Disable shuffle" : "Enable shuffle"}
+          className={`icon-btn big ${shuffle ? "on" : ""}`}
+          onClick={() => getPlayer().setShuffle(!shuffle)}
+          aria-label={shuffle ? "Disable shuffle" : "Enable shuffle"}
+          title={shuffle ? "Disable shuffle" : "Enable shuffle"}
         >
           <ShuffleIcon size={28} />
         </button>

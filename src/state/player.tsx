@@ -2,7 +2,7 @@
 // the phone, the desktop app), this shows what it plays and the controls drive it.
 // The account's cluster (Rust "connect" events) is the truth; while this app is the active
 // device, its own player events give a tighter clock.
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { play, type Repeat } from "../api/spotify";
@@ -82,12 +82,33 @@ export type Player = {
   transfer: (deviceId: string) => void;
 };
 
-const PlayerContext = createContext<Player | null>(null);
+// The player is handed out as a store, not as a context value: a context would re-render every
+// component that reads it (each row of a 2000-song list) on any change, even the volume.
+type Store = { get: () => Player; subscribe: (listener: () => void) => () => void };
 
+const PlayerContext = createContext<Store | null>(null);
+
+function useStore(): Store {
+  const s = useContext(PlayerContext);
+  if (!s) throw new Error("usePlayer outside PlayerProvider");
+  return s;
+}
+
+/** The whole player; re-renders on every change. For one value, usePlayerSelect. */
 export function usePlayer(): Player {
-  const p = useContext(PlayerContext);
-  if (!p) throw new Error("usePlayer outside PlayerProvider");
-  return p;
+  const s = useStore();
+  return useSyncExternalStore(s.subscribe, s.get);
+}
+
+/** One value of the player (a string, number or boolean); re-renders only when it changes. */
+export function usePlayerSelect<T>(select: (p: Player) => T): T {
+  const s = useStore();
+  return useSyncExternalStore(s.subscribe, () => select(s.get()));
+}
+
+/** The player as it is now, for event handlers: reading it re-renders nothing. */
+export function usePlayerNow(): () => Player {
+  return useStore().get;
 }
 
 /** Liked Songs plays as the user's collection; the pages call it spotify:collection:tracks. */
@@ -103,6 +124,19 @@ const HISTORY_SIZE = 50;
 const MIN_PLAYED_MS = 3000;
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
+  const [store] = useState(() => {
+    const listeners = new Set<() => void>();
+    const s: Store & { value: Player | null; listeners: Set<() => void> } = {
+      value: null,
+      listeners,
+      get: () => s.value!,
+      subscribe: (l) => {
+        listeners.add(l);
+        return () => listeners.delete(l);
+      },
+    };
+    return s;
+  });
   const [track, setTrack] = useState<NowPlaying | null>(null);
   // What played before, the latest first, kept across restarts: each song that gives way to
   // another goes on top. (Spotify's own list of previous tracks leaves out queued songs.)
@@ -305,5 +339,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     },
   };
 
-  return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
+  // Readers see the new value as soon as this renders, and are told once it is committed.
+  store.value = value;
+  useLayoutEffect(() => store.listeners.forEach((l) => l()));
+
+  return <PlayerContext.Provider value={store}>{children}</PlayerContext.Provider>;
 }
