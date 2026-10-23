@@ -104,12 +104,28 @@ fn open_cache(app: &AppHandle, audio_limit: Option<u64>) -> Result<Cache, String
     Cache::new(Some(&dir), Some(&dir), audio.as_ref(), audio_limit).map_err(|e| e.to_string())
 }
 
+/// This install's Connect device id, made once and kept. librespot makes a new one on every
+/// launch, which leaves controllers holding an id that is gone after a restart.
+fn device_id(app: &AppHandle) -> String {
+    let fresh = || SessionConfig::default().device_id;
+    let Ok(path) = cache_dir(app).map(|dir| dir.join("device_id")) else { return fresh() };
+    if let Some(id) = std::fs::read_to_string(&path).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+        return id;
+    }
+    let id = fresh();
+    let _ = std::fs::create_dir_all(path.parent().unwrap_or(&path)).and_then(|_| std::fs::write(&path, &id));
+    id
+}
+
 /// Logs in and registers this app as a Spotify Connect device.
 async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, String> {
     let settings = crate::settings::current(app);
     let cache = open_cache(app, settings.audio_cache.then(|| settings.cache_limit_bytes()))?;
     let initial_volume = cache.volume().unwrap_or(u16::MAX / 2);
-    let session = Session::new(SessionConfig { autoplay: Some(settings.autoplay), ..Default::default() }, Some(cache));
+    let session = Session::new(
+        SessionConfig { autoplay: Some(settings.autoplay), device_id: device_id(app), ..Default::default() },
+        Some(cache),
+    );
 
     // librespot's default volume curve (log, 60 dB), the one Spotify's own apps use.
     let mixer = mixer::find(None).ok_or("no mixer")?(MixerConfig::default())
