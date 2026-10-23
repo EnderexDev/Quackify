@@ -83,6 +83,9 @@ pub struct Settings {
     pub language: String,
     /// What plays shows on the user's Discord profile (discord.rs).
     pub discord_presence: bool,
+    /// Songs played here go to the account's listening history, as Spotify's own apps report
+    /// them (listening.rs). Off unless switched on: Spotify does not say whether unofficial apps may.
+    pub report_listening: bool,
 }
 
 /// The cache's own folder inside a folder the user picks: only it is ever cleared.
@@ -109,6 +112,7 @@ impl Default for Settings {
             progress_mode: ProgressMode::default(),
             language: "en".to_string(),
             discord_presence: true,
+            report_listening: false,
         }
     }
 }

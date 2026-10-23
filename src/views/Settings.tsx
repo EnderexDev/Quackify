@@ -33,6 +33,7 @@ type Settings = {
   cache_parent: string | null;
   progress_mode: ProgressMode;
   discord_presence: boolean;
+  report_listening: boolean;
 };
 type CacheFolder = { folder: string; custom: boolean; problem: string | null };
 type View = { settings: Settings; start_with_windows: boolean };
@@ -407,6 +408,12 @@ export function SettingsView({ account }: { account: Account }) {
                 onBlur={saveName}
                 onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
               />
+            </Row>
+            <Row
+              title={t("Count plays on Spotify")}
+              note={t("Songs you play here go to your Spotify listening history, as Spotify's own apps report them. Spotify does not say whether unofficial apps may do this: turn it on at your own risk.")}
+            >
+              <Toggle on={s.report_listening} disabled={applying} onChange={(on) => save({ report_listening: on })} />
             </Row>
           </Group>
 

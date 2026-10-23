@@ -3,6 +3,7 @@ mod desktop;
 mod discord;
 mod jam;
 mod links;
+mod listening;
 mod media;
 mod meter;
 mod mini;
