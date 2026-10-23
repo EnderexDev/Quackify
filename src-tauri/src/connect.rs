@@ -23,6 +23,11 @@ const REFRESH_DEBOUNCE: Duration = Duration::from_millis(250);
 // The device registers itself shortly after start, and the server does not tell the device
 // about its own registration: read the cluster again after this long.
 const SETTLE_REREAD: Duration = Duration::from_secs(3);
+/// The cluster can still show the song before for a while after this device's player moved on
+/// (seen: a gapless change whose cluster read came back with the old song, and no push after).
+/// For this long after a local change, a cluster with another song is old and read again.
+const CLUSTER_LAG_MAX: Duration = Duration::from_secs(10);
+const LAGGING_REREAD: Duration = Duration::from_millis(750);
 /// How long a queue edit waits, at most, for Spotify to show it (tries x step).
 const QUEUE_SETTLE_TRIES: u32 = 12;
 const QUEUE_SETTLE_STEP: Duration = Duration::from_millis(250);
@@ -119,6 +124,9 @@ pub struct Hub {
     // leaves the playback it publishes as playing at 0:00, so the view says paused instead, and
     // play starts the song again (librespot ignores play while stopped).
     local_stopped: AtomicBool,
+    // The song this app's player last loaded, and when: while it plays here it is the truth,
+    // and a cluster that still shows another one is behind.
+    local_track: StdMutex<Option<(String, Instant)>>,
     // One cluster read at a time, in order, so an older answer never overwrites a newer one.
     refreshing: tokio::sync::Mutex<()>,
     // Queue edits one at a time, each on the queue the previous one left.
@@ -148,6 +156,7 @@ impl Hub {
             wanted_track: StdMutex::new(None),
             refresh_pending: AtomicBool::new(false),
             local_stopped: AtomicBool::new(false),
+            local_track: StdMutex::new(None),
             refreshing: tokio::sync::Mutex::new(()),
             editing_queue: tokio::sync::Mutex::new(()),
             track_cache: StdMutex::new(Default::default()),
@@ -220,6 +229,15 @@ impl Hub {
             .map_err(|e| e.to_string())?;
         let cluster: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
         let mut view = parse_cluster(&cluster, self.session.device_id());
+        if self.cluster_behind(&view) {
+            // Keep what is shown (the player's events already moved the clock) and look again.
+            let hub = self.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(LAGGING_REREAD).await;
+                hub.schedule_refresh();
+            });
+            return Ok(());
+        }
         if self.local_stopped.load(Ordering::SeqCst) && view.active_device_id.as_deref() == Some(view.local_device_id.as_str()) {
             if let Some(p) = view.playback.as_mut() {
                 p.is_playing = false;
@@ -400,6 +418,28 @@ impl Hub {
     /// What this app's player does, from its events: stopped, or loading and playing again.
     pub fn set_local_stopped(&self, stopped: bool) {
         self.local_stopped.store(stopped, Ordering::SeqCst);
+    }
+
+    /// This app's player has `uri`, the song asked of it (a preloaded, gapless one arrives with
+    /// no Loading, only Playing). A new one is announced; the same one again changes nothing.
+    pub fn local_track(self: &Arc<Self>, uri: String) {
+        {
+            let mut local = self.local_track.lock().unwrap();
+            if local.as_ref().is_some_and(|(u, _)| *u == uri) {
+                return;
+            }
+            *local = Some((uri.clone(), Instant::now()));
+        }
+        self.announce_track(uri);
+    }
+
+    /// The cluster says this device plays another song than its player loaded a moment ago.
+    fn cluster_behind(&self, view: &ConnectView) -> bool {
+        if view.active_device_id.as_deref() != Some(view.local_device_id.as_str()) {
+            return false;
+        }
+        let Some(p) = &view.playback else { return false };
+        matches!(&*self.local_track.lock().unwrap(), Some((uri, at)) if *uri != p.track_uri && at.elapsed() < CLUSTER_LAG_MAX)
     }
 
     pub async fn resume(self: &Arc<Self>) -> Result<(), String> {
