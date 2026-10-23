@@ -75,18 +75,30 @@ function App() {
   }
   const [webPlayer, setWebPlayer] = useState(() => localStorage.getItem(WEB_PLAYER_KEY) === "1");
 
-  const showStatus = (s: Status) => setStatus(withSavedProfile(s));
+  // The last profile heard, kept in case it comes before the login's status does.
+  const heard = useRef<(Profile & { username: string }) | null>(null);
+  const showStatus = (s: Status) => {
+    const p = heard.current;
+    setStatus(withSavedProfile(s.logged_in && p && p.username === s.username && hasProfile(p) ? { ...s, profile: p } : s));
+  };
   useEffect(() => {
-    const off = listen<Profile>("spotify-profile", ({ payload }) => {
-      if (hasProfile(payload)) setStatus((s) => (s?.logged_in ? { ...s, profile: payload } : s));
+    const off = listen<Profile & { username: string }>("spotify-profile", ({ payload }) => {
+      if (!hasProfile(payload)) return;
+      heard.current = payload;
+      const profile = { display_name: payload.display_name, image: payload.image };
+      setStatus((s) => (s?.logged_in && s.username === payload.username ? { ...s, profile } : s));
     });
     return () => {
       off.then((f) => f());
     };
   }, []);
   useEffect(() => {
-    if (status?.logged_in && hasProfile(status.profile))
+    if (!status?.logged_in || !hasProfile(status.profile)) return;
+    try {
       localStorage.setItem(PROFILE_KEY, JSON.stringify({ username: status.username, profile: status.profile }));
+    } catch {
+      // Storage full or off: the next start just waits for the profile.
+    }
   }, [status]);
 
   useEffect(() => {

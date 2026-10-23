@@ -290,7 +290,11 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     tauri::async_runtime::spawn(async move {
         let fetched = fetch_profile(&session3).await;
         *profile3.lock().unwrap() = fetched.clone();
-        let _ = app3.emit("spotify-profile", fetched);
+        // With the account, so a late answer for an account logged out meanwhile is left out.
+        let _ = app3.emit(
+            "spotify-profile",
+            serde_json::json!({ "username": session3.username(), "display_name": fetched.display_name, "image": fetched.image }),
+        );
     });
     Ok(Engine { generation, session, spirc, hub, profile })
 }
