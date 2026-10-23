@@ -147,8 +147,10 @@ pub struct Hub {
     local_stopped: AtomicBool,
     // One cluster read at a time, in order, so an older answer never overwrites a newer one.
     refreshing: tokio::sync::Mutex<()>,
-    // Queue edits one at a time, each on the queue the previous one left.
-    editing_queue: tokio::sync::Mutex<()>,
+    // Queue edits one at a time, each on the queue the previous one left. It holds the songs
+    // added since the last edit, each with how many times it was queued before, until an edit
+    // has seen them land.
+    editing_queue: tokio::sync::Mutex<Vec<(String, usize)>>,
     // Track metadata already fetched, for the queue and lists that only carry URIs.
     track_cache: StdMutex<std::collections::HashMap<String, NowPlaying>>,
 }
@@ -175,7 +177,7 @@ impl Hub {
             refresh_pending: AtomicBool::new(false),
             local_stopped: AtomicBool::new(false),
             refreshing: tokio::sync::Mutex::new(()),
-            editing_queue: tokio::sync::Mutex::new(()),
+            editing_queue: tokio::sync::Mutex::new(Vec::new()),
             track_cache: StdMutex::new(Default::default()),
         });
         match hub
@@ -589,10 +591,16 @@ impl Hub {
     }
 
     /// Adds a track to the queue of whatever device is playing.
+    /// An edit made right after waits for it to land, or it would send back a queue without it.
     pub async fn add_to_queue(self: &Arc<Self>, uri: String) -> Result<(), String> {
-        let to = {
+        let mut added = self.editing_queue.lock().await;
+        let (to, before) = {
             let v = self.view.lock().unwrap();
-            v.active_device_id.clone().ok_or("Nothing is playing right now")?
+            let to = v.active_device_id.clone().ok_or("Nothing is playing right now")?;
+            let queued = v.playback.as_ref().map_or(0, |p| {
+                p.next_tracks.iter().filter(|t| t.provider == "queue" && t.uri == uri).count()
+            });
+            (to, queued + added.iter().filter(|(u, _)| *u == uri).count())
         };
         self.remote_command(
             &to,
@@ -601,7 +609,9 @@ impl Hub {
                 "track": { "uri": uri, "metadata": { "is_queued": "true" }, "provider": "queue" },
             }),
         )
-        .await
+        .await?;
+        added.push((uri, before));
+        Ok(())
     }
 
     /// Changes what plays next on the device playing: the cluster is read fresh, edited and sent
@@ -609,12 +619,22 @@ impl Hub {
     pub async fn edit_queue(self: &Arc<Self>, edit: QueueEdit) -> Result<(), String> {
         // Each edit reads the queue, changes it and sends it whole: two at once would undo each
         // other, so they run in turn, and the next one waits for Spotify to show this one.
-        let _turn = self.editing_queue.lock().await;
-        let to = {
-            let v = self.view.lock().unwrap();
-            v.active_device_id.clone().ok_or("Nothing is playing right now")?
-        };
-        let cluster = self.read_cluster().await?;
+        let mut added = self.editing_queue.lock().await;
+        let mut cluster = self.read_cluster().await?;
+        for _ in 0..QUEUE_SETTLE_TRIES {
+            if added.iter().all(|(uri, before)| times_queued(&cluster, uri) > *before) {
+                break;
+            }
+            tokio::time::sleep(QUEUE_SETTLE_STEP).await;
+            cluster = self.read_cluster().await?;
+        }
+        added.clear();
+        // The device whose queue this is, not the one the last refresh saw.
+        let to = cluster["active_device_id"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .ok_or("Nothing is playing right now")?
+            .to_string();
         let ps = &cluster["player_state"];
         let next = ps["next_tracks"].as_array().cloned().unwrap_or_default();
         let edited = edit_next_tracks(&next, &edit);
@@ -750,6 +770,13 @@ fn queued<'a>(list: impl Iterator<Item = &'a Value>) -> Vec<QueuedTrack> {
     })
     .take(QUEUE_LIMIT)
     .collect()
+}
+
+/// How many times `uri` sits in the queue of a cluster (the songs queued by hand).
+fn times_queued(cluster: &Value, uri: &str) -> usize {
+    cluster["player_state"]["next_tracks"]
+        .as_array()
+        .map_or(0, |l| l.iter().filter(|t| t["uri"] == uri && t["provider"] == "queue").count())
 }
 
 /// The first tracks of a queue, by uri and provider, to tell whether an edit has landed.
