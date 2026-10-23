@@ -243,6 +243,33 @@
   font-weight: 700;
 }
 
+
+/* With the lyrics, the controls step back: a smaller row, the lyrics are what the card is for. */
 .mini.with-lyrics .progress {
-  margin-top: 4px;
+  height: 16px;
+}
+
+.mini.with-lyrics .mini-buttons {
+  gap: 14px;
+}
+
+.mini.with-lyrics .mini-buttons .icon-btn,
+.mini.with-lyrics .mini-buttons .like-btn,
+.mini.with-lyrics .mini-space {
+  width: 22px;
+  height: 22px;
+}
+
+.mini.with-lyrics .mini-buttons svg {
+  width: 15px;
+  height: 15px;
+}
+
+.mini.with-lyrics .mini-play {
+  width: 26px;
+  height: 26px;
+}
+
+.mini.with-lyrics .mini-buttons .icon-btn.on::after {
+  bottom: -5px;
 }

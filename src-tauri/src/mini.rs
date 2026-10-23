@@ -13,7 +13,7 @@ pub const LABEL: &str = "mini";
 const WIDTH: f64 = 330.0;
 const HEIGHT: f64 = 162.0;
 /// Taller, with the lyrics in the middle.
-const LYRICS_HEIGHT: f64 = 380.0;
+const LYRICS_HEIGHT: f64 = 250.0;
 /// How far from an edge, in logical pixels, a dropped window snaps to it.
 const SNAP: f64 = 24.0;
 /// The gap kept between the window and the edge it snaps to.
@@ -260,7 +260,10 @@ pub fn mini_player_set_lyrics(app: AppHandle, on: bool) -> Result<(), String> {
     save_place(&app, Place { lyrics: on, ..place });
     w.set_size(LogicalSize::new(WIDTH, height(on))).map_err(|e| e.to_string())?;
     if low {
-        let grown = (height(on) * scale) as i32 - before.height as i32;
+        // The size it really took: at 125% a computed one is a pixel off, and the bottom
+        // edge crept a pixel down at every switch.
+        let after = w.outer_size().map(|s| s.height).unwrap_or((height(on) * scale) as u32);
+        let grown = after as i32 - before.height as i32;
         let _ = w.set_position(PhysicalPosition::new(pos.x, pos.y - grown));
     }
     snap(&w);
