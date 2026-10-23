@@ -1,0 +1,212 @@
+/* The shared states: the loading skeleton, the page that failed, the empty one, and the
+   no-connection notice. */
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.sk {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+/* The shine crosses every block together, once every 1.2 s. */
+.sk::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  animation: sk-shine 1.2s ease-in-out infinite;
+}
+
+:root[data-theme="light"] .sk::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+}
+
+@keyframes sk-shine {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.sk-title {
+  width: min(320px, 40%);
+  height: 34px;
+}
+
+/* One line each, as wide as the page: whatever does not fit is cut, never wrapped. */
+.sk-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  grid-template-rows: auto;
+  grid-auto-rows: 0;
+  column-gap: 14px;
+  overflow: hidden;
+}
+
+.sk-tile {
+  height: 56px;
+}
+
+.sk-label {
+  width: 180px;
+  height: 20px;
+  margin-top: 8px;
+}
+
+.sk-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sk-cover {
+  aspect-ratio: 1;
+}
+
+.sk-line {
+  width: 70%;
+  height: 12px;
+  border-radius: var(--r-pill);
+}
+
+/* A message in the middle: failed or empty. */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.page.center.state {
+  display: flex;
+  justify-content: center;
+}
+
+.state h3 {
+  margin: 6px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.state p {
+  margin: 0;
+  max-width: 420px;
+}
+
+.state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.state-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.state-icon.danger {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  color: var(--danger);
+}
+
+.state-icon.plain {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+/* The duck on a stack of two tilted cards. */
+.state-duck {
+  position: relative;
+  width: 76px;
+  height: 66px;
+  margin-bottom: 4px;
+}
+
+.state-duck > span {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+}
+
+.state-duck > span:first-child {
+  right: 0;
+  top: 0;
+  transform: rotate(8deg);
+  background: var(--surface-2);
+}
+
+.state-duck > span:last-child {
+  left: 0;
+  bottom: 0;
+  transform: rotate(-6deg);
+  background: color-mix(in srgb, var(--surface-3) 70%, var(--bg));
+  box-shadow: var(--shadow-cover);
+}
+
+/* No connection: an amber pill under the top bar. */
+.offline {
+  position: fixed;
+  top: 66px;
+  left: 50%;
+  z-index: 35;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid color-mix(in srgb, #f5a524 45%, transparent);
+  background: color-mix(in srgb, #f5a524 16%, rgba(14, 14, 18, 0.9));
+  color: #ffe3a6;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow-popup);
+  animation: toast-in 300ms var(--ease-out);
+}
+
+.offline::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f5a524;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk::after {
+    animation: none;
+  }
+}
+
+/* The main action of a state, white like the other main buttons that are not "play". */
+.state-actions .pill-btn.white {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+.state-actions .pill-btn.white:not(:disabled):hover {
+  background: color-mix(in srgb, var(--text) 85%, var(--bg));
+}

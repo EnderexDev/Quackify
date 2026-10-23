@@ -19,22 +19,55 @@ pub struct Desktop {
     // The tray's check marks, kept in step with the Settings page.
     close_item: CheckMenuItem<tauri::Wry>,
     autostart_item: CheckMenuItem<tauri::Wry>,
+    /// The plain items, retitled when the language changes.
+    items: Vec<(&'static str, MenuItem<tauri::Wry>)>,
 }
 
-/// Puts the tray's check marks back in line with the settings and Windows' startup entry.
+/// The tray menu's words, in the app's language ("en" or "pt"). `name` is Quackify or Quackify Dev.
+fn tray_text(id: &str, language: &str, name: &str) -> String {
+    let pt = language == "pt";
+    match id {
+        "show" if pt => format!("Mostrar o {name}"),
+        "show" => format!("Show {name}"),
+        "toggle" if pt => "Tocar e pausar".into(),
+        "toggle" => "Play / Pause".into(),
+        "next" if pt => "Próxima".into(),
+        "next" => "Next".into(),
+        "previous" if pt => "Anterior".into(),
+        "previous" => "Previous".into(),
+        "mini" => "Mini player".into(),
+        "close_to_tray" if pt => "Fechar pra bandeja".into(),
+        "close_to_tray" => "Close to tray".into(),
+        "autostart" if pt => "Iniciar com o Windows".into(),
+        "autostart" => "Start with Windows".into(),
+        "quit" if pt => format!("Sair do {name}"),
+        "quit" => format!("Quit {name}"),
+        _ => id.into(),
+    }
+}
+
+/// Puts the tray's check marks back in line with the settings and Windows' startup entry, and
+/// its words in the app's language.
 pub fn sync_tray(app: &AppHandle) {
     if let Some(desktop) = app.try_state::<Desktop>() {
-        let _ = desktop.close_item.set_checked(settings::current(app).close_to_tray);
+        let settings = settings::current(app);
+        let name = crate::variant::name(app);
+        let _ = desktop.close_item.set_checked(settings.close_to_tray);
         let _ = desktop.autostart_item.set_checked(start_with_windows(app));
+        let _ = desktop.close_item.set_text(tray_text("close_to_tray", &settings.language, &name));
+        let _ = desktop.autostart_item.set_text(tray_text("autostart", &settings.language, &name));
+        for (id, item) in &desktop.items {
+            let _ = item.set_text(tray_text(id, &settings.language, &name));
+        }
     }
 }
 
 /// The Windows startup entry (the user's Run key), with or without `--minimized`.
-fn launcher(minimized: bool) -> Result<AutoLaunch, String> {
+fn launcher(app: &AppHandle, minimized: bool) -> Result<AutoLaunch, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let args: &[&str] = if minimized { &[MINIMIZED_ARG] } else { &[] };
     AutoLaunchBuilder::new()
-        .set_app_name("Quackify")
+        .set_app_name(&crate::variant::name(app))
         .set_app_path(&exe.display().to_string())
         .set_args(args)
         .set_windows_enable_mode(WindowsEnableMode::CurrentUser)
@@ -42,14 +75,14 @@ fn launcher(minimized: bool) -> Result<AutoLaunch, String> {
         .map_err(|e| e.to_string())
 }
 
-pub fn start_with_windows(_app: &AppHandle) -> bool {
-    launcher(false).and_then(|l| l.is_enabled().map_err(|e| e.to_string())).unwrap_or(false)
+pub fn start_with_windows(app: &AppHandle) -> bool {
+    launcher(app, false).and_then(|l| l.is_enabled().map_err(|e| e.to_string())).unwrap_or(false)
 }
 
 /// Turns the Windows startup entry on (minimized or not, per the settings) or off; says what
 /// Windows has afterwards.
 pub fn set_start_with_windows(app: &AppHandle, on: bool) -> Result<bool, String> {
-    let launch = launcher(settings::current(app).start_minimized)?;
+    let launch = launcher(app, settings::current(app).start_minimized)?;
     let result = if on { launch.enable() } else { launch.disable() };
     sync_tray(app);
     result.map_err(|e| e.to_string())?;
@@ -58,16 +91,27 @@ pub fn set_start_with_windows(app: &AppHandle, on: bool) -> Result<bool, String>
 
 pub fn setup(app: &mut App) -> tauri::Result<()> {
     let settings = settings::current(app.handle());
+    let name = crate::variant::name(app.handle());
 
-    let show = MenuItem::with_id(app, "show", "Show Quackify", true, None::<&str>)?;
-    let toggle = MenuItem::with_id(app, "toggle", "Play / Pause", true, None::<&str>)?;
-    let next = MenuItem::with_id(app, "next", "Next", true, None::<&str>)?;
-    let previous = MenuItem::with_id(app, "previous", "Previous", true, None::<&str>)?;
-    let close_to_tray =
-        CheckMenuItem::with_id(app, "close_to_tray", "Close to tray", true, settings.close_to_tray, None::<&str>)?;
+    let lang = settings.language.as_str();
+    let item = |id: &'static str| MenuItem::with_id(app, id, tray_text(id, lang, &name), true, None::<&str>);
+    let show = item("show")?;
+    let toggle = item("toggle")?;
+    let next = item("next")?;
+    let previous = item("previous")?;
+    let mini = item("mini")?;
+    let close_to_tray = CheckMenuItem::with_id(
+        app,
+        "close_to_tray",
+        tray_text("close_to_tray", lang, &name),
+        true,
+        settings.close_to_tray,
+        None::<&str>,
+    )?;
     let autostart_on = start_with_windows(app.handle());
-    let autostart = CheckMenuItem::with_id(app, "autostart", "Start with Windows", true, autostart_on, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit Quackify", true, None::<&str>)?;
+    let autostart =
+        CheckMenuItem::with_id(app, "autostart", tray_text("autostart", lang, &name), true, autostart_on, None::<&str>)?;
+    let quit_item = item("quit")?;
     let menu = Menu::with_items(
         app,
         &[
@@ -76,6 +120,7 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
             &toggle,
             &next,
             &previous,
+            &mini,
             &PredefinedMenuItem::separator(app)?,
             &close_to_tray,
             &autostart,
@@ -88,11 +133,19 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
         quitting: AtomicBool::new(false),
         close_item: close_to_tray.clone(),
         autostart_item: autostart.clone(),
+        items: vec![
+            ("show", show.clone()),
+            ("toggle", toggle.clone()),
+            ("next", next.clone()),
+            ("previous", previous.clone()),
+            ("mini", mini.clone()),
+            ("quit", quit_item.clone()),
+        ],
     });
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().cloned().expect("the bundle has an icon"))
-        .tooltip("Quackify")
+        .tooltip(&name)
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(move |app, event| match event.id().as_ref() {
@@ -100,6 +153,7 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
             "toggle" => media::run(app, Action::Toggle),
             "next" => media::run(app, Action::Next),
             "previous" => media::run(app, Action::Previous),
+            "mini" => crate::mini::toggle(app),
             "close_to_tray" => {
                 // The item has already flipped its own check mark.
                 let on = app.state::<Desktop>().close_item.is_checked().unwrap_or(true);
@@ -133,9 +187,10 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Brings the window back from the tray, the taskbar or behind other windows.
+/// Brings the window back from the tray, the taskbar or behind other windows. The window, not
+/// the webview window: with the web player inside it, it holds two webviews.
 pub fn show_window(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
+    if let Some(w) = app.get_window("main") {
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
@@ -144,6 +199,9 @@ pub fn show_window(app: &AppHandle) {
 
 /// The close button hides the window when closing to the tray is on.
 pub fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
+    if let WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } = event {
+        crate::webplayer::fit(window);
+    }
     if let WindowEvent::CloseRequested { api, .. } = event {
         let quitting = window.state::<Desktop>().quitting.load(Ordering::SeqCst);
         if settings::current(window.app_handle()).close_to_tray && !quitting {

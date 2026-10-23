@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { t } from "../i18n";
 
 const FOCUSABLE = 'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
@@ -99,7 +100,7 @@ export function ConfirmDialog({
       <p className="muted">{message}</p>
       <div className="dialog-actions">
         <button className="secondary" onClick={onClose} disabled={busy}>
-          Cancel
+          {t("Cancel")}
         </button>
         <button className="primary" disabled={busy} onClick={submit}>
           {confirmLabel}
@@ -129,9 +130,9 @@ export function EditDetailsDialog({
   useEffect(() => input.current?.select(), []);
 
   return (
-    <Dialog title="Edit details" onClose={onClose} busy={busy}>
+    <Dialog title={t("Edit details")} onClose={onClose} busy={busy}>
       <label className="field">
-        <span>Name</span>
+        <span>{t("Name")}</span>
         <input
           ref={input}
           value={n}
@@ -142,22 +143,22 @@ export function EditDetailsDialog({
         />
       </label>
       <label className="field">
-        <span>Description</span>
+        <span>{t("Description")}</span>
         <textarea
           value={d}
           maxLength={300}
           rows={4}
           disabled={busy}
-          placeholder="Add an optional description"
+          placeholder={t("Add an optional description")}
           onChange={(e) => setD(e.currentTarget.value)}
         />
       </label>
       <div className="dialog-actions">
         <button className="secondary" onClick={onClose} disabled={busy}>
-          Cancel
+          {t("Cancel")}
         </button>
         <button className="primary" onClick={save} disabled={busy || !n.trim()}>
-          Save
+          {t("Save")}
         </button>
       </div>
     </Dialog>

@@ -18,12 +18,14 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+# unstable: Window::add_child, for the web player inside the window (webplayer.rs).
+tauri = { version = "2", features = ["tray-icon", "unstable"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 librespot-core = "0.8"
 librespot-playback = "0.8"
+librespot-audio = "0.8"
 librespot-oauth = "0.8"
 librespot-metadata = "0.8"
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "time"] }
@@ -36,8 +38,25 @@ http = "1"
 protobuf = "3.7"
 souvlaki = { version = "0.8", default-features = false }
 auto-launch = "0.6"
+# The version rodio already pulls in through librespot: Quackify's own output (meter.rs).
+cpal = "0.16"
+# The decoder librespot already uses, with its features: the waveform ahead (waveform.rs).
+symphonia = { version = "0.5", default-features = false, features = ["mp3", "ogg", "vorbis", "flac"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.56"
+# The version Tauri already pulls in: the taskbar thumbnail's buttons (thumbbar.rs) and the
+# mouse button the mini player's snap waits for (mini.rs).
+windows = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_System_Com",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

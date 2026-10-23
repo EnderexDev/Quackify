@@ -1,0 +1,67 @@
+/* Search */
+
+.search-top {
+  display: grid;
+  /* Side by side when there is room, stacked when the page is narrow. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.top-result {
+  position: relative;
+  padding: 20px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  cursor: pointer;
+  height: calc(100% - 38px);
+  transition: background 0.15s;
+}
+
+.top-result:hover {
+  background: var(--hover);
+}
+
+.top-cover {
+  width: 96px;
+  height: 96px;
+  margin-bottom: 18px;
+  --cover-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.top-title {
+  font-size: 30px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-sub {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.pill {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.top-play {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.top-result:hover .top-play {
+  opacity: 1;
+}

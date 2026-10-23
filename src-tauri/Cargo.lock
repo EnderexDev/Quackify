@@ -3788,8 +3788,10 @@ name = "quackify"
 version = "0.1.0"
 dependencies = [
  "auto-launch",
+ "cpal",
  "futures-util",
  "http",
+ "librespot-audio",
  "librespot-connect",
  "librespot-core",
  "librespot-metadata",
@@ -3802,12 +3804,15 @@ dependencies = [
  "serde",
  "serde_json",
  "souvlaki",
+ "symphonia",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "tokio",
+ "windows 0.61.3",
+ "winreg",
 ]
 
 [[package]]

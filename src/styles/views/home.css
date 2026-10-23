@@ -1,0 +1,335 @@
+/* Home: the header with Customize home, Continue and the Customize popup. */
+
+.home-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 8px 0 20px;
+}
+
+.home-head .greeting {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.home-customize {
+  position: relative;
+}
+
+.pill-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.pill-button:hover,
+.pill-button.on {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* Continue: tiles of two rows of four, each with how far it got. */
+.continue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(max(200px, calc(25% - 8px)), 1fr));
+  gap: 8px;
+}
+
+.continue-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding-right: 10px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.continue-tile:hover {
+  background: var(--surface-3);
+}
+
+.continue-cover {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 0;
+}
+
+.continue-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.continue-title {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.continue-sub {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.continue-play {
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.continue-tile:hover .continue-play {
+  opacity: 1;
+}
+
+/* How much was heard, along the bottom edge under the text. */
+.continue-progress {
+  position: absolute;
+  left: 68px;
+  bottom: 6px;
+  max-width: calc(100% - 80px);
+  height: 3px;
+  border-radius: var(--r-pill);
+  background: var(--text);
+}
+
+/* Customize home: a popup under its button. */
+.customize {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  padding: 14px 10px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--popup);
+  -webkit-backdrop-filter: var(--blur-popup);
+  backdrop-filter: var(--blur-popup);
+  box-shadow: var(--shadow-popup);
+  transform-origin: top right;
+  animation: customize-in var(--t-mid) var(--ease-spring);
+}
+
+@keyframes customize-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.customize-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 10px;
+  font-weight: 700;
+}
+
+.customize-head .link {
+  font-size: 12px;
+}
+
+.customize-list {
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.customize-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 8px;
+  border-radius: var(--r-md);
+  border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  cursor: grab;
+}
+
+.customize-row:hover {
+  background: var(--surface-2);
+}
+
+.customize-row.off .customize-title {
+  color: var(--muted);
+}
+
+.customize-row.dragged {
+  opacity: 0.4;
+}
+
+/* Where the dragged row lands: a white line above this one. */
+.customize-row.over {
+  border-top-color: var(--text);
+}
+
+.customize-row.over-after {
+  border-bottom-color: var(--text);
+}
+
+.customize-grip {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.customize-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.customize-pin {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.customize-row:hover .customize-pin,
+.customize-pin.on {
+  opacity: 1;
+}
+
+.customize-pin.on {
+  color: var(--text);
+}
+
+.customize-pin:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.customize-add {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.customize-add-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  text-align: left;
+}
+
+.customize-add-item:hover {
+  background: var(--surface-2);
+}
+
+/* For now: the row of what usually plays at this hour, in a panel tinted with the music's
+   colours, with the day and hour and why. */
+.shelf.for-now {
+  padding: 14px 16px 6px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--aura-2) 16%, transparent),
+    color-mix(in srgb, var(--aura) 14%, transparent)
+  );
+}
+
+.for-now .shelf-head {
+  padding: 0 4px;
+  margin-bottom: 4px;
+}
+
+.for-now h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+}
+
+.for-now-when {
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.for-now-why {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Your shortcuts: Spotify's grid as one row of tiles, four across at the Figma's width. */
+.shelf-row.tiles {
+  --cols: 1;
+  padding-bottom: 2px;
+}
+
+.shelf-row.tiles .shortcut {
+  scroll-snap-align: start;
+}
+
+@container (min-width: 460px) {
+  .shelf-row.tiles {
+    --cols: 2;
+  }
+}
+
+@container (min-width: 700px) {
+  .shelf-row.tiles {
+    --cols: 3;
+  }
+}
+
+@container (min-width: 900px) {
+  .shelf-row.tiles {
+    --cols: 4;
+  }
+}
+
+@container (min-width: 1400px) {
+  .shelf-row.tiles {
+    --cols: 5;
+  }
+}
+
+@container (min-width: 1700px) {
+  .shelf-row.tiles {
+    --cols: 6;
+  }
+}

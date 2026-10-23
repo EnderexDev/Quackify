@@ -1,11 +1,14 @@
 // The right-click menu. `useContextMenu()` gives `open(event, items)`; one menu shows at a time.
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { t } from "../i18n";
 import { CheckIcon, ChevronRightIcon } from "./icons";
 
 export type MenuItem =
   | "separator"
   | {
       label: string;
+      /** A name that does not change with the language, for code that looks an item up. */
+      id?: string;
       onClick?: () => void;
       /** Opens a second menu on hover; may load its items. */
       submenu?: () => Promise<MenuItem[]> | MenuItem[];
@@ -74,7 +77,7 @@ function Menu({ x, y, items, onDone }: { x: number; y: number; items: MenuItem[]
       const loaded = await load();
       setSub((s) => (s?.index === index ? { ...s, items: loaded } : s));
     } catch {
-      setSub((s) => (s?.index === index ? { ...s, items: [{ label: "Could not load", disabled: true }] } : s));
+      setSub((s) => (s?.index === index ? { ...s, items: [{ label: t("Could not load"), disabled: true }] } : s));
     }
   };
 
@@ -116,8 +119,8 @@ function SubMenu({ head, items, onDone }: { head: MenuItem[]; items: MenuItem[] 
   }, [items]);
   return (
     <div className={`menu submenu ${flip ? "flip" : ""}`} ref={ref} onClick={(e) => e.stopPropagation()}>
-      {items === null && head.length === 0 && <div className="menu-item disabled">Loading…</div>}
-      {items?.length === 0 && head.length === 0 && <div className="menu-item disabled">Nothing here</div>}
+      {items === null && head.length === 0 && <div className="menu-item disabled">{t("Loading…")}</div>}
+      {items?.length === 0 && head.length === 0 && <div className="menu-item disabled">{t("Nothing here")}</div>}
       {[...head, ...(items ?? [])].map((item, i) =>
         item === "separator" ? (
           <div key={i} className="menu-sep" />

@@ -126,3 +126,13 @@ Object.assign(window, {
   __emit: (event: string, payload: unknown) => handlers.get(event)?.forEach((h) => h({ payload })),
   __bench: { view, nowPlaying, calls },
 });
+
+export function getCurrentWindow() {
+  const ok = async () => {};
+  return { label: "main", startDragging: ok, setFullscreen: ok, isFullscreen: async () => false, listen: async () => () => {} };
+}
+
+/** Tauri's emit reaches every window's listeners, this one included. */
+export async function emit(event: string, payload?: unknown) {
+  handlers.get(event)?.forEach((h) => h({ payload }));
+}

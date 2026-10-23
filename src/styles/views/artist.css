@@ -1,0 +1,319 @@
+/* Artist page */
+
+.artist-hero {
+  position: relative;
+  height: 340px;
+  background-size: cover;
+  background-position: center 25%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.artist-hero-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.65) 100%);
+}
+
+.artist-hero-text {
+  position: relative;
+  padding: 24px;
+}
+
+.artist-hero h1 {
+  font-size: clamp(36px, 5vw, 64px);
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.05;
+  margin-bottom: 10px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.verified-badge {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4cb3ff;
+  color: #fff;
+}
+
+/* The tabs sit at the right end of the actions. */
+.artist-actions .artist-tabs {
+  margin-left: auto;
+}
+
+.artist-overview {
+  margin-bottom: 32px;
+}
+
+/* The side cards take about a quarter of the width, so a wide window fills instead of
+   leaving an empty half. */
+.artist-overview.with-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 27%, 520px);
+  gap: 24px;
+  align-items: start;
+}
+
+.artist-overview .artist-popular {
+  margin-bottom: 0;
+}
+
+.artist-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 44px;
+}
+
+.side-card {
+  padding: 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.side-card h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+
+.side-bio {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+
+.side-more {
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.pick-cover {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: var(--r-sm);
+}
+
+.pick-text {
+  min-width: 0;
+}
+
+.pick-title {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pick-sub {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Below 1100px the side cards go under the popular songs. */
+@media (max-width: 1099px) {
+  .artist-overview.with-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .artist-side {
+    padding-top: 0;
+  }
+}
+
+/* Discography */
+.view-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.disco-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.release {
+  border-radius: var(--r-md);
+}
+
+.release.open {
+  background: var(--surface-2);
+  padding-bottom: 8px;
+}
+
+.release-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 64px;
+  padding: 0 12px 0 8px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+}
+
+.release-head:hover {
+  background: var(--surface-2);
+}
+
+.release-chevron {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.release-cover {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: var(--r-sm);
+}
+
+.release-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.release-title {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.release-sub {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.release-error {
+  margin: 4px 16px 0;
+}
+
+.release-play {
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.release-head:hover .release-play {
+  opacity: 1;
+}
+
+/* About */
+/* The biography keeps a readable line; the photo and numbers use the width. */
+.about-bio {
+  max-width: 90ch;
+}
+
+/* Photo and text side by side when there is room; one under the other below 1100px. */
+.artist-about.with-photo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.about-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  object-position: center 20%;
+  border-radius: var(--r-lg);
+}
+
+@media (max-width: 1099px) {
+  .artist-about.with-photo {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+
+.about-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  margin-bottom: 20px;
+}
+
+.about-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.about-stat b {
+  font-size: 24px;
+  font-weight: 750;
+}
+
+.about-stat span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.about-bio {
+  margin: 0 0 28px;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.about-cities h3 {
+  font-size: 15px;
+  margin: 0 0 10px;
+}
+
+.about-city {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.artist-hero p {
+  margin: 0;
+  font-size: 15px;
+}
+
+.artist-popular {
+  margin-bottom: 32px;
+}
+
+.see-more {
+  margin: 12px 16px;
+}

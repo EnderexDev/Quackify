@@ -1,0 +1,145 @@
+/* The mini player's window: transparent, with one rounded card in the colours of the cover
+   playing (greyed while paused), always dark like the player bar. */
+
+:root.mini-window,
+:root.mini-window body {
+  background: transparent;
+}
+
+.mini {
+  --text: #f6f4ee;
+  --muted: rgba(246, 244, 238, 0.66);
+  --surface-2: rgba(255, 255, 255, 0.1);
+  --surface-3: rgba(255, 255, 255, 0.18);
+  --line: rgba(255, 255, 255, 0.12);
+  --hover: var(--surface-3);
+
+  position: relative;
+  isolation: isolate;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 12px 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  color: var(--text);
+}
+
+.mini::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(80% 130% at 90% 60%, color-mix(in srgb, var(--aura-2) 70%, transparent), transparent 70%),
+    linear-gradient(100deg, color-mix(in srgb, var(--aura) 80%, #000) 0%, color-mix(in srgb, var(--aura-2) 55%, #0a0a0c) 100%);
+  transition:
+    filter 600ms ease-in-out,
+    background 600ms ease-in-out;
+}
+
+.mini.paused::before {
+  filter: saturate(0) brightness(0.75);
+}
+
+.mini.idle::before {
+  background: rgba(14, 14, 18, 0.94);
+}
+
+.mini-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mini-cover {
+  flex: none;
+  width: 60px;
+  height: 60px;
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-cover);
+}
+
+.mini-duck {
+  padding: 8px;
+  background: var(--surface-2);
+}
+
+.mini-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mini-title {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-artists {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-window-buttons {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mini-window-buttons .icon-btn {
+  width: 22px;
+  height: 22px;
+}
+
+.mini-pin.on {
+  color: var(--text);
+}
+
+.mini .progress {
+  height: 20px;
+  flex: none;
+}
+
+.mini-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.mini-buttons .icon-btn,
+.mini-buttons .like-btn,
+.mini-space {
+  width: 28px;
+  height: 28px;
+}
+
+.mini-play {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #f6f4ee;
+  color: #111;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  transition: transform var(--t-fast) var(--ease-spring);
+}
+
+.mini-play:not(:disabled):hover {
+  transform: scale(1.07);
+}
+
+.mini-pin.on::after {
+  display: none;
+}

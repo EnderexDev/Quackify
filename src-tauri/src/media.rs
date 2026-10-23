@@ -43,9 +43,10 @@ impl Media {
         let (tx, rx) = channel::<Option<Showing>>();
         let (ready_tx, ready_rx) = channel::<Result<(), String>>();
         let app = app.clone();
+        let name = crate::variant::name(&app);
         std::thread::spawn(move || {
             let config = PlatformConfig {
-                display_name: "Quackify",
+                display_name: &name,
                 dbus_name: "quackify",
                 hwnd: Some(hwnd as *mut std::ffi::c_void),
             };
@@ -146,13 +147,16 @@ pub fn run(app: &AppHandle, action: Action) {
     });
 }
 
-/// Shows `showing` in Windows and in the tray tooltip.
+/// Shows `showing` in Windows (the media flyout and the taskbar thumbnail's buttons) and in the
+/// tray tooltip.
 pub fn publish(app: &AppHandle, showing: Option<Showing>) {
+    #[cfg(windows)]
+    crate::thumbbar::update(app, showing.as_ref().is_some_and(|s| s.playing), showing.is_some());
     if let Some(tray) = app.tray_by_id(crate::desktop::TRAY_ID) {
         let tip = match &showing {
             // Windows cuts tray tooltips at 128 characters.
             Some(s) => format!("{} - {}", s.title, s.artist).chars().take(120).collect(),
-            None => "Quackify".to_string(),
+            None => crate::variant::name(app),
         };
         let _ = tray.set_tooltip(Some(tip));
     }

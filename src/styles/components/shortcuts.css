@@ -1,0 +1,23 @@
+/* Keyboard shortcuts dialog */
+
+.shortcuts-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.shortcut-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.shortcut-row kbd {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}

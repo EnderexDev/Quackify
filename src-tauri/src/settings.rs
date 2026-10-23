@@ -39,6 +39,20 @@ impl Loudness {
     }
 }
 
+/// How the player's progress bar looks. Wave and Live need Quackify's own audio output (meter.rs);
+/// Simple keeps librespot's.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ProgressMode {
+    /// The line.
+    #[default]
+    Simple,
+    /// The song's waveform, drawn as it plays and kept per song.
+    Wave,
+    /// Bars that move with the sound, low notes in the middle.
+    Live,
+}
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 #[serde(default)]
 pub struct Settings {
@@ -63,6 +77,10 @@ pub struct Settings {
     /// The folder the song cache goes in (its own subfolder is made there); none: the app's
     /// local data folder.
     pub cache_parent: Option<String>,
+    pub progress_mode: ProgressMode,
+    /// The language the app shows, "en" or "pt", as the page resolved it (System included): the
+    /// tray menu and the browser page after login follow it. The choice itself lives in the page.
+    pub language: String,
 }
 
 /// The cache's own folder inside a folder the user picks: only it is ever cleared.
@@ -86,6 +104,8 @@ impl Default for Settings {
             device_name: DEFAULT_DEVICE_NAME.to_string(),
             start_minimized: true,
             cache_parent: None,
+            progress_mode: ProgressMode::default(),
+            language: "en".to_string(),
         }
     }
 }
@@ -102,6 +122,8 @@ impl Settings {
             || self.cache_size_gb != other.cache_size_gb
             || self.device_name() != other.device_name()
             || self.cache_parent != other.cache_parent
+            // Simple and the other two use different audio outputs.
+            || (self.progress_mode == ProgressMode::Simple) != (other.progress_mode == ProgressMode::Simple)
     }
 
     /// The device name to use: never empty, and short like Spotify's own.
@@ -135,7 +157,7 @@ impl Store {
             .as_ref()
             .and_then(|f| std::fs::read_to_string(f).ok())
             .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default();
+            .unwrap_or_else(|| Settings { device_name: crate::variant::name(app), ..Default::default() });
         Self { file, current: Mutex::new(current), cache_problem: Mutex::new(None), cache_move: tokio::sync::Mutex::new(()) }
     }
 
@@ -191,6 +213,8 @@ pub fn settings_get(app: AppHandle) -> View {
 /// Saves the settings. Audio ones rebuild the player, which takes a moment; the tray follows.
 #[tauri::command]
 pub async fn settings_set(app: AppHandle, settings: Settings) -> Result<(), String> {
+    // The language has its own command: a page holding an older copy must not undo it.
+    let settings = Settings { language: app.state::<Store>().get().language, ..settings };
     let before = app.state::<Store>().set(settings.clone())?;
     crate::desktop::sync_tray(&app);
     // The startup entry carries "start minimized" in its command line: rewrite it.
@@ -202,6 +226,19 @@ pub async fn settings_set(app: AppHandle, settings: Settings) -> Result<(), Stri
     if before.player_differs(&settings) {
         crate::spotify::reconnect(&app).await?;
     }
+    Ok(())
+}
+
+/// The page says which language it shows; saved, and the tray menu follows at once.
+#[tauri::command]
+pub fn settings_set_language(app: AppHandle, language: String) -> Result<(), String> {
+    let language = if language == "pt" { "pt" } else { "en" }.to_string();
+    let store = app.state::<Store>();
+    let now = store.get();
+    if now.language != language {
+        store.set(Settings { language, ..now })?;
+    }
+    crate::desktop::sync_tray(&app);
     Ok(())
 }
 

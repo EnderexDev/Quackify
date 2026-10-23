@@ -17,6 +17,7 @@ export default defineConfig(({ command }) => ({
       "@tauri-apps/api/core": here("./mock-tauri.ts"),
       "@tauri-apps/api/event": here("./mock-tauri.ts"),
       "@tauri-apps/api/app": here("./mock-tauri.ts"),
+      "@tauri-apps/api/window": here("./mock-tauri.ts"),
       // Production speed, with the Profiler's timings still reported.
       ...(command === "build" ? { "react-dom/client": "react-dom/profiling" } : {}),
     },

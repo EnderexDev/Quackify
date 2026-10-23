@@ -7,27 +7,30 @@ import { Cover } from "../components/Cover";
 import { ConfirmDialog, EditDetailsDialog } from "../components/Dialog";
 import { SaveButton } from "../components/LikeButton";
 import { collectionMenu } from "../components/menus";
+import { t } from "../i18n";
 import { useSaved } from "../state/saved";
-import { SearchIcon, ShuffleIcon } from "../components/icons";
+import { SearchIcon, ShuffleIcon, SortIcon } from "../components/icons";
+import { OPEN_PALETTE_EVENT } from "../components/Palette";
 import { PlayButton } from "../components/PlayButton";
 import { TrackList } from "../components/TrackList";
 import { useNav } from "../state/nav";
 import { usePlayerNow, usePlayerSelect } from "../state/player";
 import { notifyLibraryChanged } from "../state/saved";
-import { toast } from "../state/toast";
-import { formatCount, formatDuration } from "../util/format";
+import { notify, toast } from "../state/toast";
+import { formatCount, formatLength } from "../util/format";
+import { kindLabel } from "../util/kinds";
 import { useAsync } from "../util/useAsync";
-import { Failed, Loading } from "./common";
+import { Empty, Failed, Loading } from "./common";
 
 type Sort = "custom" | "added" | "title" | "artist" | "album" | "duration";
 
-const SORT_LABEL: Record<Sort, string> = {
-  custom: "Custom order",
-  added: "Date added",
-  title: "Title",
-  artist: "Artist",
-  album: "Album",
-  duration: "Duration",
+const SORT_LABEL: Record<Sort, () => string> = {
+  custom: () => t("Custom order"),
+  added: () => t("Date added"),
+  title: () => t("Title"),
+  artist: () => t("Artist"),
+  album: () => t("Album"),
+  duration: () => t("Duration"),
 };
 
 const byText = (pick: (t: Track) => string) => (a: Track, b: Track) =>
@@ -41,18 +44,20 @@ const COMPARE: Record<Exclude<Sort, "custom">, (a: Track, b: Track) => number> =
   duration: (a, b) => a.durationMs - b.durationMs,
 };
 
-const KIND_LABEL = { playlist: "Playlist", album: "Album", liked: "Playlist", artist: "Artist", track: "Song", show: "Podcast", episode: "Episode", user: "Profile", folder: "Folder" } as const;
 
 /** A playlist, album or Liked Songs: header, play button, and every track (paged on scroll). */
 export function Collection({ uri }: { uri: string }) {
-  const { data, error, loading } = useAsync(() => collection(uri, 0), uri);
-  if (error) return <Failed error={error} />;
+  const { data, error, loading, retry } = useAsync(() => collection(uri, 0), uri);
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (loading || !data) return <Loading />;
   return <Loaded key={uri} first={data} />;
 }
 
 function Loaded({ first }: { first: Data }) {
   const getPlayer = usePlayerNow();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
+  const playing = usePlayerSelect((p) => p.playing);
+  const shuffle = usePlayerSelect((p) => p.shuffle);
   const nav = useNav();
   const openMenu = useContextMenu();
   const [title, setTitle] = useState(first.title);
@@ -66,17 +71,12 @@ function Loaded({ first }: { first: Data }) {
   const loadingMore = useRef(false);
   const sentinel = useRef<HTMLDivElement>(null);
   const uri = first.uri;
-  // Read one by one, so a volume change or a cluster update does not re-render the page.
-  const isCurrent = usePlayerSelect((p) => p.contextUri === uri);
-  const playing = usePlayerSelect((p) => isCurrent && p.playing);
-  const shuffle = usePlayerSelect((p) => p.shuffle);
   const [saved] = useSaved(first.kind === "album" || (first.kind === "playlist" && !own) ? uri : undefined);
   // Search and sort, for playlists and Liked Songs. Liked Songs comes newest first already.
   const listTools = first.kind !== "album";
   const naturalSort: Sort = first.kind === "liked" ? "added" : "custom";
   const [sort, setSort] = useState<Sort>(naturalSort);
   const [filter, setFilter] = useState("");
-  const [searching, setSearching] = useState(false);
   const reordered = sort !== naturalSort || filter.trim() !== "";
 
   // Every page, for sorting, searching and whole-list actions: they need all the songs.
@@ -181,7 +181,7 @@ function Loaded({ first }: { first: Data }) {
     ).then(
       () => {
         setRemoved((n) => n + gone.length);
-        toast(gone.length === 1 ? `Removed from ${title}` : `Removed ${gone.length} songs from ${title}`);
+        notify(gone.length === 1 ? t("Removed from {name}", { name: title }) : t("Removed {n} songs from {name}", { n: gone.length, name: title }));
       },
       (e) => {
         setTracks(before);
@@ -214,6 +214,7 @@ function Loaded({ first }: { first: Data }) {
     });
   };
 
+  const isCurrent = playingContext === uri;
   const playList = () => (isCurrent ? getPlayer().toggle() : play.context(uri).catch(toast));
   const openMore = (e: React.MouseEvent) =>
     openMenu(
@@ -231,29 +232,44 @@ function Loaded({ first }: { first: Data }) {
         onDelete: () => setDialog("delete"),
       }),
     );
-  const totalMs = first.kind === "album" ? tracks.reduce((s, t) => s + t.durationMs, 0) : 0;
+  // The length shows once every song is known: an album at once, a long playlist when all of it loaded.
+  const totalMs = done ? tracks.reduce((s, t) => s + t.durationMs, 0) : 0;
+  // An album's guests: artists on its songs besides its own, at most 6.
+  const albumArtists = new Set(first.kind === "album" ? (tracks[0]?.artists ?? []).map((a) => a.uri) : []);
+  const guests =
+    first.kind === "album"
+      ? [...new Map(tracks.flatMap((t) => t.artists).filter((a) => a.uri && !albumArtists.has(a.uri)).map((a) => [a.uri, a])).values()].slice(0, 6)
+      : [];
   const color = first.color ?? "#3a3a3a";
 
   return (
     <div className="page collection" style={{ ["--tint" as string]: color }}>
-      <header className="hero">
-        <Cover src={first.image} liked={first.kind === "liked"} className="hero-cover" />
+      <header className={`hero ${first.kind === "album" ? "big" : ""}`}>
+        <Cover src={first.image} kind={first.kind} shaped className="hero-cover" />
         <div className="hero-text">
-          <span className="hero-kind">{KIND_LABEL[first.kind]}</span>
+          <span className="hero-kind">{kindLabel(first)}</span>
           <h1
             className={`hero-title ${title.length > 28 ? "long" : ""} ${own ? "editable" : ""}`}
             onClick={() => own && setDialog("edit")}
-            title={own ? "Edit details" : undefined}
+            title={own ? t("Edit details") : undefined}
           >
             {title}
           </h1>
           {first.kind === "playlist" && description && <p className="hero-desc">{description}</p>}
           <p className="hero-meta">
+            {first.ownerImage && <Cover src={first.ownerImage} kind={first.kind === "album" ? "artist" : "user"} className="hero-owner-image" />}
             {[
-              first.owner && <b key="o">{first.owner}</b>,
+              first.owner &&
+                (first.ownerUri ? (
+                  <a key="o" className="hero-owner" onClick={() => nav.open(first.ownerUri!)}>
+                    {first.owner}
+                  </a>
+                ) : (
+                  <b key="o">{first.owner}</b>
+                )),
               first.kind === "album" && first.description,
-              `${formatCount(first.total - removed)} ${first.total - removed === 1 ? "song" : "songs"}`,
-              totalMs > 0 && formatDuration(totalMs),
+              first.total - removed === 1 ? t("1 song") : t("{n} songs", { n: formatCount(first.total - removed) }),
+              totalMs > 0 && formatLength(totalMs),
             ]
               .filter(Boolean)
               .map((x, i) => (
@@ -263,59 +279,58 @@ function Loaded({ first }: { first: Data }) {
                 </span>
               ))}
           </p>
+          {guests.length > 0 && (
+            <div className="hero-guests">
+              {guests.map((g) => (
+                <button key={g.uri} className="chip" onClick={() => nav.open(g.uri)}>
+                  {t("with {name}", { name: g.name })}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </header>
       <div className="actions">
-        <PlayButton size={56} playing={playing} onClick={playList} />
+        <PlayButton size={56} playing={isCurrent && playing} onClick={playList} />
         <button
           className={`icon-btn big ${shuffle ? "on" : ""}`}
           onClick={() => getPlayer().setShuffle(!shuffle)}
-          aria-label={shuffle ? "Disable shuffle" : "Enable shuffle"}
-          title={shuffle ? "Disable shuffle" : "Enable shuffle"}
+          aria-label={shuffle ? t("Disable shuffle") : t("Enable shuffle")}
+          title={shuffle ? t("Disable shuffle") : t("Enable shuffle")}
         >
           <ShuffleIcon size={28} />
         </button>
         {(first.kind === "album" || (first.kind === "playlist" && !own)) && <SaveButton uri={uri} kind={first.kind} />}
-        <button className="more-btn" aria-label={`More options for ${title}`} title="More options" onClick={openMore}>
+        <button className="more-btn" aria-label={t("More options for {name}", { name: title })} title={t("More options")} onClick={openMore}>
           •••
         </button>
         {listTools && (
           <div className="list-tools">
-            {searching || filter ? (
-              <label className="list-search">
-                <SearchIcon size={16} />
-                <input
-                  autoFocus
-                  value={filter}
-                  placeholder={first.kind === "liked" ? "Search in Liked Songs" : "Search in playlist"}
-                  onChange={(e) => setFilter(e.currentTarget.value)}
-                  onBlur={() => !filter && setSearching(false)}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Escape") return;
-                    setFilter("");
-                    setSearching(false);
-                  }}
-                />
-              </label>
-            ) : (
-              <button
-                className="icon-btn"
-                aria-label="Search in this list"
-                title="Search in this list"
-                onClick={() => setSearching(true)}
-              >
-                <SearchIcon size={18} />
-              </button>
-            )}
-            <select className="list-sort" value={sort} aria-label="Sort by" onChange={(e) => setSort(e.currentTarget.value as Sort)}>
-              {(Object.keys(SORT_LABEL) as Sort[])
-                .filter((k) => first.kind !== "liked" || k !== "custom")
-                .map((k) => (
-                  <option key={k} value={k}>
-                    {SORT_LABEL[k]}
-                  </option>
-                ))}
-            </select>
+            <label className="list-sort-pill">
+              <SortIcon size={14} />
+              <select className="list-sort" value={sort} aria-label={t("Sort by")} onChange={(e) => setSort(e.currentTarget.value as Sort)}>
+                {(Object.keys(SORT_LABEL) as Sort[])
+                  .filter((k) => first.kind !== "liked" || k !== "custom")
+                  .map((k) => (
+                    <option key={k} value={k}>
+                      {SORT_LABEL[k]()}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label className="list-search">
+              <SearchIcon size={16} />
+              <input
+                value={filter}
+                placeholder={first.kind === "liked" ? t("Search in {name}", { name: t("Liked Songs") }) : t("Search in playlist")}
+                onChange={(e) => setFilter(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Escape") return;
+                  setFilter("");
+                  e.currentTarget.blur();
+                }}
+              />
+            </label>
           </div>
         )}
       </div>
@@ -325,7 +340,7 @@ function Loaded({ first }: { first: Data }) {
         </div>
       )}
       {reordered && !loadingForView && view.tracks.length === 0 && (
-        <p className="muted pad">No songs match “{filter.trim()}”.</p>
+        <p className="muted pad">{t("No songs match “{term}”.", { term: filter.trim() })}</p>
       )}
       <TrackList
         tracks={view.tracks}
@@ -333,6 +348,7 @@ function Loaded({ first }: { first: Data }) {
         contextUri={uri}
         showAlbum={first.kind !== "album"}
         showCover={first.kind !== "album"}
+        showAdded={first.kind !== "album"}
         onPlay={(i) => play.context(uri, view.tracks[i].uri).catch(toast)}
         // While the rest of the list loads, rows are not removed or moved: their places are still moving.
         onRemove={first.canEditItems && !bulkLoading ? (rows) => removeAt(rows.map((i) => view.positions[i])) : undefined}
@@ -346,7 +362,12 @@ function Loaded({ first }: { first: Data }) {
         </div>
       )}
       {first.kind === "playlist" && tracks.length === 0 && done && (
-        <p className="muted pad">This playlist is empty. Right-click a song anywhere and pick Add to playlist.</p>
+        <Empty title={t("This playlist is empty")} text={t("Find songs and add them with the right click, or drag them onto it in Your Library.")}>
+          <button className="pill-btn white" onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}>
+            <SearchIcon size={14} />
+            {t("Find songs")}
+          </button>
+        </Empty>
       )}
       {dialog === "edit" && (
         <EditDetailsDialog
@@ -368,9 +389,9 @@ function Loaded({ first }: { first: Data }) {
       )}
       {dialog === "delete" && (
         <ConfirmDialog
-          title="Delete from Your Library?"
-          message={`This will delete ${title} from Your Library.`}
-          confirmLabel="Delete"
+          title={t("Delete from Your Library?")}
+          message={t("This will delete {name} from Your Library.", { name: title })}
+          confirmLabel={t("Delete")}
           onClose={() => setDialog(null)}
           onConfirm={async () => {
             try {

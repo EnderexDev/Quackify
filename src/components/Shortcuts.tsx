@@ -3,44 +3,55 @@ import { useEffect, useState } from "react";
 import { play } from "../api/spotify";
 import { setSaved } from "../state/saved";
 import { areSaved } from "../api/library";
+import type { Panel } from "../App";
 import type { Nav } from "../state/nav";
 import type { Player } from "../state/player";
-import { toast } from "../state/toast";
+import { notify, toast  } from "../state/toast";
+import { t } from "../i18n";
 import { Dialog } from "./Dialog";
-import { NEW_PLAYLIST_EVENT } from "./Sidebar";
-
-type Panel = "queue" | "nowplaying" | null;
+import { newPlaylist } from "../state/newPlaylist";
+import { toggleCinema, toggleMini } from "../state/windows";
 
 const SEEK_STEP_MS = 5000;
 const VOLUME_STEP = 0.1;
 
-export const SHORTCUTS: { keys: string; what: string }[] = [
-  { keys: "Space", what: "Play / pause" },
-  { keys: "Ctrl + →", what: "Next" },
-  { keys: "Ctrl + ←", what: "Previous" },
-  { keys: "Shift + →", what: "Seek forward 5 seconds" },
-  { keys: "Shift + ←", what: "Seek back 5 seconds" },
-  { keys: "Ctrl + ↑", what: "Volume up" },
-  { keys: "Ctrl + ↓", what: "Volume down" },
-  { keys: "Ctrl + S", what: "Shuffle" },
-  { keys: "Ctrl + R", what: "Repeat" },
-  { keys: "Alt + Shift + B", what: "Like the song playing" },
-  { keys: "Ctrl + N", what: "New playlist" },
-  { keys: "Ctrl + K  or  Ctrl + L", what: "Search" },
-  { keys: "Alt + ←  /  Alt + →", what: "Go back / forward" },
-  { keys: "Alt + Shift + H", what: "Home" },
-  { keys: "Alt + Shift + Q", what: "Queue" },
-  { keys: "Alt + Shift + R", what: "Now playing view" },
-  { keys: "Alt + Shift + J", what: "Lyrics" },
-  { keys: "Ctrl + P", what: "Settings" },
-  { keys: "Ctrl + A", what: "Select every song of a list" },
-  { keys: "Delete", what: "Remove the selected songs from your playlist" },
-  { keys: "Ctrl + /", what: "This list" },
+// A function, not a constant: the text is picked when the list is shown, in the language of the moment.
+export const shortcutList = (): { keys: string; what: string }[] => [
+  { keys: t("Space"), what: t("Play / pause") },
+  { keys: "Ctrl + →", what: t("Next") },
+  { keys: "Ctrl + ←", what: t("Previous") },
+  { keys: "Shift + →", what: t("Seek forward 5 seconds") },
+  { keys: "Shift + ←", what: t("Seek back 5 seconds") },
+  { keys: "Ctrl + ↑", what: t("Volume up") },
+  { keys: "Ctrl + ↓", what: t("Volume down") },
+  { keys: "Ctrl + S", what: t("Shuffle") },
+  { keys: "Ctrl + R", what: t("Repeat") },
+  { keys: "Alt + Shift + B", what: t("Like the song playing") },
+  { keys: "Ctrl + N", what: t("New playlist") },
+  { keys: t("Ctrl + K  or  Ctrl + L  or  Ctrl + T"), what: t("Search") },
+  { keys: "Alt + ←  /  Alt + →", what: t("Go back / forward") },
+  { keys: "Alt + Shift + H", what: t("Home") },
+  { keys: "Alt + Shift + Q", what: t("Queue") },
+  { keys: "Alt + Shift + R", what: t("The song playing, with its lyrics") },
+  { keys: "Alt + Shift + J", what: t("Lyrics (the song page)") },
+  { keys: "Ctrl + P", what: t("Settings") },
+  { keys: "Ctrl + B", what: t("Collapse or expand Your Library") },
+  { keys: "F11", what: t("Cinema mode") },
+  { keys: "Ctrl + M", what: t("Mini player") },
+  { keys: "Ctrl + A", what: t("Select every song of a list") },
+  { keys: "Delete", what: t("Remove the selected songs from your playlist") },
+  { keys: "Ctrl + /", what: t("This list") },
 ];
 
-/** Listens for the shortcuts; returns whether the list is open and how to close it. `getPlayer`
- * reads the player at the key press, so the shell does not re-render on every player change. */
-export function useShortcuts(getPlayer: () => Player, nav: Nav, panel: Panel, togglePanel: (p: Exclude<Panel, null>) => void) {
+/** Listens for the shortcuts; returns whether the list is open and how to close it. */
+export function useShortcuts(
+  /** Read at the key press, so the shell does not re-render on every player change. */
+  getPlayer: () => Player,
+  nav: Nav,
+  panel: Panel,
+  togglePanel: (p: Exclude<Panel, null>) => void,
+  app: { openPalette: () => void; toggleSidebar: () => void },
+) {
   const [listOpen, setListOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -56,19 +67,24 @@ export function useShortcuts(getPlayer: () => Player, nav: Nav, panel: Panel, to
         f();
       };
       if (ctrl && (e.key === "/" || e.code === "Slash")) return act(() => setListOpen((o) => !o));
+      // Like a browser bar, these work from inside a text box too.
+      if (ctrl && !e.shiftKey && !e.altKey && (key === "k" || key === "l" || key === "t")) return act(app.openPalette);
+      if (ctrl && !e.shiftKey && !e.altKey && key === "b") return act(app.toggleSidebar);
       if (ctrl && key === "p") return act(() => nav.go({ page: "settings" }));
-      if (ctrl && key === "n") return act(() => window.dispatchEvent(new Event(NEW_PLAYLIST_EVENT)));
+      if (ctrl && key === "n") return act(() => newPlaylist());
+      if (ctrl && !e.shiftKey && !e.altKey && key === "m") return act(toggleMini);
+      if (e.key === "F11" && !ctrl && !e.altKey && !e.shiftKey) return act(toggleCinema);
       if (e.altKey && e.shiftKey) {
         if (e.code === "KeyQ") return act(() => togglePanel("queue"));
-        if (e.code === "KeyR") return act(() => togglePanel("nowplaying"));
+        // R and J both open the song page, where the lyrics now live; again goes back.
+        if (e.code === "KeyR" || e.code === "KeyJ") return act(() => (nav.route.page === "song" ? nav.back() : nav.go({ page: "song" })));
         if (e.code === "KeyH") return act(() => nav.go({ page: "home" }));
-        if (e.code === "KeyJ") return act(() => (nav.route.page === "lyrics" ? nav.back() : nav.go({ page: "lyrics" })));
         if (e.code === "KeyB" && player.track?.uri.startsWith("spotify:track:")) {
           const uri = player.track.uri;
           return act(() =>
             areSaved([uri]).then(([saved]) => {
               setSaved(uri, !saved);
-              toast(saved ? "Removed from Liked Songs" : "Added to Liked Songs");
+              notify(saved ? t("Removed from Liked Songs") : t("Added to Liked Songs"));
             }, toast),
           );
         }
@@ -90,15 +106,15 @@ export function useShortcuts(getPlayer: () => Player, nav: Nav, panel: Panel, to
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [getPlayer, nav, panel, togglePanel]);
-  return { listOpen, closeList: () => setListOpen(false) };
+  }, [getPlayer, nav, panel, togglePanel, app]);
+  return { listOpen, openList: () => setListOpen(true), closeList: () => setListOpen(false) };
 }
 
 export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   return (
-    <Dialog title="Keyboard shortcuts" onClose={onClose}>
+    <Dialog title={t("Keyboard shortcuts")} onClose={onClose}>
       <div className="shortcuts-list">
-        {SHORTCUTS.map((s) => (
+        {shortcutList().map((s) => (
           <div key={s.keys} className="shortcut-row">
             <span>{s.what}</span>
             <kbd>{s.keys}</kbd>
@@ -107,7 +123,7 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
       </div>
       <div className="dialog-actions">
         <button className="secondary" onClick={onClose}>
-          Close
+          {t("Close")}
         </button>
       </div>
     </Dialog>

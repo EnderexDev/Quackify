@@ -1,0 +1,167 @@
+/* Collection page */
+
+.collection,
+.artist {
+  padding: 0 0 40px;
+}
+
+/* The cover's colour runs from the top of the page through the header and the actions,
+   fading out behind the list (Figma "Playlist" and "Álbum"). */
+.collection {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tint) 70%, transparent) 0, color-mix(in srgb, var(--tint) 22%, transparent) 300px, transparent 520px);
+}
+
+.collection > *:not(.hero),
+.artist > *:not(.artist-hero) {
+  margin-left: 24px;
+  margin-right: 24px;
+}
+
+.hero {
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+  padding: 24px 28px 4px;
+}
+
+/* A playlist's cover is 150px and an album's 200px at the Figma's 1280px; both grow with a
+   wider window so the header keeps its weight. */
+.hero-cover {
+  width: clamp(150px, 13vw, 260px);
+  height: clamp(150px, 13vw, 260px);
+  flex: none;
+  --cover-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.hero.big .hero-cover {
+  width: clamp(200px, 16vw, 300px);
+  height: clamp(200px, 16vw, 300px);
+}
+
+.hero-text {
+  min-width: 0;
+}
+
+.hero-kind {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-title {
+  font-size: clamp(40px, 3.6vw, 72px);
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.02;
+  margin: 6px 0 14px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.hero-title.long {
+  font-size: clamp(30px, 2.6vw, 48px);
+  letter-spacing: -0.5px;
+}
+
+.hero-owner-image {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.hero-owner {
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.hero-owner:hover {
+  text-decoration: underline;
+}
+
+.hero-guests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.hero-guests .chip {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+/* An empty playlist: the duck, a line and the way to find songs. */
+.empty-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-list h3 {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.empty-list p {
+  margin: 0 0 6px;
+}
+
+.hero-desc {
+  color: var(--muted);
+  margin: 0 0 8px;
+  font-size: 14px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.hero-meta {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.actions {
+  padding: 24px 0;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.collection .actions {
+  margin: 0 !important;
+  padding: 18px 28px;
+  gap: 18px;
+}
+
+.save-heart {
+  color: var(--muted);
+}
+
+.save-heart:hover,
+.save-heart.on {
+  color: var(--text);
+}
+
+/* The dot under a button is for modes like shuffle, not for a saved list. */
+.save-heart.on::after {
+  display: none;
+}
+
+.more {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}

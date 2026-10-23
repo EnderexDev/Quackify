@@ -1,384 +1,486 @@
-import { useEffect, useRef, useState } from "react";
-import { createPlaylist, save } from "../api/library";
-import { clearCache, library, pinInLibrary } from "../api/spotify";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { libraryCounts, type LibraryCounts } from "../api/spotify";
 import type { Card, LibraryFilter, LibrarySort } from "../api/types";
+import { locale, t } from "../i18n";
 import { useNav } from "../state/nav";
 import { usePlayerSelect } from "../state/player";
-import { markSaved, notifyLibraryChanged, onLibraryChanged } from "../state/saved";
-import { toast } from "../state/toast";
-import { useContextMenu, type MenuItem } from "./ContextMenu";
+import { newPlaylist } from "../state/newPlaylist";
+import { onLibraryChanged } from "../state/saved";
+import { DRAGGABLE, dragCard } from "../state/drag";
+import { peekProps } from "../state/peek";
+import { useAsync } from "../util/useAsync";
 import { Cover } from "./Cover";
-import { BackIcon, LibraryIcon, PlusIcon, SearchIcon } from "./icons";
-import { addAll, cardMenu, TRACKS_MIME } from "./menus";
-import { areSaved } from "../api/library";
+import { ChevronDownIcon, ChevronRightIcon, DiscIcon, HeartIcon, LibraryIcon, PinIcon, PlaylistIcon, PlusIcon, PodcastIcon, SearchIcon, UserIcon } from "./icons";
+import { librarySubtitle, pressable, readStored, useLibraryActions, useLibraryPages, usePersisted, writeStored } from "./libraryItems";
 
-/** How many items a page of Your Library has. */
-const PAGE = 50;
+type Filter = Exclude<LibraryFilter, null>;
 
-const FILTERS: { id: LibraryFilter; label: string }[] = [
-  { id: "Playlists", label: "Playlists" },
-  { id: "Artists", label: "Artists" },
-  { id: "Albums", label: "Albums" },
-  { id: "Podcasts & Shows", label: "Podcasts" },
+/** The kinds of the tree, each with its icon on a square of its color at 16%. */
+const CATEGORIES: { filter: Filter; label: () => string; icon: React.ReactNode; tint: string; count: keyof LibraryCounts }[] = [
+  { filter: "Playlists", label: () => t("Playlists"), icon: <PlaylistIcon size={16} />, tint: "#ffd84d", count: "playlists" },
+  { filter: "Albums", label: () => t("Albums"), icon: <DiscIcon size={16} />, tint: "#ff8a3d", count: "albums" },
+  { filter: "Artists", label: () => t("Artists"), icon: <UserIcon size={16} />, tint: "#29d39a", count: "artists" },
+  { filter: "Podcasts & Shows", label: () => t("Podcasts"), icon: <PodcastIcon size={16} />, tint: "#a78bfa", count: "podcasts" },
 ];
 
-const SORTS: { id: LibrarySort; label: string }[] = [
-  { id: "Recents", label: "Recents" },
-  { id: "Recently Added", label: "Recently added" },
-  { id: "Alphabetical", label: "Alphabetical" },
-  { id: "Creator", label: "Creator" },
-];
+const LIKED_TINT = "#a78bfa";
+/** The Liked Songs row's card; its title is filled in when drawn (see `Tree`). */
+const LIKED: Card = { uri: "spotify:collection:tracks", kind: "liked", title: "", subtitle: "", image: null };
 
-type View = "list" | "compact" | "grid";
-const VIEWS: { id: View; label: string }[] = [
-  { id: "list", label: "List" },
-  { id: "compact", label: "Compact" },
-  { id: "grid", label: "Grid" },
-];
+/** How many items a category shows in the tree before "See all". */
+const TREE_SHOWN = 4;
+const OPEN_KEY = "libraryOpen";
 
-/** A setting of Your Library kept for the next start. */
-function usePersisted<T extends string>(key: string, fallback: T, allowed: readonly T[]): [T, (v: T) => void] {
-  const [value, setValue] = useState<T>(() => {
-    const saved = localStorage.getItem(key) as T | null;
-    return saved && allowed.includes(saved) ? saved : fallback;
+/** The categories (and folders) opened in the tree, kept for the next start. */
+function useOpened(): [Set<string>, (id: string, open?: boolean) => void] {
+  const [opened, setOpened] = useState<Set<string>>(() => {
+    try {
+      const saved = JSON.parse(readStored(OPEN_KEY) ?? "null");
+      if (Array.isArray(saved)) return new Set(saved.filter((x): x is string => typeof x === "string"));
+    } catch {
+      // A broken value starts over.
+    }
+    return new Set(["Playlists"]);
   });
-  return [
-    value,
-    (v: T) => {
-      localStorage.setItem(key, v);
-      setValue(v);
-    },
-  ];
+  const toggle = (id: string, open?: boolean) =>
+    setOpened((prev) => {
+      const next = new Set(prev);
+      if (open ?? !next.has(id)) next.add(id);
+      else next.delete(id);
+      writeStored(OPEN_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  return [opened, toggle];
+}
+
+/** How many of each kind, read again when the library changes. */
+function useCounts() {
+  const [version, setVersion] = useState(0);
+  useEffect(() => onLibraryChanged(() => setVersion((v) => v + 1)), []);
+  return useAsync(() => libraryCounts(), `library-counts:${version}`).data;
 }
 
 /**
- * Your Library: Liked Songs, saved playlists, artists, albums, podcasts and folders, loaded 50 at
- * a time. It can be filtered, searched, sorted and shown as a list, a compact list or a grid;
- * items can be pinned to the top, and folders opened.
+ * Your Library as a tree: the pinned items as big covers, then Liked Songs and one row per kind
+ * with its count. A kind opens in place with its first items (folders open inside Playlists),
+ * and its row opens the whole page. Narrow, it collapses to the pinned covers and the kinds.
  */
-export function Sidebar() {
+export function Sidebar({ collapsed = false, onExpand }: { collapsed?: boolean; onExpand?: () => void }) {
   const nav = useNav();
   const playingContext = usePlayerSelect((p) => p.contextUri);
-  const openMenu = useContextMenu();
-  const [filter, setFilter] = useState<LibraryFilter>(null);
-  const [sort, setSort] = usePersisted<LibrarySort>("librarySort", "Recents", SORTS.map((s) => s.id));
-  const [view, setView] = usePersisted<View>("libraryView", "list", VIEWS.map((v) => v.id));
-  const [text, setText] = useState("");
+  const isPlaying = usePlayerSelect((p) => p.playing);
+  const actions = useLibraryActions();
+  const counts = useCounts();
+  // Pinned items come first in Your Library, whatever the kind.
+  const root = useLibraryPages({ filter: null, sort: "Recents" });
+  const pinned = root.items.filter((c) => c.pinned).slice(0, 4);
+  const [opened, toggle] = useOpened();
+  const [pinsOpen, setPinsOpen] = usePersisted<"1" | "0">("libraryPinsOpen", "1", ["1", "0"]);
   const [searching, setSearching] = useState(false);
-  // The folders opened, the innermost last.
-  const [folders, setFolders] = useState<Card[]>([]);
-  const folder = folders[folders.length - 1] ?? null;
-  const [items, setItems] = useState<Card[]>([]);
-  const [total, setTotal] = useState(0);
-  // Where the next page starts on Spotify's side (items shown can be fewer: duplicates are
-  // dropped), and which query the pages belong to: an answer for an older query is ignored.
-  const nextOffset = useRef(0);
-  const generation = useRef(0);
-  const [error, setError] = useState("");
-  // Bumped when something is saved or removed, to reload the list.
-  const [version, setVersion] = useState(0);
-  useEffect(() => onLibraryChanged(() => setVersion((v) => v + 1)), []);
-  const query = { filter, sort, text: text.trim(), folder: folder?.uri ?? null };
-  const queryKey = JSON.stringify(query);
-
-  // Songs dragged from a list onto a playlist (added) or Liked Songs (liked).
-  const [dropOn, setDropOn] = useState<string | null>(null);
-  const takesSongs = (c: Card) => c.kind === "playlist" || c.kind === "liked";
-  const dropSongs = (c: Card, data: string) => {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(data);
-    } catch {
-      return;
-    }
-    // Only a list of song or episode URIs is taken.
-    if (!Array.isArray(parsed)) return;
-    const uris = parsed.filter((u): u is string => typeof u === "string" && /^spotify:(track|episode):\w+$/.test(u));
-    if (!uris.length) return;
-    const n = uris.length === 1 ? "1 song" : `${uris.length} songs`;
-    if (c.kind === "liked") {
-      save(uris).then(() => {
-        uris.forEach((u) => markSaved(u, true));
-        notifyLibraryChanged();
-        toast(`Saved ${n} to Liked Songs`);
-      }, toast);
-    } else {
-      // Spotify refuses it for a playlist that is not yours; the toast says so.
-      addAll(c.uri, uris).then(() => toast(`Added ${n} to ${c.title}`), toast);
-    }
-  };
-  const loadingMore = useRef(false);
-  const sentinel = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const gen = ++generation.current;
-    // A new query starts empty, and no next page is asked before its first page is in.
-    nextOffset.current = Number.POSITIVE_INFINITY;
-    loadingMore.current = false;
-    setItems([]);
-    setTotal(0);
-    setError("");
-    // Typing waits for a pause.
-    const id = setTimeout(
-      () =>
-        library(query, 0).then(
-          (page) => {
-            if (gen !== generation.current) return;
-            nextOffset.current = PAGE;
-            setItems(page.items);
-            setTotal(page.total);
-          },
-          (e) => gen === generation.current && setError(String(e)),
-        ),
-      query.text ? 250 : 0,
-    );
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey, version]);
-
-  // Next page when the end of the list scrolls into view.
-  useEffect(() => {
-    const el = sentinel.current;
-    if (!el) return;
-    const io = new IntersectionObserver((entries) => {
-      if (!entries[0].isIntersecting || loadingMore.current || items.length === 0 || nextOffset.current >= total) return;
-      const gen = generation.current;
-      const offset = nextOffset.current;
-      loadingMore.current = true;
-      library(query, offset)
-        .then((page) => {
-          if (gen !== generation.current) return;
-          // Moves on even when the page added nothing new, so the same page is not asked again;
-          // an empty page ends the list.
-          nextOffset.current = page.items.length ? offset + PAGE : total;
-          setItems((prev) => [...prev, ...page.items.filter((c) => !prev.some((p) => p.uri === c.uri))]);
-        })
-        .catch((e) => gen === generation.current && setError(String(e)))
-        .finally(() => {
-          if (gen === generation.current) loadingMore.current = false;
-        });
-    });
-    io.observe(el);
-    return () => io.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, total, queryKey]);
+  const [text, setText] = useState("");
 
   const route = nav.route;
-  const openUri = route.page === "collection" || route.page === "artist" || route.page === "show" ? route.uri : null;
+  const openFilter = route.page === "library" && !route.folder ? route.filter : null;
+  const openUri =
+    route.page === "collection" || route.page === "artist" || route.page === "show"
+      ? route.uri
+      : route.page === "library"
+        ? (route.folder ?? null)
+        : null;
+  const openKind = (filter: Filter) => nav.go({ page: "library", filter });
 
-  const open = (c: Card) => (c.kind === "folder" ? setFolders((f) => [...f, c]) : nav.open(c.uri));
-
-  const pinItem = (c: Card): MenuItem[] =>
-    c.pinnable
-      ? [
-          "separator",
-          {
-            label: c.pinned ? (c.kind === "folder" ? "Unpin folder" : "Unpin") : c.kind === "folder" ? "Pin folder" : "Pin",
-            onClick: () =>
-              pinInLibrary(c.uri, !c.pinned).then(() => {
-                toast(c.pinned ? "Unpinned" : "Pinned to the top of Your Library");
-                setVersion((v) => v + 1);
-              }, toast),
-          },
-        ]
-      : [];
-
-  const onMenu = (e: React.MouseEvent, c: Card) => {
-    e.preventDefault();
-    const at = { clientX: e.clientX, clientY: e.clientY, preventDefault: () => {} };
-    if (c.kind === "folder") return openMenu(at, [{ label: "Open", onClick: () => open(c) }, ...pinItem(c)]);
-    if (c.kind === "liked") return openMenu(at, [...cardMenu(c, undefined, nav), ...pinItem(c)]);
-    areSaved([c.uri]).then(
-      ([saved]) => openMenu(at, [...cardMenu(c, saved, nav), ...pinItem(c)]),
-      () => openMenu(at, [...cardMenu(c, undefined, nav), ...pinItem(c)]),
+  if (collapsed) {
+    // Narrow: the pinned covers and one icon per kind; a kind opens its whole page.
+    return (
+      <aside className="sidebar sidebar-collapsed panel">
+        <button className="side-icon" aria-label={t("Expand Your Library")} title={t("Expand Your Library (Ctrl B)")} onClick={onExpand}>
+          <LibraryIcon size={22} />
+        </button>
+        <div className="side-sep" />
+        <div className="side-pins">
+          {pinned.map((c) => (
+            <button
+              key={c.uri}
+              className={`side-pin ${playingContext === c.uri ? "playing" : ""} ${openUri === c.uri ? "open" : ""}`}
+              title={c.title}
+              aria-label={c.title}
+              onClick={() => nav.open(c.uri, c.title)}
+              onContextMenu={(e) => actions.onMenu(e, c)}
+            >
+              <Cover src={c.image} kind={c.kind} />
+            </button>
+          ))}
+        </div>
+        <div className="side-sep" />
+        <button
+          className={`side-kind ${openUri === LIKED.uri ? "open" : ""}`}
+          style={{ "--kind": LIKED_TINT } as React.CSSProperties}
+          title={t("Liked Songs")}
+          aria-label={t("Liked Songs")}
+          onClick={() => nav.open(LIKED.uri)}
+        >
+          <HeartIcon size={16} />
+        </button>
+        {CATEGORIES.map((k) => (
+          <button
+            key={k.filter}
+            className={`side-kind ${openFilter === k.filter ? "open" : ""}`}
+            style={{ "--kind": k.tint } as React.CSSProperties}
+            title={k.label()}
+            aria-label={k.label()}
+            onClick={() => openKind(k.filter)}
+          >
+            {k.icon}
+          </button>
+        ))}
+        <button className="side-new" aria-label={t("Create playlist")} title={t("Create playlist (Ctrl N)")} onClick={() => newPlaylist()}>
+          <PlusIcon size={18} />
+        </button>
+      </aside>
     );
-  };
-
-  const subtitle = (c: Card) =>
-    c.kind === "liked"
-      ? `Playlist • ${c.subtitle}`
-      : c.kind === "artist"
-        ? "Artist"
-        : c.kind === "show"
-          ? `Podcast • ${c.subtitle}`
-          : c.kind === "folder"
-            ? `Folder • ${c.subtitle}`
-            : c.subtitle;
+  }
 
   return (
     <aside className="sidebar panel">
       <div className="sidebar-head">
-        <LibraryIcon size={22} />
-        <span>Your Library</span>
+        <button className="sidebar-title" title={t("Open Your Library")} onClick={() => openKind(openFilter ?? "Playlists")}>
+          <LibraryIcon size={22} />
+          <span>{t("Your Library")}</span>
+        </button>
         <button
-          className="round-btn small create-btn"
-          aria-label="Create playlist"
-          title="Create playlist"
-          onClick={() => window.dispatchEvent(new Event(NEW_PLAYLIST_EVENT))}
+          className={`round-btn small ${searching ? "on" : ""}`}
+          aria-label={t("Search in Your Library")}
+          title={t("Search in Your Library")}
+          onClick={() => {
+            setSearching(!searching);
+            setText("");
+          }}
         >
+          <SearchIcon size={16} />
+        </button>
+        <button className="round-btn small" aria-label={t("Create playlist")} title={t("Create playlist (Ctrl N)")} onClick={() => newPlaylist()}>
           <PlusIcon size={16} />
         </button>
       </div>
-      {folder ? (
-        <div className="library-folder-head">
-          <button className="icon-btn" aria-label="Back" title="Back" onClick={() => setFolders((f) => f.slice(0, -1))}>
-            <BackIcon size={18} />
-          </button>
-          <span className="library-folder-name" title={folder.title}>
-            {folder.title}
-          </span>
-        </div>
+      {searching ? (
+        <LibrarySearch
+          text={text}
+          setText={setText}
+          onClose={() => {
+            setSearching(false);
+            setText("");
+          }}
+          openUri={openUri}
+          actions={actions}
+        />
       ) : (
-        <div className="chips">
-          {FILTERS.map((f) => (
-            <button key={f.label} className={`chip ${filter === f.id ? "on" : ""}`} onClick={() => setFilter(filter === f.id ? null : f.id)}>
-              {f.label}
-            </button>
-          ))}
+        <div className="side-scroll">
+          {pinned.length > 0 && (
+            <section className="side-pinned">
+              <button className="side-label" aria-expanded={pinsOpen === "1"} onClick={() => setPinsOpen(pinsOpen === "1" ? "0" : "1")}>
+                <PinIcon size={12} />
+                <span>{t("Pinned")}</span>
+                <ChevronDownIcon size={14} className={pinsOpen === "1" ? "" : "turned"} />
+              </button>
+              {pinsOpen === "1" && (
+                <div className="side-pin-grid">
+                  {pinned.map((c) => {
+                    const playing = playingContext === c.uri;
+                    return (
+                      <button
+                        key={c.uri}
+                        className={`side-pin-big ${playing ? "playing" : ""} ${actions.dropOn === c.uri ? "drop-target" : actions.candidate(c) ? "drop-candidate" : ""}`}
+                        draggable={DRAGGABLE.has(c.kind)}
+                        onDragStart={(e) => dragCard(e, c)}
+                        {...peekProps(c)}
+                        title={c.title}
+                        aria-label={c.title}
+                        onClick={() => nav.open(c.uri, c.title)}
+                        onContextMenu={(e) => actions.onMenu(e, c)}
+                        {...actions.dropProps(c)}
+                      >
+                        <Cover src={c.image} kind={c.kind} />
+                        {playing && (
+                          <span className="side-pin-eq">
+                            <span className={`eq ${isPlaying ? "" : "paused"}`} />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+          <Tree
+            counts={counts}
+            opened={opened}
+            toggle={toggle}
+            openFilter={openFilter}
+            openUri={openUri}
+            openKind={openKind}
+            actions={actions}
+          />
         </div>
       )}
-      <div className="library-tools">
-        {searching || text ? (
-          <label className="list-search">
-            <SearchIcon size={14} />
-            <input
-              autoFocus
-              value={text}
-              placeholder="Search in Your Library"
-              onChange={(e) => setText(e.currentTarget.value)}
-              onBlur={() => !text && setSearching(false)}
-              onKeyDown={(e) => {
-                if (e.key !== "Escape") return;
-                setText("");
-                setSearching(false);
-              }}
-            />
-          </label>
-        ) : (
-          <button className="icon-btn" aria-label="Search in Your Library" title="Search in Your Library" onClick={() => setSearching(true)}>
-            <SearchIcon size={16} />
-          </button>
-        )}
-        <select className="list-sort" value={sort} aria-label="Sort by" onChange={(e) => setSort(e.currentTarget.value as LibrarySort)}>
-          {SORTS.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <select className="list-sort" value={view} aria-label="View as" onChange={(e) => setView(e.currentTarget.value as View)}>
-          {VIEWS.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className={`library-list ${view}`}>
-        {error && <div className="muted small pad">{error}</div>}
-        {!error && items.length === 0 && text.trim() && <div className="muted small pad">Nothing in Your Library matches “{text.trim()}”.</div>}
-        {items.map((c) => {
-          const playingHere = playingContext === c.uri;
-          return (
-            <div
-              key={c.uri}
-              className={`library-item ${openUri === c.uri ? "open" : ""} ${dropOn === c.uri ? "drop-target" : ""}`}
-              onDragOver={(e) => {
-                if (!takesSongs(c) || !e.dataTransfer.types.includes(TRACKS_MIME)) return;
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "copy";
-                setDropOn(c.uri);
-              }}
-              onDragLeave={() => setDropOn((d) => (d === c.uri ? null : d))}
-              onDrop={(e) => {
-                setDropOn(null);
-                const data = e.dataTransfer.getData(TRACKS_MIME);
-                if (!takesSongs(c) || !data) return;
-                e.preventDefault();
-                dropSongs(c, data);
-              }}
-              onClick={() => open(c)}
-              onContextMenu={(e) => onMenu(e, c)}
-              title={c.title}
-            >
-              {c.kind === "folder" ? (
-                <div className="cover library-cover folder-cover">
-                  <FolderIcon />
-                </div>
-              ) : (
-                <Cover src={c.image} round={c.kind === "artist"} liked={c.kind === "liked"} className="library-cover" />
-              )}
-              <div className="library-text">
-                <div className={`library-title ${playingHere ? "accent" : ""}`}>{c.title}</div>
-                <div className="library-sub">
-                  {c.pinned && (
-                    <span className="pin" title="Pinned">
-                      <PinIcon />
-                    </span>
-                  )}
-                  {subtitle(c)}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        <div ref={sentinel} style={{ height: 1 }} />
-      </div>
+      <button className="side-new-wide" onClick={() => newPlaylist()}>
+        <PlusIcon size={14} />
+        {t("New playlist")}
+      </button>
     </aside>
   );
 }
 
-/** Ctrl+N and the + button make a playlist through this, so both count names the same way. */
-export const NEW_PLAYLIST_EVENT = "quackify:new-playlist";
+type Actions = ReturnType<typeof useLibraryActions>;
 
-/** One new playlist at a time, so two quick ones get different numbers. */
-let creating: Promise<unknown> = Promise.resolve();
-
-/** Makes "My Playlist #N" (the next free N among your playlists) and opens it. */
-export function useNewPlaylist() {
+/** Liked Songs and the kinds, with a white bar that slides to the one open in the main panel. */
+function Tree({
+  counts,
+  opened,
+  toggle,
+  openFilter,
+  openUri,
+  openKind,
+  actions,
+}: {
+  counts: LibraryCounts | undefined;
+  opened: Set<string>;
+  toggle: (id: string, open?: boolean) => void;
+  openFilter: Filter | null;
+  openUri: string | null;
+  openKind: (f: Filter) => void;
+  actions: Actions;
+}) {
   const nav = useNav();
-  useEffect(() => {
-    const make = () => (creating = creating.then(makeOne, makeOne));
-    const makeOne = async () => {
-      try {
-        // Every page of the matching playlists, so a number further down is not reused.
-        const taken = new Set<number>();
-        for (let offset = 0; ; offset += PAGE) {
-          const page = await library({ filter: "Playlists", text: "My Playlist #" }, offset);
-          for (const c of page.items) {
-            const n = /^My Playlist #(\d+)$/.exec(c.title)?.[1];
-            if (n) taken.add(Number(n));
-          }
-          if (!page.items.length || offset + PAGE >= page.total) break;
-        }
-        let n = 1;
-        while (taken.has(n)) n++;
-        const uri = await createPlaylist(`My Playlist #${n}`);
-        // The next one must see this one: Your Library's cached pages are stale now.
-        clearCache("library:");
-        notifyLibraryChanged();
-        nav.open(uri);
-      } catch (e) {
-        toast(e);
-      }
-    };
-    window.addEventListener(NEW_PLAYLIST_EVENT, make);
-    return () => window.removeEventListener(NEW_PLAYLIST_EVENT, make);
-  }, [nav]);
-}
+  const liked: Card = { ...LIKED, title: t("Liked Songs") };
+  const tree = useRef<HTMLDivElement>(null);
+  const [bar, setBar] = useState<{ y: number; h: number } | null>(null);
+  const likedOpen = openUri === LIKED.uri;
+  const openCategory = (f: Filter) => {
+    openKind(f);
+    toggle(f, true);
+  };
 
-function FolderIcon() {
+  // The bar follows the open row, and moves when a category above it opens or closes.
+  useLayoutEffect(() => {
+    const measure = () => {
+      const row = tree.current?.querySelector<HTMLElement>(".side-cat.open");
+      setBar(row ? { y: row.offsetTop, h: row.offsetHeight } : null);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (tree.current) ro.observe(tree.current);
+    return () => ro.disconnect();
+  }, [openFilter, likedOpen]);
+
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" aria-hidden>
-      <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
-    </svg>
+    <div ref={tree} className="side-tree">
+      {bar && <span className="side-indicator" style={{ transform: `translateY(${bar.y}px)`, height: bar.h }} />}
+      <div
+        className={`side-cat ${likedOpen ? "open" : ""} ${actions.dropOn === LIKED.uri ? "drop-target" : actions.candidate(liked) ? "drop-candidate" : ""}`}
+        draggable
+        onDragStart={(e) => dragCard(e, liked)}
+        style={{ "--kind": LIKED_TINT } as React.CSSProperties}
+        onClick={() => nav.open(LIKED.uri)}
+        {...pressable(() => nav.open(LIKED.uri))}
+        onContextMenu={(e) => actions.onMenu(e, liked)}
+        {...actions.dropProps(liked)}
+      >
+        <span className="side-cat-icon">
+          <HeartIcon size={14} />
+        </span>
+        <span className="side-cat-name">{t("Liked Songs")}</span>
+        <span className="side-cat-count">{counts ? counts.liked.toLocaleString(locale()) : ""}</span>
+        <span className="side-cat-toggle" />
+      </div>
+      {CATEGORIES.map((k) => {
+        const isOpen = opened.has(k.filter);
+        const total = counts?.[k.count];
+        return (
+          <div key={k.filter} className="side-cat-group">
+            <div
+              className={`side-cat ${openFilter === k.filter ? "open" : ""} ${isOpen ? "expanded" : ""}`}
+              style={{ "--kind": k.tint } as React.CSSProperties}
+              onClick={() => openCategory(k.filter)}
+              {...pressable(() => openCategory(k.filter))}
+            >
+              <span className="side-cat-icon">{k.icon}</span>
+              <span className="side-cat-name">{k.label()}</span>
+              <span className="side-cat-count">{total != null ? total.toLocaleString(locale()) : ""}</span>
+              <button
+                className="side-cat-toggle"
+                aria-label={isOpen ? t("Close {name}", { name: k.label() }) : t("Open {name}", { name: k.label() })}
+                aria-expanded={isOpen}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggle(k.filter);
+                }}
+              >
+                <ChevronRightIcon size={14} />
+              </button>
+            </div>
+            {isOpen && (
+              <Branch
+                filter={k.filter}
+                folder={null}
+                total={total}
+                opened={opened}
+                toggle={toggle}
+                openUri={openUri}
+                onSeeAll={() => openKind(k.filter)}
+                actions={actions}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
-function PinIcon() {
+/** The first items of a kind (or of a folder) under its row, on a guide line. */
+function Branch({
+  filter,
+  folder,
+  total,
+  opened,
+  toggle,
+  openUri,
+  onSeeAll,
+  actions,
+}: {
+  filter: Filter;
+  folder: Card | null;
+  total: number | undefined;
+  opened: Set<string>;
+  toggle: (id: string, open?: boolean) => void;
+  openUri: string | null;
+  onSeeAll: () => void;
+  actions: Actions;
+}) {
+  const nav = useNav();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
+  const isPlaying = usePlayerSelect((p) => p.playing);
+  const [savedSort] = usePersisted<LibrarySort>("librarySort", "Recents", ["Recents", "Recently Added", "Alphabetical", "Creator"]);
+  // Spotify answers nothing for artists sorted by creator.
+  const sort = filter === "Artists" && savedSort === "Creator" ? "Recents" : savedSort;
+  const pages = useLibraryPages({ filter, sort, folder: folder?.uri ?? null });
+  // Liked Songs has its own row.
+  const items = pages.items.filter((c) => c.kind !== "liked");
+  const shown = items.slice(0, TREE_SHOWN);
+  const all = total ?? (folder ? pages.total : undefined);
+
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M15 3l6 6-3 1-4 4 1 5-2 2-4-5-5 5-1-1 5-5-5-4 2-2 5 1 4-4z" />
-    </svg>
+    <div className="side-branch">
+      {!pages.loaded && !pages.error && <div className="side-leaf side-leaf-loading" />}
+      {pages.loaded && items.length === 0 && <div className="side-leaf-note">{folder ? t("This folder is empty") : t("Nothing here yet")}</div>}
+      {shown.map((c, i) => {
+        const playing = playingContext === c.uri;
+        const isFolder = c.kind === "folder";
+        const folderOpen = isFolder && opened.has(c.uri);
+        return (
+          <div key={c.uri} className="side-leaf-group" style={{ "--i": i } as React.CSSProperties}>
+            <div
+              className={`side-leaf ${openUri === c.uri ? "open" : ""} ${playing ? "playing" : ""} ${actions.dropOn === c.uri ? "drop-target" : actions.candidate(c) ? "drop-candidate" : ""}`}
+              draggable={DRAGGABLE.has(c.kind)}
+              onDragStart={(e) => dragCard(e, c)}
+              title={c.title}
+              onClick={() => (isFolder ? toggle(c.uri) : nav.open(c.uri, c.title))}
+              {...pressable(() => (isFolder ? toggle(c.uri) : nav.open(c.uri, c.title)))}
+              {...peekProps(c, () => (isFolder ? toggle(c.uri) : nav.open(c.uri, c.title)))}
+              aria-expanded={isFolder ? folderOpen : undefined}
+              onContextMenu={(e) => actions.onMenu(e, c)}
+              {...actions.dropProps(c)}
+            >
+              <Cover src={c.image} kind={c.kind} className="side-leaf-cover" />
+              <span className="side-leaf-name">{c.title}</span>
+              {playing ? (
+                <span className={`eq ${isPlaying ? "" : "paused"}`} />
+              ) : isFolder ? (
+                <span className="side-leaf-count">
+                  {/^\d+/.exec(c.subtitle)?.[0] ?? ""}
+                  <ChevronRightIcon size={12} className={folderOpen ? "turned-down" : ""} />
+                </span>
+              ) : null}
+            </div>
+            {folderOpen && (
+              <Branch
+                filter="Playlists"
+                folder={c}
+                total={undefined}
+                opened={opened}
+                toggle={toggle}
+                openUri={openUri}
+                onSeeAll={() => nav.open(c.uri, c.title)}
+                actions={actions}
+              />
+            )}
+          </div>
+        );
+      })}
+      {all != null && all > shown.length && (
+        <button className="side-see-all" onClick={onSeeAll}>
+          {t("See all {n}", { n: all.toLocaleString(locale()) })}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Searching Your Library from the sidebar: every kind, a flat list. */
+function LibrarySearch({
+  text,
+  setText,
+  onClose,
+  openUri,
+  actions,
+}: {
+  text: string;
+  setText: (t: string) => void;
+  onClose: () => void;
+  openUri: string | null;
+  actions: Actions;
+}) {
+  const nav = useNav();
+  const playingContext = usePlayerSelect((p) => p.contextUri);
+  const term = text.trim();
+  const pages = useLibraryPages({ filter: null, sort: "Recents", text: term });
+  return (
+    <>
+      <label className="list-search side-search">
+        <SearchIcon size={14} />
+        <input
+          autoFocus
+          value={text}
+          placeholder={t("Search in Your Library")}
+          onChange={(e) => setText(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === "Escape" && onClose()}
+        />
+      </label>
+      <div className="library-list list">
+        {pages.error && <div className="muted small pad">{pages.error}</div>}
+        {pages.loaded && pages.items.length === 0 && term && <div className="muted small pad">{t("Nothing in Your Library matches “{term}”.", { term })}</div>}
+        {pages.items.map((c) => (
+          <div
+            key={c.uri}
+            className={`library-item ${openUri === c.uri ? "open" : ""} ${actions.dropOn === c.uri ? "drop-target" : actions.candidate(c) ? "drop-candidate" : ""}`}
+            draggable={DRAGGABLE.has(c.kind)}
+            onDragStart={(e) => dragCard(e, c)}
+            onClick={() => nav.open(c.uri, c.title)}
+            {...pressable(() => nav.open(c.uri, c.title))}
+            onContextMenu={(e) => actions.onMenu(e, c)}
+            {...actions.dropProps(c)}
+            title={c.title}
+          >
+            <Cover src={c.image} kind={c.kind} className="library-cover" />
+            <div className="library-text">
+              <div className={`library-title ${playingContext === c.uri ? "accent" : ""}`}>{c.title}</div>
+              <div className="library-sub">{librarySubtitle(c)}</div>
+            </div>
+          </div>
+        ))}
+        <div ref={pages.sentinel} style={{ height: 1 }} />
+      </div>
+    </>
   );
 }

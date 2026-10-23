@@ -1,0 +1,207 @@
+/* Podcasts (Figma "Podcast" and "Episódio de podcast"). */
+
+/* An episode: cover, title, one line of description, then date, length and how far it got;
+   on the right queue, more and a round play. */
+.episode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.episode-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.episode-row:hover,
+.episode-row.current {
+  background: var(--surface-2);
+}
+
+.episode-cover {
+  width: clamp(64px, 4.5vw, 96px);
+  height: clamp(64px, 4.5vw, 96px);
+  flex: none;
+  --cover-shadow: var(--shadow-cover);
+}
+
+.episode-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.episode-name {
+  font-size: 14.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.episode-row.current .episode-name {
+  color: var(--accent);
+}
+
+/* A played episode fades, as in the Figma. */
+.episode-row.played .episode-name,
+.episode-row.played .episode-desc {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.episode-desc {
+  margin: 3px 0 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.episode-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.episode-new {
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--text);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.episode-progress {
+  width: clamp(90px, 9vw, 160px);
+  height: 3px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.episode-progress span {
+  display: block;
+  height: 100%;
+  background: var(--text);
+}
+
+.episode-left {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.episode-played {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.episode-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.episode-actions .icon-btn {
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.episode-row:hover .episode-actions .icon-btn,
+.episode-row:focus-within .episode-actions .icon-btn {
+  opacity: 1;
+}
+
+.episode-row:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}
+
+.episode-play {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text);
+  transition:
+    transform var(--t-fast),
+    background var(--t-fast);
+}
+
+.episode-play:hover {
+  transform: scale(1.06);
+}
+
+/* The episode playing gets the yellow play, as the one playing everywhere. */
+.episode-play.on {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Episode page */
+.episode-hero-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.episode-progress.wide {
+  width: clamp(200px, 20vw, 360px);
+  height: 4px;
+}
+
+.episode-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 27%, 520px);
+  gap: 24px;
+  align-items: start;
+}
+
+.episode-about h2 {
+  margin-top: 0;
+}
+
+.episode-about p {
+  white-space: pre-line;
+  max-width: 90ch;
+  line-height: 1.55;
+}
+
+.episode-show {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.episode-show:hover {
+  background: var(--surface-3);
+}
+
+@media (max-width: 1099px) {
+  .episode-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.link-strong {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.link-strong:hover {
+  text-decoration: underline;
+}

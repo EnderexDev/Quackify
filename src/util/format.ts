@@ -1,3 +1,5 @@
+import { locale, t } from "../i18n";
+
 export function formatDuration(ms: number): string {
   if (!ms || ms < 0) return "0:00";
   const total = Math.floor(ms / 1000);
@@ -8,5 +10,26 @@ export function formatDuration(ms: number): string {
 }
 
 export function formatCount(n: number): string {
-  return n.toLocaleString("en-US");
+  return n.toLocaleString(locale());
+}
+
+/** How long ago a date was, the way Spotify lists "Date added": "3 days ago", or the date past a month. */
+export function formatAgo(iso: string | null): string {
+  if (!iso) return "";
+  const at = new Date(iso);
+  const days = Math.floor((Date.now() - at.getTime()) / 86_400_000);
+  if (Number.isNaN(days)) return "";
+  if (days < 1) return t("Today");
+  // "always", so a day ago reads "1 day ago" / "há 1 dia", not "yesterday".
+  const ago = new Intl.RelativeTimeFormat(locale(), { numeric: "always" });
+  if (days < 7) return ago.format(-days, "day");
+  if (days < 30) return ago.format(-Math.floor(days / 7), "week");
+  return at.toLocaleDateString(locale(), { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** A list's length the way Spotify writes it: "2 h 41 min", "45 min". */
+export function formatLength(ms: number): string {
+  const min = Math.round(ms / 60000);
+  const h = Math.floor(min / 60);
+  return h ? `${h} h ${min % 60} min` : `${min} min`;
 }

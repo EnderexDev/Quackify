@@ -7,7 +7,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { play, type Repeat } from "../api/spotify";
 import type { Named } from "../api/types";
-import { toast } from "./toast";
+import { t } from "../i18n";
+import { flush, observe } from "./listening";
+import { notify, toast  } from "./toast";
+
+/** The repeat button's name for the mode it is in now. */
+export const repeatLabel = (r: Repeat) => (r === "off" ? t("Repeat off") : r === "one" ? t("Repeat one") : t("Repeat all"));
 
 export type NowPlaying = {
   uri: string;
@@ -88,6 +93,11 @@ type Store = { get: () => Player; subscribe: (listener: () => void) => () => voi
 
 const PlayerContext = createContext<Store | null>(null);
 
+/** What plays next, as of the last render: for work that outlives the component that began
+ * it (a drop or a peek closes before the songs it added show in the queue). */
+let liveQueue: QueuedTrack[] = [];
+export const currentQueue = () => liveQueue;
+
 function useStore(): Store {
   const s = useContext(PlayerContext);
   if (!s) throw new Error("usePlayer outside PlayerProvider");
@@ -123,7 +133,9 @@ const HISTORY_KEY = "recentlyPlayed";
 const HISTORY_SIZE = 50;
 const MIN_PLAYED_MS = 3000;
 
-export function PlayerProvider({ children }: { children: ReactNode }) {
+/** `record` off (the mini player's window): this copy only shows and drives the player; the
+ * main window's keeps the history, so nothing is counted twice. */
+export function PlayerProvider({ children, record = true }: { children: ReactNode; record?: boolean }) {
   const [store] = useState(() => {
     const listeners = new Set<() => void>();
     const s: Store & { value: Player | null; listeners: Set<() => void> } = {
@@ -151,7 +163,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const uri = track?.uri ?? null;
     const prev = lastTrack.current;
-    if (prev && prev.uri === uri) return;
+    if (!record || (prev && prev.uri === uri)) return;
     // A song goes on the list when it gives way: to another song, or to nothing playing (a
     // stop, the app closing). One swapped within seconds was not really played: Spotify relinks
     // a song to another version of it right as it starts, and a skip that fast is not a listen.
@@ -196,6 +208,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // The local listening history hears each change of song, place or state (state/listening.ts).
+    const sample = () => {
+      const pb = viewRef.current?.playback;
+      if (!pb || !record) return;
+      const c = clock.current;
+      observe({
+        context: pageUri(pb.context_uri),
+        track: pb.track_uri,
+        index: pb.index,
+        pos: c.running ? c.ms + (performance.now() - c.at) : c.ms,
+        dur: pb.duration_ms,
+        playing: c.running,
+        shuffle: pb.shuffle,
+        now: Date.now(),
+      });
+    };
     const applyView = (v: ConnectView) => {
       viewRef.current = v;
       setView(v);
@@ -205,6 +233,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (v.playback) {
         setPlaying(v.playback.is_playing);
         setClock(v.playback.position_ms, v.playback.is_playing);
+        sample();
       } else if (v.active_device_id === null) {
         setPlaying(false);
         clock.current.running = false;
@@ -234,7 +263,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       listen<LocalEvent>("player-event", ({ payload: e }) => {
         viewVersion.current++;
         if (e.kind === "unavailable") {
-          toast("A track is not available, skipping it.");
+          notify(t("A track is not available, skipping it."), { kind: "info" });
           return;
         }
         if (!localIsActive()) return;
@@ -258,11 +287,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             setClock(0, false);
             break;
         }
+        // Only an event about the song the cluster shows: one for the next song can come first,
+        // and would put the place of the song before at 0:00.
+        if (e.kind !== "loading" && e.kind !== "stopped" && e.uri === viewRef.current?.playback?.track_uri) sample();
       }),
     ];
     // Listen first, then read the snapshot, so nothing slips between the two.
     Promise.all(offs).then(resync);
-    return () => offs.forEach((o) => o.then((f) => f()));
+    // Closing to the tray hides the window without unloading it: both count what played so far.
+    const onLeave = () => record && flush();
+    const onHide = () => record && document.visibilityState === "hidden" && flush();
+    window.addEventListener("pagehide", onLeave);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onLeave);
+      document.removeEventListener("visibilitychange", onHide);
+      offs.forEach((o) => o.then((f) => f()));
+    };
   }, []);
 
   const pb = view?.playback ?? null;
@@ -279,6 +320,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     resyncRef.current();
   };
 
+  liveQueue = pb?.next_tracks ?? [];
   const value: Player = {
     track,
     contextUri: pageUri(pb?.context_uri ?? null),

@@ -14,6 +14,13 @@ export type Card = {
   /** In Your Library: pinned to the top, and whether it can be. */
   pinned?: boolean;
   pinnable?: boolean;
+  /** An album that is a single or an EP: its card's tag says so. */
+  albumType?: "single" | "ep";
+  /** In Your Library: who made it (a playlist's owner, an album's artists, a podcast's
+   * publisher), when it was added and when it last played (ISO dates). */
+  creator?: string;
+  addedAt?: string | null;
+  playedAt?: string | null;
 };
 
 export type Track = {
@@ -27,6 +34,8 @@ export type Track = {
   addedAt: string | null;
   /** Which row of a playlist this is (two copies of a song have different uids). */
   uid: string | null;
+  /** How many times it was played, for an artist's popular songs. */
+  plays?: number;
 };
 
 /** A row of cards. `uri` and `more` say whether "Show all" can open the whole section. */
@@ -64,9 +73,13 @@ export type LibrarySort = "Recents" | "Recently Added" | "Alphabetical" | "Creat
 export type Collection = {
   uri: string;
   kind: Kind;
+  albumType?: Card["albumType"];
   title: string;
   description: string;
   owner: string;
+  /** An album's main artist: their photo and page, shown by their name. */
+  ownerImage?: string | null;
+  ownerUri?: string | null;
   image: string | null;
   color: string | null;
   total: number;
@@ -92,6 +105,15 @@ export type Artist = {
   /** "Fans also like". */
   related: Card[];
   relatedCount: number;
+  verified: boolean;
+  followers: number | null;
+  worldRank: number | null;
+  bio: string;
+  /** The wide photo of the About tab. */
+  photo: string | null;
+  topCities: { city: string; country: string; listeners: number }[];
+  /** "Artist's pick", with the artist's own note. */
+  pick: { card: Card; comment: string } | null;
 };
 
 /** A song's lyrics. When `synced`, each line starts at `start_ms`. Colors are `#rrggbb`. */

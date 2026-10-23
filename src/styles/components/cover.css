@@ -1,0 +1,134 @@
+/* Covers. Each kind has its own shape (spec "Formas por tipo"); the sizes below are the Figma
+   cover's (128px) as percentages, so a shape scales with its cover. */
+
+.cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--panel-2);
+  /* A page sets the shadow through this, so it lands on the art even inside a shaped wrapper. */
+  box-shadow: var(--cover-shadow, none);
+}
+
+.cover.round {
+  border-radius: 50%;
+}
+
+/* A podcast: rounder corners (22 of 128). */
+.cover.shape-show {
+  border-radius: 17%;
+}
+
+.cover-empty,
+.cover-liked,
+.cover-folder {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.cover-liked svg,
+.cover-folder svg {
+  width: 40%;
+  height: 40%;
+}
+
+.cover-liked {
+  background: linear-gradient(135deg, #4b2fd8, #9fb6e8);
+  color: #fff;
+}
+
+.cover-folder {
+  background: linear-gradient(135deg, #3a3a42, #202026);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* What reaches outside the square. The wrapper takes the size; the art fills it. */
+.cover-shaped {
+  position: relative;
+  display: block;
+  flex: none;
+  aspect-ratio: 1;
+  isolation: isolate;
+}
+
+.cover-shaped > .cover {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 8%;
+}
+
+.cover-shaped > .cover.shape-show {
+  border-radius: 17%;
+}
+
+.cover-deco {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Playlist: a thin tab on top, like a folder's. */
+.shape-playlist > .cover-deco {
+  left: 6.25%;
+  right: 6.25%;
+  top: -3.9%;
+  height: 6.25%;
+  border-radius: 6px 6px 0 0;
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+}
+
+/* Album: the edge of a disc coming out on the right. */
+.shape-album > .cover-deco {
+  left: 12.5%;
+  top: 3.1%;
+  width: 93.75%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(circle closest-side, transparent 0 3px, rgba(255, 255, 255, 0.04) 3px 4px),
+    radial-gradient(circle closest-side, #404045 18%, #0f0f12 20%, #1c1c20 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+/* Podcast: a purple dot in the corner, over the art. */
+.shape-show > .cover-deco {
+  z-index: 2;
+  left: 7.8%;
+  bottom: 7.8%;
+  width: 14%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #9a6bff;
+  border: 2px solid #111114;
+}
+
+/* Folder: a stack of two cards behind. */
+.shape-folder > .cover-deco {
+  inset: 0;
+}
+
+.shape-folder > .cover-deco::before,
+.shape-folder > .cover-deco::after {
+  content: "";
+  position: absolute;
+  height: 15.6%;
+  border-radius: 8px;
+}
+
+.shape-folder > .cover-deco::before {
+  left: 9.4%;
+  right: 9.4%;
+  top: -7.8%;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.shape-folder > .cover-deco::after {
+  left: 4.7%;
+  right: 4.7%;
+  top: -3.9%;
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+}

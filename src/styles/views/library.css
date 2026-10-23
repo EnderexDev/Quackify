@@ -1,0 +1,232 @@
+/* Your Library, whole page: title and count, tools, then a grid, a list or a compact list */
+
+.library-page-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  min-width: 0;
+}
+
+.library-page-head .page-title {
+  margin-bottom: 16px;
+}
+
+.library-count {
+  flex: none;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.library-page-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.library-views {
+  padding: 3px;
+}
+
+.library-views .seg-pill {
+  top: 3px;
+  bottom: 3px;
+}
+
+.library-views .seg-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 28px;
+  padding: 0;
+}
+
+/* The pills fit the choice shown, not the longest one, as in the Figma. */
+.library-page-tools .list-sort {
+  field-sizing: content;
+}
+
+.library-page-tools .list-search {
+  flex: 0 1 240px;
+  min-width: 160px;
+}
+
+.library-page-tools .list-search input {
+  width: 100%;
+}
+
+/* New playlist: the white button at the end of the row, as in the Figma. */
+.library-new {
+  margin-left: auto;
+  background: var(--text);
+  border-color: transparent;
+  color: var(--bg);
+}
+
+.library-new:not(:disabled):hover {
+  background: var(--text);
+  opacity: 0.88;
+}
+
+.library-group + .library-group {
+  margin-top: 26px;
+}
+
+.library-group-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.library-group-name .muted {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* The grid's cell is the card itself; this wrapper only takes dropped songs. */
+.library-cell {
+  display: contents;
+}
+
+.library-cell.drop-target .card {
+  outline: 2px dashed var(--text);
+  outline-offset: -2px;
+  border-radius: var(--r-md);
+}
+
+/* List and compact: rows with the measures of the Figma "Faixa" (48px, 2px apart, corners of 10). */
+.library-rows {
+  --cols: minmax(0, 1fr) 130px 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.library-rows.compact {
+  --cols: minmax(0, 2.4fr) 90px minmax(0, 1.4fr) 120px 120px;
+}
+
+.library-row {
+  display: grid;
+  grid-template-columns: var(--cols);
+  align-items: center;
+  gap: 14px;
+  height: 48px;
+  padding: 0 14px 0 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.library-rows.compact .library-row {
+  height: 34px;
+}
+
+.library-row:not(.library-row-head):hover {
+  background: var(--surface-2);
+}
+
+.library-row.drop-target {
+  border: 1px dashed var(--text);
+  background: var(--surface-2);
+}
+
+.library-row-head {
+  height: 32px;
+  margin-bottom: 6px;
+  padding-left: 14px;
+  border-radius: 0;
+  border-bottom-color: var(--line);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: default;
+}
+
+.library-rows.compact .library-row-head {
+  height: 32px;
+}
+
+.library-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.library-row-cover {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 8px;
+}
+
+.library-rows.compact .library-row-cover {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+}
+
+.library-row-cover.round {
+  border-radius: 50%;
+}
+
+.library-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.library-row-title,
+.library-row-sub,
+.library-row-cell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-row-title {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.library-row-title .pin {
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+
+.library-row-sub {
+  font-size: 12px;
+}
+
+.library-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 24px 0;
+}
+
+/* A small window drops the dates (and the maker in compact), like the track lists. */
+@media (max-width: 1099px) {
+  .library-rows {
+    --cols: minmax(0, 1fr) 120px;
+  }
+
+  .library-rows.compact {
+    --cols: minmax(0, 1fr) 80px 110px;
+  }
+
+  .library-rows .library-row > :last-child,
+  .library-rows.compact .library-row > :nth-child(3) {
+    display: none;
+  }
+}

@@ -1,0 +1,291 @@
+/* Peek (Figma "Espiar"): the ring while held, the rest darkened, the cover lifted, the preview */
+
+/* The ring fills in the middle of the cover while the click is held. It waits a moment, so a
+   plain click shows nothing. */
+.peek-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  background: conic-gradient(var(--text) calc(var(--fill, 0) * 1turn), rgba(255, 255, 255, 0.18) 0);
+  -webkit-mask: radial-gradient(circle, transparent 17px, #000 18px);
+  mask: radial-gradient(circle, transparent 17px, #000 18px);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+@property --fill {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+.peek-holding .peek-ring {
+  animation: peek-fill 400ms linear forwards;
+}
+
+@keyframes peek-fill {
+  0%,
+  25% {
+    opacity: 0;
+    --fill: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    --fill: 1;
+  }
+}
+
+.peek {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.peek.hold {
+  cursor: default;
+  user-select: none;
+}
+
+.peek-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  animation: peek-fade var(--t-fast) ease-out;
+}
+
+@keyframes peek-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The card's cover, above the dark, lifted. */
+.peek-lift {
+  position: absolute;
+  pointer-events: none;
+  transform: translateY(-4px) scale(1.04);
+  animation: peek-lift var(--t-mid) var(--ease-spring);
+}
+
+.peek-lift .cover {
+  width: 100%;
+  height: 100%;
+  box-shadow: var(--shadow-popup);
+}
+
+@keyframes peek-lift {
+  from {
+    transform: none;
+  }
+}
+
+.peek-panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(160deg, var(--peek-glow) -20%, var(--peek-base) 45%, rgba(12, 12, 16, 0.96) 100%);
+  box-shadow: var(--shadow-popup);
+  color: #f6f4ee;
+  --muted: rgba(246, 244, 238, 0.62);
+  transform-origin: left center;
+  animation: peek-in var(--t-mid) var(--ease-spring);
+}
+
+@keyframes peek-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+.peek-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.peek-cover {
+  width: 84px;
+  height: 84px;
+  flex: none;
+  border-radius: 10px;
+  box-shadow: var(--shadow-cover);
+}
+
+.peek-cover.round {
+  border-radius: 50%;
+}
+
+.peek-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.peek-kind {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.peek-title {
+  font-size: 20px;
+  font-weight: 750;
+  line-height: 1.2;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.peek-line {
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.peek-actions {
+  display: flex;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.peek-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background var(--t-fast);
+}
+
+.peek-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Play is the screen's main play: yellow. */
+.peek-btn.play {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--on-accent);
+}
+
+.peek-btn.play:hover {
+  background: var(--accent-2);
+}
+
+.peek-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.peek-track {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  height: 30px;
+  padding: 0 10px 0 6px;
+  border-radius: 8px;
+  color: inherit;
+  font-size: 13px;
+  text-align: left;
+  transition: background var(--t-fast);
+}
+
+.peek-track:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.peek-track:disabled {
+  opacity: 0.45;
+}
+
+.peek-track.loading {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.peek-track.current .peek-name {
+  color: var(--accent);
+}
+
+.peek-num,
+.peek-time {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.peek-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.peek-more {
+  padding: 4px 6px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.peek-foot {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+/* The pinned covers and the tree's items show the ring too, a smaller one. */
+.side-pin-big,
+.side-leaf,
+.library-row {
+  position: relative;
+}
+
+.side-pin-big.peek-holding .cover,
+.side-leaf.peek-holding,
+.library-row.peek-holding {
+  animation: peek-press 400ms linear;
+}
+
+@keyframes peek-press {
+  60% {
+    transform: none;
+  }
+  100% {
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .peek-panel,
+  .peek-lift {
+    animation: peek-fade 150ms ease-out;
+  }
+}

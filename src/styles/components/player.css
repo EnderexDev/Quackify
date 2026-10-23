@@ -1,0 +1,575 @@
+/* Player bar: a glass pill in the colours of the cover playing. The colour sits on its own layer
+   (::before) so the pause can grey it in 600ms without greying the cover. The bar is always dark
+   under its colour, so inside it the dark tokens hold in both themes (its popups included). */
+
+.playerbar {
+  --text: #f6f4ee;
+  --muted: rgba(246, 244, 238, 0.66);
+  --surface-2: rgba(255, 255, 255, 0.1);
+  --surface-3: rgba(255, 255, 255, 0.18);
+  --line: rgba(255, 255, 255, 0.1);
+  --glass-strong: rgba(20, 20, 26, 0.9);
+  --popup: var(--glass-strong);
+  --hover: var(--surface-3);
+  --panel-2: var(--surface-2);
+  --shadow-popup: 0 20px 50px rgba(0, 0, 0, 0.5);
+
+  grid-area: player;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(320px, 2fr) minmax(180px, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 0 12px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  color: var(--text);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.playerbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background:
+    radial-gradient(70% 140% at 85% 50%, color-mix(in srgb, var(--aura-2) 70%, transparent), transparent 70%),
+    linear-gradient(100deg, color-mix(in srgb, var(--aura) 80%, #000) 0%, color-mix(in srgb, var(--aura-2) 55%, #0a0a0c) 100%);
+  transition:
+    filter 600ms ease-in-out,
+    background 600ms ease-in-out;
+}
+
+/* Nothing playing: plain dark glass. */
+.playerbar.idle::before {
+  background: rgba(14, 14, 18, 0.82);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+}
+
+.playerbar.paused::before,
+.playerbar.remote::before {
+  filter: saturate(0) brightness(0.75);
+}
+
+.pb-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pb-cover-btn {
+  position: relative;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-cover);
+}
+
+.pb-cover {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--r-sm);
+  animation: pb-breathe 2.4s ease-in-out infinite alternate;
+}
+
+.playerbar.paused .pb-cover,
+.playerbar.idle .pb-cover {
+  animation: none;
+}
+
+@keyframes pb-breathe {
+  to {
+    transform: scale(1.04);
+  }
+}
+
+/* Hover on the cover: darker, with the arrow to the song page. */
+.pb-cover-hover {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.pb-cover-btn:hover .pb-cover-hover,
+.pb-cover-btn:focus-visible .pb-cover-hover {
+  opacity: 1;
+}
+
+.pb-text {
+  min-width: 0;
+}
+
+.pb-title {
+  display: block;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pb-title:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.pb-artists {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pb-artists a:hover {
+  color: var(--text);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* The line being sung, under the name; each new line slides in. */
+.pb-lyric {
+  margin-top: 1px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: pb-lyric-in 400ms var(--ease-out);
+}
+
+@keyframes pb-lyric-in {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+}
+
+.pb-like,
+.pb-add {
+  flex: none;
+}
+
+.pb-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pb-buttons {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.icon-btn {
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.icon-btn:not(:disabled):hover {
+  color: var(--text);
+}
+
+/* On (shuffle, repeat, the open panel): white with a dot under it. Yellow is kept for what plays. */
+.icon-btn.on {
+  color: var(--text);
+}
+
+.icon-btn.on::after {
+  content: "";
+  position: absolute;
+  bottom: -7px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pb-play {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f6f4ee;
+  color: #111;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  transition: transform var(--t-fast) var(--ease-spring);
+}
+
+.pb-play:not(:disabled):hover {
+  transform: scale(1.07);
+}
+
+/* Episode chips: the sleep timer (and the speed, once there is one). */
+.pb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  min-width: 70px;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-chip:hover,
+.pb-chip.on {
+  color: var(--text);
+}
+
+.pb-chip.on {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Keeps the play button centred when the speed chip is not there. */
+.pb-chip-space {
+  width: 70px;
+}
+
+.pb-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.time {
+  color: var(--muted);
+  font-size: 12px;
+  min-width: 40px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.pb-lyrics {
+  position: relative;
+}
+
+/* The mic's popup: four lines with the sung one lit. */
+.lyrics-pop {
+  position: absolute;
+  right: -110px;
+  bottom: calc(100% + 18px);
+  z-index: 30;
+  width: 300px;
+  padding: 14px 16px 16px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur-popup);
+  backdrop-filter: var(--blur-popup);
+  box-shadow: var(--shadow-popup);
+  transform-origin: 70% 100%;
+  animation: pop-in var(--t-mid) var(--ease-spring);
+}
+
+.lyrics-pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.lyrics-pop-head .link {
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+
+.lyrics-pop-line {
+  padding: 3px 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 400ms var(--ease-out),
+    font-size 400ms var(--ease-out);
+}
+
+.lyrics-pop-line.active {
+  font-size: 16px;
+  color: var(--text);
+}
+
+.lyrics-pop-line:hover {
+  color: var(--text);
+}
+
+.lyrics-pop-msg {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.lyrics-pop-msg .link {
+  color: var(--text);
+}
+
+.slider {
+  position: relative;
+  flex: 1;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.slider.disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.slider.volume {
+  flex: 0 0 100px;
+}
+
+.volume-pct {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: text;
+}
+
+.volume-pct input {
+  width: 3ch;
+  padding: 2px 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+  outline: none;
+}
+
+.volume-pct:hover,
+.volume-pct:focus-within {
+  color: var(--text);
+}
+
+.volume-pct input:focus {
+  border-color: var(--line);
+  background: var(--panel-2);
+}
+
+.slider-track {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.slider-fill {
+  height: 100%;
+  background: var(--text);
+}
+
+.slider-thumb {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--text);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.slider:not(.disabled):hover .slider-thumb,
+.slider.dragging .slider-thumb {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pb-cover {
+    animation: none;
+  }
+
+  .playerbar::before {
+    transition-duration: 150ms;
+  }
+}
+
+/* Below 1100px: compact, without the times, the volume bar, shuffle, repeat or the add button. */
+@media (max-width: 1099px) {
+  .playerbar .time,
+  .playerbar .slider.volume,
+  .playerbar .pb-shuffle,
+  .playerbar .pb-repeat,
+  .playerbar .pb-add,
+  .playerbar .pb-chip,
+  .playerbar .pb-chip-space {
+    display: none;
+  }
+
+  .playerbar .pb-cover-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  .playerbar {
+    grid-template-columns: minmax(160px, 1fr) minmax(240px, 1.6fr) auto;
+  }
+
+  .lyrics-pop {
+    right: -60px;
+  }
+}
+
+/* ---- Progress bar: Simple, Wave and Live (ProgressBar.tsx) ---- */
+
+.progress {
+  position: relative;
+  flex: 1;
+  height: 26px;
+  display: flex;
+  align-items: center;
+}
+
+.progress-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Wave: the bars are the bar; the slider keeps the clicks and shows its dot on hover. */
+.progress-wave .slider-track {
+  opacity: 0;
+}
+
+/* Live: while there is sound the bars are the bar; in silence (and on pause) the line comes back. */
+.progress-live .slider-track {
+  transition: opacity var(--t-mid) var(--ease-out);
+}
+
+.progress-live.sounding .slider-track {
+  opacity: 0;
+}
+
+/* ---- Dragging songs, an album or a playlist: the bar becomes two drop zones ---- */
+
+.pb-drop {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--glass-strong) 82%, transparent);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  animation: pb-drop-in var(--t-fast) var(--ease-out);
+}
+
+@keyframes pb-drop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.pb-drop-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-width: 0;
+  border: 1.5px dashed color-mix(in srgb, var(--text) 35%, transparent);
+  border-radius: 16px;
+  color: var(--muted);
+  transition:
+    border-color var(--t-fast),
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.pb-drop-zone.on {
+  border-color: var(--text);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.pb-drop-zone span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pb-drop-zone strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pb-drop-zone small {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* What could take the songs being dragged, marked in the sidebar and the library. */
+.side-leaf.drop-candidate,
+.side-cat.drop-candidate,
+.library-row.drop-candidate,
+.library-item.drop-candidate {
+  outline: 1.5px dashed color-mix(in srgb, var(--text) 35%, transparent);
+  outline-offset: -1px;
+}
+
+.side-pin-big.drop-candidate .cover {
+  outline: 1.5px dashed var(--muted);
+  outline-offset: 2px;
+}
+
+/* The card being dragged stays in place, faded. */
+.card.dragged {
+  opacity: 0.4;
+}

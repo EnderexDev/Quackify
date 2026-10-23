@@ -1,15 +1,19 @@
 import { memo, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { areSaved } from "../api/library";
 import type { Track } from "../api/types";
+import { t } from "../i18n";
 import { useNav } from "../state/nav";
 import { usePlayerNow, usePlayerSelect } from "../state/player";
 import { knownSaved, useSaved } from "../state/saved";
-import { formatDuration } from "../util/format";
+import { toast } from "../state/toast";
+import { play } from "../api/spotify";
+import { formatAgo, formatCount, formatDuration } from "../util/format";
 import { useContextMenu, type MenuItem } from "./ContextMenu";
 import { Cover } from "./Cover";
-import { ClockIcon, PauseIcon, PlayIcon } from "./icons";
+import { CheckIcon, ClockIcon, CloseIcon, HeartIcon, HeartOutlineIcon, MoreIcon, PauseIcon, PlayIcon, PlaylistAddIcon, QueueIcon } from "./icons";
 import { LikeButton } from "./LikeButton";
 import { TRACKS_MIME, trackMenu, tracksMenu } from "./menus";
+import { beginDrag } from "../state/drag";
 
 /**
  * Track rows. Double-click a row, or click its number, to play it; `onPlay` gets the row index
@@ -26,6 +30,8 @@ export function TrackList({
   showAlbum = true,
   showCover = true,
   showHeader = true,
+  showPlays = false,
+  showAdded = false,
   onRemove,
   onMove,
   playlistName,
@@ -37,6 +43,10 @@ export function TrackList({
   showAlbum?: boolean;
   showCover?: boolean;
   showHeader?: boolean;
+  /** An artist's popular songs: how many times each was played, where the album would be. */
+  showPlays?: boolean;
+  /** Playlists and Liked Songs: when each song was added. */
+  showAdded?: boolean;
   /** For the user's own playlists: remove rows, or move rows to just before row `to`. */
   onRemove?: (indices: number[]) => void;
   onMove?: (from: number[], to: number) => void;
@@ -97,10 +107,27 @@ export function TrackList({
         return next;
       });
     } else {
-      setSelected(new Set([i]));
+      // A plain click on the only selected row takes it out again.
+      setSelected((prev) => (prev.size === 1 && prev.has(i) ? new Set() : new Set([i])));
     }
     anchor.current = i;
   };
+
+  // A click anywhere off the rows (the page, the sidebar) clears the selection; menus and the
+  // selection bar act on it, so they keep it.
+  const list = useRef<HTMLDivElement>(null);
+  const anySelected = selected.size > 0;
+  useEffect(() => {
+    if (!anySelected) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest(".menu, .selection-bar, .dialog") || list.current?.contains(t)) return;
+      setSelected(new Set());
+      anchor.current = null;
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [anySelected]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if ((e.target as HTMLElement).closest("input, textarea")) return;
@@ -121,7 +148,7 @@ export function TrackList({
     const at = { clientX: e.clientX, clientY: e.clientY, preventDefault: () => {} };
     const rows = indices.map((i) => tracks[i]);
     const extra: MenuItem[] = removable(indices)
-      ? ["separator", { label: `Remove from ${playlistName ?? "this playlist"}`, onClick: () => onRemove!(indices) }]
+      ? ["separator", { label: t("Remove from {name}", { name: playlistName ?? t("this playlist") }), onClick: () => onRemove!(indices) }]
       : [];
     areSaved(rows.map((t) => t.uri)).then(
       (saved) => openMenu(at, [...tracksMenu(rows, saved.every(Boolean), nav), ...extra]),
@@ -144,7 +171,7 @@ export function TrackList({
       const remove = removable([i]) ? () => onRemove!([i]) : undefined;
       openMenu(e, [
         ...trackMenu(tracks[i], knownSaved(tracks[i].uri), nav),
-        ...(remove ? (["separator", { label: `Remove from ${playlistName ?? "this playlist"}`, onClick: remove }] as const) : []),
+        ...(remove ? (["separator", { label: t("Remove from {name}", { name: playlistName ?? t("this playlist") }), onClick: remove }] as const) : []),
       ]);
     },
     // Dragging a selected row takes the whole selection along.
@@ -169,12 +196,18 @@ export function TrackList({
   };
 
   return (
-    <div className={`tracklist ${showAlbum ? "" : "no-album"}`} tabIndex={-1} onKeyDown={onKeyDown}>
+    <div
+      ref={list}
+      className={`tracklist ${showPlays ? "with-plays" : showAlbum ? (showAdded ? "with-added" : "") : "no-album"}`}
+      tabIndex={-1}
+      onKeyDown={onKeyDown}
+    >
       {showHeader && (
         <div className="track-row track-head">
           <span className="track-num">#</span>
-          <span>Title</span>
-          {showAlbum && <span>Album</span>}
+          <span>{t("Title")}</span>
+          {showAlbum && <span className="track-album">{t("Album")}</span>}
+          {showAlbum && showAdded && <span className="track-added">{t("Date added")}</span>}
           <span className="track-time">
             <ClockIcon size={16} />
           </span>
@@ -191,6 +224,8 @@ export function TrackList({
             playing={current && playing}
             selected={selected.has(i)}
             showAlbum={showAlbum}
+            showPlays={showPlays}
+            showAdded={showAdded}
             showCover={showCover}
             marker={dragFrom && dropAt === i ? "before" : dragFrom && dropAt === i + 1 && i === tracks.length - 1 ? "after" : null}
             dragging={!!dragFrom?.includes(i)}
@@ -198,6 +233,87 @@ export function TrackList({
           />
         );
       })}
+      {selected.size > 1 && (
+        <SelectionBar
+          rows={sorted(selected).map((k) => tracks[k])}
+          onClear={() => {
+            setSelected(new Set());
+            anchor.current = null;
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Over the list while several songs are selected: play them, queue them, add them to a
+ * playlist or like them, or clear the selection. The actions are the right-click menu's.
+ */
+function SelectionBar({ rows, onClear }: { rows: Track[]; onClear: () => void }) {
+  const nav = useNav();
+  const openMenu = useContextMenu();
+  // tracksMenu's items by their id: the labels change with the language.
+  const item = (items: MenuItem[], id: "queue" | "playlist" | "liked") => {
+    const m = items.find((x) => x !== "separator" && x.id === id);
+    return m && m !== "separator" ? m : undefined;
+  };
+  const playable = rows.filter((t) => t.playable).map((t) => t.uri);
+  // Whether they are all liked already: then the heart takes them out.
+  const key = rows.map((t) => t.uri).join(",");
+  const [allSaved, setAllSaved] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    setAllSaved(undefined);
+    areSaved(rows.map((t) => t.uri)).then((s) => live && setAllSaved(s.every(Boolean)), () => {});
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  const at = (e: React.MouseEvent) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { clientX: r.left, clientY: r.top - 8, preventDefault: () => {} };
+  };
+
+  return (
+    <div className="selection-bar" role="toolbar" aria-label={t("{n} selected", { n: rows.length })}>
+      <span className="selection-count">{t("{n} selected", { n: rows.length })}</span>
+      <button className="selection-btn" disabled={!playable.length} onClick={() => play.tracks(playable, 0).catch(toast)}>
+        <PlayIcon size={14} />
+        {t("Play")}
+      </button>
+      <button className="selection-btn" onClick={() => item(tracksMenu(rows, undefined, nav), "queue")?.onClick?.()}>
+        <QueueIcon size={14} />
+        {t("Queue")}
+      </button>
+      <button
+        className="selection-btn"
+        onClick={async (e) => {
+          const where = at(e);
+          const add = item(tracksMenu(rows, undefined, nav), "playlist");
+          if (!add) return;
+          const mine = add.submenu ? await Promise.resolve(add.submenu()).catch((): MenuItem[] => []) : [];
+          openMenu(where, [...(add.submenuHead ?? []), ...mine]);
+        }}
+      >
+        <PlaylistAddIcon size={14} />
+        {t("Add to playlist")}
+      </button>
+      <button
+        className="selection-btn"
+        disabled={allSaved === undefined}
+        onClick={() => {
+          item(tracksMenu(rows, allSaved, nav), "liked")?.onClick?.();
+          setAllSaved(!allSaved);
+        }}
+      >
+        {allSaved ? <HeartIcon size={14} className="accent" /> : <HeartOutlineIcon size={14} />}
+        {allSaved ? t("Unlike") : t("Like")}
+      </button>
+      <button className="selection-close" aria-label={t("Clear selection")} title={t("Clear selection (Esc)")} onClick={onClear}>
+        <CloseIcon size={14} />
+      </button>
     </div>
   );
 }
@@ -217,12 +333,14 @@ type RowHandlers = {
 };
 
 const TrackRow = memo(function TrackRow({
-  track: t,
+  track,
   index,
   current,
   playing,
   selected,
   showAlbum,
+  showPlays,
+  showAdded,
   showCover,
   marker,
   dragging,
@@ -235,21 +353,23 @@ const TrackRow = memo(function TrackRow({
   playing: boolean;
   selected: boolean;
   showAlbum: boolean;
+  showPlays: boolean;
+  showAdded: boolean;
   showCover: boolean;
   marker: "before" | "after" | null;
   dragging: boolean;
   h: MutableRefObject<RowHandlers>;
 }) {
-  const [saved] = useSaved(t.uri);
+  const [saved] = useSaved(track.uri);
 
   return (
     <div
-      className={`track-row ${current ? "current" : ""} ${selected ? "selected" : ""} ${t.playable ? "" : "unplayable"} ${saved ? "liked" : ""} ${marker ? "drop-" + marker : ""} ${dragging ? "dragging" : ""}`}
+      className={`track-row ${current ? "current" : ""} ${selected ? "selected" : ""} ${track.playable ? "" : "unplayable"} ${saved ? "liked" : ""} ${marker ? "drop-" + marker : ""} ${dragging ? "dragging" : ""}`}
       onClick={(e) => {
         // Links (artist, album) and buttons do their own thing.
         if (!(e.target as HTMLElement).closest("a, button")) h.current.select(index, e);
       }}
-      onDoubleClick={() => t.playable && h.current.play(index)}
+      onDoubleClick={() => track.playable && h.current.play(index)}
       onContextMenu={(e) => h.current.menu(index, e)}
       draggable
       onDragStart={(e) => {
@@ -257,6 +377,7 @@ const TrackRow = memo(function TrackRow({
         e.dataTransfer.effectAllowed = "copyMove";
         e.dataTransfer.setData(TRACKS_MIME, JSON.stringify(rows.map((r) => r.uri)));
         e.dataTransfer.setData("text/plain", rows.map((r) => r.name).join(", "));
+        beginDrag({ kind: "tracks", uris: rows.map((r) => r.uri), label: rows.length === 1 ? rows[0].name : t("{n} songs", { n: rows.length }) });
         h.current.dragStart(index);
       }}
       onDragOver={(e) => {
@@ -274,21 +395,26 @@ const TrackRow = memo(function TrackRow({
     >
       <span className="track-num">
         <span className="num">{playing ? <span className="eq" /> : index + 1}</span>
+        {selected && (
+          <span className="row-check" aria-hidden>
+            <CheckIcon size={12} />
+          </span>
+        )}
         <button
           className="row-play"
-          aria-label="Play"
-          disabled={!t.playable}
+          aria-label={t("Play")}
+          disabled={!track.playable}
           onClick={() => (current ? h.current.toggle() : h.current.play(index))}
         >
-          {playing ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
+          {playing ? <PauseIcon size={16} /> : <PlayIcon size={16} />}
         </button>
       </span>
       <span className="track-main">
-        {showCover && <Cover src={t.image} className="track-cover" />}
+        {showCover && <Cover src={track.image} className="track-cover" />}
         <span className="track-text">
-          <span className="track-name">{t.name}</span>
+          <span className="track-name">{track.name}</span>
           <span className="track-artists">
-            {t.artists.map((a, k) => (
+            {track.artists.map((a, k) => (
               <span key={a.uri || k}>
                 {k > 0 && ", "}
                 <a onClick={() => a.uri && h.current.open(a.uri)}>{a.name}</a>
@@ -297,14 +423,30 @@ const TrackRow = memo(function TrackRow({
           </span>
         </span>
       </span>
-      {showAlbum && (
-        <span className="track-album">
-          {t.album && <a onClick={() => h.current.open(t.album!.uri)}>{t.album.name}</a>}
-        </span>
+      {showPlays ? (
+        <span className="track-album track-plays">{track.plays !== undefined ? formatCount(track.plays) : ""}</span>
+      ) : (
+        showAlbum && (
+          <span className="track-album">
+            {track.album && <a onClick={() => h.current.open(track.album!.uri)}>{track.album.name}</a>}
+          </span>
+        )
       )}
+      {showAlbum && showAdded && <span className="track-added">{formatAgo(track.addedAt)}</span>}
       <span className="track-time">
-        <LikeButton uri={t.uri} size={16} className="row-like" />
-        <span>{formatDuration(t.durationMs)}</span>
+        <LikeButton uri={track.uri} size={16} className="row-like" />
+        <span>{formatDuration(track.durationMs)}</span>
+        <button
+          className="row-more"
+          aria-label={t("More options for {name}", { name: track.name })}
+          title={t("More options")}
+          onClick={(e) => {
+            e.stopPropagation();
+            h.current.menu(index, e);
+          }}
+        >
+          <MoreIcon size={16} />
+        </button>
       </span>
     </div>
   );

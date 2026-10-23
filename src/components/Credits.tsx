@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { credits as loadCredits } from "../api/spotify";
 import type { Credits } from "../api/types";
 import { useNav } from "../state/nav";
+import { t } from "../i18n";
 import { Dialog } from "./Dialog";
 
 const openers = new Set<(uri: string) => void>();
@@ -34,9 +35,9 @@ function CreditsDialog({ uri, onClose }: { uri: string; onClose: () => void }) {
   }, [uri]);
 
   return (
-    <Dialog title="Credits" onClose={onClose}>
+    <Dialog title={t("Credits")} onClose={onClose}>
       {!data && !error && <div className="spinner small" />}
-      {error && <p className="muted">Could not load the credits.</p>}
+      {error && <p className="muted">{t("Could not load the credits.")}</p>}
       {data && (
         <div className="credits">
           <div className="credits-song">{data.title}</div>
@@ -62,12 +63,12 @@ function CreditsDialog({ uri, onClose }: { uri: string; onClose: () => void }) {
               ))}
             </section>
           ))}
-          {data.sources.length > 0 && <p className="muted small credits-source">Source: {data.sources.join(", ")}</p>}
+          {data.sources.length > 0 && <p className="muted small credits-source">{t("Source: {sources}", { sources: data.sources.join(", ") })}</p>}
         </div>
       )}
       <div className="dialog-actions">
         <button className="secondary" onClick={onClose}>
-          Close
+          {t("Close")}
         </button>
       </div>
     </Dialog>

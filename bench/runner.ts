@@ -23,6 +23,7 @@ async function measure(name: string, act: (k: number) => void | Promise<void>, t
   const ms: number[] = [];
   const wall: number[] = [];
   let last = { commits: 0, byComponent: {} as Record<string, number> };
+  (window as unknown as { __step: string }).__step = name;
   for (let k = 0; k < times; k++) {
     await sleep(60);
     w.__renders.reset();
@@ -50,12 +51,12 @@ async function measure(name: string, act: (k: number) => void | Promise<void>, t
 export async function run() {
   const out: unknown[] = [];
   // Open the playlist and load all of it (sorting needs every page; back to custom keeps them).
-  await until(() => !!document.querySelector(".library-title"));
+  await until(() => !!document.querySelector(".library-title, .side-leaf-name"));
   w.__renders.reset();
   w.__timing.reset();
   const t0 = performance.now();
   const item = [...document.querySelectorAll<HTMLElement>("*")].find(
-    (e) => e.classList.contains("library-title") && e.textContent === "Bench 2000",
+    (e) => (e.classList.contains("library-title") || e.classList.contains("side-leaf-name")) && e.textContent === "Bench 2000",
   )!;
   item.click();
   await until(() => rows().length >= 100);
@@ -115,8 +116,8 @@ Object.assign(window, { __run: run });
 // `?show`: opens the 2000-song playlist and scrolls to its middle, for a screenshot.
 if (location.search.includes("show")) {
   (async () => {
-    await until(() => !!document.querySelector(".library-title"));
-    [...document.querySelectorAll<HTMLElement>(".library-title")].find((e) => e.textContent === "Bench 2000")!.click();
+    await until(() => !!document.querySelector(".library-title, .side-leaf-name"));
+    [...document.querySelectorAll<HTMLElement>(".library-title, .side-leaf-name")].find((e) => e.textContent === "Bench 2000")!.click();
     await until(() => rows().length >= 100);
     const sort = $<HTMLSelectElement>(".main .list-sort")!;
     const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!;

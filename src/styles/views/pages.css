@@ -1,0 +1,260 @@
+/* Pages */
+
+.page {
+  padding: 20px 24px 40px;
+  min-height: 100%;
+}
+
+.page.center {
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+
+.greeting {
+  font-size: 30px;
+  font-weight: 800;
+  margin: 8px 0 20px;
+}
+
+.shortcuts {
+  display: grid;
+  /* Up to 4 columns, fewer when the page is narrow (queue open, small window). */
+  grid-template-columns: repeat(auto-fill, minmax(max(220px, calc(25% - 8px)), 1fr));
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.shortcut {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface-2);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s;
+}
+
+.shortcut:hover {
+  background: var(--surface-3);
+}
+
+.shortcut-cover {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 0;
+}
+
+.shortcut-cover.round {
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  margin-left: 4px;
+}
+
+.shortcut-title {
+  font-weight: 700;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  padding-right: 52px;
+}
+
+.shortcut-play {
+  position: absolute;
+  right: 10px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.shortcut:hover .shortcut-play {
+  opacity: 1;
+}
+
+.shelf {
+  margin-bottom: 28px;
+  container-type: inline-size;
+}
+
+.shelf h2,
+.page h2 {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+/* One row of cards that scrolls sideways: as many whole cards as fit (about 168px each), the
+   rest past the edge, reached with the arrows, a drag or a trackpad. */
+.shelf-row {
+  --cols: 2;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - (var(--cols) - 1) * 8px) / var(--cols));
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+  column-gap: 8px;
+  /* Room for a card lifting on hover and a playlist's tab, which the overflow would cut. */
+  padding: 6px 10px 0;
+  scroll-padding: 0 10px;
+  margin: -6px -10px 0;
+}
+
+.shelf-row > * {
+  scroll-snap-align: start;
+}
+
+.shelf-row.dragging {
+  scroll-snap-type: none;
+  cursor: grabbing;
+}
+
+.shelf-row.dragging > * {
+  pointer-events: none;
+}
+
+@container (min-width: 520px) {
+  .shelf-row {
+    --cols: 3;
+  }
+}
+
+@container (min-width: 700px) {
+  .shelf-row {
+    --cols: 4;
+  }
+}
+
+@container (min-width: 880px) {
+  .shelf-row {
+    --cols: 5;
+  }
+}
+
+@container (min-width: 1060px) {
+  .shelf-row {
+    --cols: 6;
+  }
+}
+
+@container (min-width: 1240px) {
+  .shelf-row {
+    --cols: 7;
+  }
+}
+
+.card {
+  padding: 10px;
+  border-radius: 16px;
+  cursor: pointer;
+  min-width: 0;
+  transition:
+    background var(--t-fast),
+    transform var(--t-mid) var(--ease-out);
+}
+
+.card:hover {
+  background: var(--surface-2);
+  transform: translateY(-4px);
+}
+
+.card-art {
+  position: relative;
+  margin-bottom: 10px;
+  --cover-shadow: var(--shadow-cover);
+}
+
+.card-art .cover:not(.round, .shape-show) {
+  border-radius: 8%;
+}
+
+/* The kind, on the cover's corner: Playlist, Album, Single, EP, Podcast. */
+.card-tag {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  left: 6px;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.card-pin {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.card-play {
+  position: absolute;
+  z-index: 3;
+  right: 8px;
+  bottom: 8px;
+  opacity: 0;
+  transform: translateY(8px) scale(0.9);
+  transition:
+    opacity var(--t-fast),
+    transform var(--t-mid) var(--ease-spring);
+  box-shadow: 0 4px 16px rgba(255, 217, 77, 0.35);
+}
+
+.card:hover .card-play {
+  opacity: 1;
+  transform: none;
+}
+
+.card-title {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-sub {
+  color: var(--muted);
+  font-size: 13px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  margin-top: 2px;
+}
+
+.play-button {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  flex: none;
+  transition:
+    transform 0.1s,
+    background 0.15s;
+}
+
+.play-button:hover {
+  transform: scale(1.06);
+  background: var(--accent-2);
+}

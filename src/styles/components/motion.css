@@ -1,0 +1,140 @@
+/* Motion shared by the whole app: a page coming in, the heart of a like, and Reduce
+   animations (state/motion.ts), which turns every loop off and every move into a short fade. */
+
+/* A new page rises 14px in 300ms; its first eight blocks follow in a cascade, 40ms apart. */
+.main > * {
+  animation: page-in 300ms var(--ease-out) backwards;
+}
+
+.main > * > * {
+  animation: page-in 300ms var(--ease-out) backwards;
+}
+
+.main > * > :nth-child(2) {
+  animation-delay: 40ms;
+}
+.main > * > :nth-child(3) {
+  animation-delay: 80ms;
+}
+.main > * > :nth-child(4) {
+  animation-delay: 120ms;
+}
+.main > * > :nth-child(5) {
+  animation-delay: 160ms;
+}
+.main > * > :nth-child(6) {
+  animation-delay: 200ms;
+}
+.main > * > :nth-child(7) {
+  animation-delay: 240ms;
+}
+.main > * > :nth-child(n + 8) {
+  animation-delay: 280ms;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* Liking: the heart grows to 1.45 and springs back, and six yellow sparks fly out. */
+.like-btn {
+  position: relative;
+}
+
+.like-btn.pop svg {
+  animation: like-pop 450ms var(--ease-spring);
+}
+
+@keyframes like-pop {
+  40% {
+    transform: scale(1.45);
+  }
+}
+
+.like-burst {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  pointer-events: none;
+}
+
+.like-burst i {
+  position: absolute;
+  left: -2.5px;
+  top: -2.5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  animation: like-spark 520ms var(--ease-out);
+}
+
+/* Six directions, 60° apart. */
+.like-burst i:nth-child(1) {
+  --dx: 0px;
+  --dy: -15px;
+}
+.like-burst i:nth-child(2) {
+  --dx: 13px;
+  --dy: -7.5px;
+}
+.like-burst i:nth-child(3) {
+  --dx: 13px;
+  --dy: 7.5px;
+}
+.like-burst i:nth-child(4) {
+  --dx: 0px;
+  --dy: 15px;
+}
+.like-burst i:nth-child(5) {
+  --dx: -13px;
+  --dy: 7.5px;
+}
+.like-burst i:nth-child(6) {
+  --dx: -13px;
+  --dy: -7.5px;
+}
+
+@keyframes like-spark {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(0.4);
+  }
+}
+
+/* Reduce animations: nothing loops, nothing travels; what is left is a 150ms fade. */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 150ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0ms !important;
+  transition-duration: 150ms !important;
+  scroll-behavior: auto !important;
+}
+
+.reduce-motion .main > *,
+.reduce-motion .main > * > * {
+  animation-name: fade-in;
+}
+
+.reduce-motion .like-burst,
+.reduce-motion .sk::after {
+  display: none;
+}
+
+/* Loops that a single short run would only make flicker: stopped outright. */
+.reduce-motion .aura-blob,
+.reduce-motion .pb-cover,
+.reduce-motion .spinner,
+.reduce-motion .splash-ring,
+.reduce-motion .like-btn.pop svg {
+  animation: none !important;
+}

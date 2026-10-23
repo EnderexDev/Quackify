@@ -1,0 +1,120 @@
+/* Spotify Connect */
+
+/* Another device playing: a dark pill with a green border and dot over the player. */
+.remote-pill {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  z-index: 6;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 5px 0 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid color-mix(in srgb, var(--green) 55%, transparent);
+  background: rgba(12, 16, 14, 0.92);
+  -webkit-backdrop-filter: var(--blur-popup);
+  backdrop-filter: var(--blur-popup);
+  box-shadow: var(--shadow-popup);
+  color: #f6f4ee;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: pop-in var(--t-mid) var(--ease-spring);
+}
+
+.remote-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+
+.remote-name {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.remote-here {
+  height: 26px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: #f6f4ee;
+  color: #111;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.remote-here:hover {
+  transform: scale(1.04);
+}
+
+.icon-btn.remote {
+  color: var(--green);
+}
+
+.devices {
+  position: relative;
+}
+
+.devices-pop {
+  position: absolute;
+  right: -40px;
+  bottom: 40px;
+  width: 320px;
+  padding: 16px 8px 8px;
+  background: var(--popup);
+  backdrop-filter: var(--blur-popup);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  z-index: 20;
+}
+
+.devices-title {
+  font-weight: 800;
+  font-size: 16px;
+  padding: 0 8px 12px;
+}
+
+.devices-sub {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 12px 8px 6px;
+}
+
+.device {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 8px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+button.device:hover {
+  background: var(--surface-2);
+}
+
+.device.current {
+  color: var(--accent);
+}
+
+.device-name {
+  font-weight: 600;
+}
+
+.device-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.device.current .device-sub {
+  color: var(--accent);
+  opacity: 0.8;
+}

@@ -1,12 +1,13 @@
 // "Show all": every card of a row, loaded a page at a time as the end comes into view.
 import { useEffect, useRef, useState } from "react";
 import { browseSection, discography, homeSection, relatedArtists } from "../api/spotify";
+import { t } from "../i18n";
 import type { Card, CardPage } from "../api/types";
 import { CardGrid } from "../components/Card";
 import type { Route } from "../state/nav";
 import { toast } from "../state/toast";
 import { useAsync } from "../util/useAsync";
-import { Failed, Loading } from "./common";
+import { Empty, Failed, Loading } from "./common";
 
 type Source = Extract<Route, { page: "cards" }>["source"];
 
@@ -18,29 +19,45 @@ const LOADERS: Record<Source, (uri: string, offset: number) => Promise<CardPage>
   related: (uri, offset) => (offset ? Promise.resolve({ title: "", cards: [], total: 0, next: null }) : relatedArtists(uri)),
 };
 
-/** The heading: the row's own title; for an artist's pages, the artist's name (`title`) below. */
-function heading(source: Source, page: CardPage, title?: string) {
-  if (source === "discography") return { title: "Discography", subtitle: page.title || title || "" };
-  if (source === "related") return { title: "Fans also like", subtitle: page.title || title || "" };
-  return { title: title || page.title, subtitle: "" };
+/** The heading: the row's title, and above it where the row came from (Home, the genre, the artist). */
+function heading(source: Source, page: CardPage, title?: string, from?: string) {
+  if (source === "discography") return { title: t("Discography"), from: page.title || from || "" };
+  if (source === "related") return { title: t("Fans also like"), from: page.title || from || "" };
+  return { title: title || page.title, from: from ?? "" };
 }
 
-export function CardsView({ source, uri, title }: { source: Source; uri: string; title?: string }) {
+export function CardsView({ source, uri, title, from }: { source: Source; uri: string; title?: string; from?: string }) {
   const load = LOADERS[source];
-  const { data, error, loading } = useAsync(() => load(uri, 0), `${source}:${uri}`);
-  if (error) return <Failed error={error} />;
+  const { data, error, loading, retry } = useAsync(() => load(uri, 0), `${source}:${uri}`);
+  if (error) return <Failed error={error} onRetry={retry} />;
   if (loading || !data) return <Loading />;
-  const head = heading(source, data, title);
+  const head = heading(source, data, title, from);
   return (
     <div className="page cards-page">
+      {head.from && <p className="page-eyebrow">{head.from}</p>}
       <h1 className="page-title">{head.title}</h1>
-      {head.subtitle && <p className="muted page-subtitle">{head.subtitle}</p>}
       <Pages first={data} load={(offset) => load(uri, offset)} />
     </div>
   );
 }
 
 function Pages({ first, load }: { first: CardPage; load: (offset: number) => Promise<CardPage> }) {
+  const { cards, more, sentinel } = usePaged(first, load);
+  return (
+    <>
+      <CardGrid cards={cards} />
+      {cards.length === 0 && <Empty title={t("Nothing here yet")} />}
+      {more && (
+        <div ref={sentinel} className="more">
+          <div className="spinner small" />
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Cards a page at a time: the next page loads when `sentinel` comes into view. */
+export function usePaged(first: CardPage, load: (offset: number) => Promise<CardPage>) {
   const [cards, setCards] = useState<Card[]>(first.cards);
   const [next, setNext] = useState<number | null>(first.next);
   const sentinel = useRef<HTMLDivElement>(null);
@@ -73,15 +90,5 @@ function Pages({ first, load }: { first: CardPage; load: (offset: number) => Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [next]);
 
-  return (
-    <>
-      <CardGrid cards={cards} />
-      {cards.length === 0 && <p className="muted">Nothing here yet.</p>}
-      {next !== null && (
-        <div ref={sentinel} className="more">
-          <div className="spinner small" />
-        </div>
-      )}
-    </>
-  );
+  return { cards, more: next !== null, sentinel };
 }

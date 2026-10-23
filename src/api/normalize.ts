@@ -1,5 +1,6 @@
 // Spotify's GraphQL (pathfinder) responses into the app's shapes. Every reader is defensive:
 // the same entity comes back with different fields depending on the operation that sent it.
+import { locale, t } from "../i18n";
 import type {
   Artist,
   BrowsePage,
@@ -53,6 +54,11 @@ function names(list: Raw): Named[] {
     .filter((a: Named) => a.name);
 }
 
+/** The character of a numeric HTML entity, or null when the number is not one. */
+function codePoint(n: number): string | null {
+  return Number.isInteger(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : null;
+}
+
 /** Spotify descriptions carry HTML links and entities; the app shows plain text. */
 export function plainText(html: string | null | undefined): string {
   if (!html) return "";
@@ -60,7 +66,8 @@ export function plainText(html: string | null | undefined): string {
     .replace(/<[^>]*>/g, "")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
-    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (m, h) => codePoint(parseInt(h, 16)) ?? m)
+    .replace(/&#([0-9]+);/g, (m, d) => codePoint(Number(d)) ?? m)
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .trim();
@@ -79,37 +86,38 @@ export function toCard(x: Raw): Card | null {
     case "Playlist": {
       // Recently played lists Liked Songs as a playlist with a stand-in URI.
       if (d.format === "liked-songs") {
-        return { uri: "spotify:collection:tracks", kind: "liked", title: d.name ?? "Liked Songs", subtitle: "Playlist", image: imageOf(d) };
+        return { uri: "spotify:collection:tracks", kind: "liked", title: t("Liked Songs"), subtitle: t("Playlist"), image: imageOf(d) };
       }
       const owner = d.ownerV2?.data?.name;
       return {
         uri,
         kind: "playlist",
         title: d.name ?? "",
-        subtitle: plainText(d.description) || (owner ? `By ${owner}` : "Playlist"),
+        subtitle: plainText(d.description) || (owner ? t("By {name}", { name: owner }) : t("Playlist")),
         image: imageOf(d),
       };
     }
     case "Album": {
       const year = d.date?.isoString?.slice(0, 4) ?? d.date?.year;
       const type = d.albumType ?? d.type;
-      const lead = type === "SINGLE" ? "Single" : type === "EP" ? "EP" : year ?? "Album";
+      const lead = type === "SINGLE" ? t("Single") : type === "EP" ? "EP" : year ?? t("Album");
       return {
         uri,
         kind: "album",
+        albumType: type === "SINGLE" ? "single" : type === "EP" ? "ep" : undefined,
         title: d.name ?? "",
         subtitle: [lead, names(d.artists).map((a) => a.name).join(", ")].filter(Boolean).join(" • "),
         image: imageOf(d),
       };
     }
     case "Artist":
-      return { uri, kind: "artist", title: d.profile?.name ?? "", subtitle: "Artist", image: imageOf(d) };
+      return { uri, kind: "artist", title: d.profile?.name ?? "", subtitle: t("Artist"), image: imageOf(d) };
     case "User":
       return {
         uri,
         kind: "user",
         title: d.displayName || d.name || d.username || "",
-        subtitle: "Profile",
+        subtitle: t("Profile"),
         image: imageOf(d),
       };
     case "Podcast":
@@ -118,7 +126,7 @@ export function toCard(x: Raw): Card | null {
         uri,
         kind: "show",
         title: d.name ?? "",
-        subtitle: d.publisher?.name ?? "Podcast",
+        subtitle: d.publisher?.name ?? t("Podcast"),
         image: imageOf(d),
       };
     case "Episode": {
@@ -128,7 +136,7 @@ export function toCard(x: Raw): Card | null {
         uri,
         kind: "episode",
         title: d.name ?? "",
-        subtitle: [date, show].filter(Boolean).join(" • ") || "Episode",
+        subtitle: [date, show].filter(Boolean).join(" • ") || t("Episode"),
         image: imageOf(d),
       };
     }
@@ -137,15 +145,15 @@ export function toCard(x: Raw): Card | null {
         uri,
         kind: "track",
         title: d.name ?? "",
-        subtitle: ["Song", names(d.artists).map((a) => a.name).join(", ")].filter(Boolean).join(" • "),
+        subtitle: [t("Song"), names(d.artists).map((a) => a.name).join(", ")].filter(Boolean).join(" • "),
         image: imageOf(d.albumOfTrack),
       };
     case "PseudoPlaylist":
       return {
         uri: uri || "spotify:collection:tracks",
         kind: "liked",
-        title: d.name ?? "Liked Songs",
-        subtitle: `${d.count ?? 0} songs`,
+        title: t("Liked Songs"),
+        subtitle: (d.count ?? 0) === 1 ? t("1 song") : t("{n} songs", { n: d.count ?? 0 }),
         image: imageOf(d),
       };
     default:
@@ -292,7 +300,7 @@ export function formatDay(iso: string | null | undefined): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
   const dayOnly = !iso.includes("T") || /T00:00(:00(.0+)?)?Z$/.test(iso);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", ...(dayOnly ? { timeZone: "UTC" } : {}) });
+  return d.toLocaleDateString(locale(), { month: "short", day: "numeric", year: "numeric", ...(dayOnly ? { timeZone: "UTC" } : {}) });
 }
 
 export function toEpisode(x: Raw): Episode | null {
@@ -357,9 +365,30 @@ export function toLibrary(data: Raw): LibraryPage {
           }
         : toCard(it);
     if (!card || !card.uri) continue;
-    items.push({ ...card, pinned: !!it?.pinned, pinnable: !!it?.pinnable });
+    items.push({
+      ...card,
+      pinned: !!it?.pinned,
+      pinnable: !!it?.pinnable,
+      creator: creatorOf(d),
+      addedAt: it?.addedAt?.isoString ?? null,
+      playedAt: it?.playedAt?.isoString ?? null,
+    });
   }
   return { items, total: lib?.totalCount ?? 0 };
+}
+
+/** Who made a library item: a playlist's owner, an album's artists, a podcast's publisher. */
+function creatorOf(d: Raw): string {
+  switch (d?.__typename) {
+    case "Playlist":
+      return d.ownerV2?.data?.name ?? "";
+    case "Album":
+      return names(d.artists).map((a) => a.name).join(", ");
+    case "Podcast":
+      return d.publisher?.name ?? "";
+    default:
+      return "";
+  }
 }
 
 function colorOf(d: Raw): string | null {
@@ -380,6 +409,8 @@ export function toPlaylist(data: Raw): Collection {
     title: p?.name ?? "",
     description: plainText(p?.description),
     owner: p?.ownerV2?.data?.name ?? "",
+    ownerImage: pickImage(p?.ownerV2?.data?.avatar?.sources, 64),
+    ownerUri: p?.ownerV2?.data?.uri ?? null,
     image: imageOf(p, 640),
     color: colorOf(p),
     total: p?.content?.totalCount ?? 0,
@@ -396,11 +427,14 @@ export function toAlbum(data: Raw): Collection {
   return {
     uri: a?.uri ?? "",
     kind: "album",
+    albumType: a?.type === "SINGLE" ? "single" : a?.type === "EP" ? "ep" : undefined,
     title: a?.name ?? "",
     description: [a?.type ? a.type[0] + a.type.slice(1).toLowerCase() : "", a?.date?.isoString?.slice(0, 4)]
       .filter(Boolean)
       .join(" • "),
     owner: names(a?.artists).map((x) => x.name).join(", "),
+    ownerImage: pickImage(a?.artists?.items?.[0]?.visuals?.avatarImage?.sources, 160),
+    ownerUri: a?.artists?.items?.[0]?.uri ?? null,
     image: imageOf(a, 640),
     color: colorOf(a),
     total: a?.tracksV2?.totalCount ?? 0,
@@ -411,7 +445,7 @@ export function toAlbum(data: Raw): Collection {
   };
 }
 
-export function toLiked(data: Raw, title = "Liked Songs"): Collection {
+export function toLiked(data: Raw, title = t("Liked Songs")): Collection {
   const l = data?.me?.library?.tracks;
   return {
     uri: "spotify:collection:tracks",
@@ -432,19 +466,37 @@ export function toArtist(data: Raw): Artist {
   const a = data?.artistUnion;
   const d = a?.discography;
   const related = a?.relatedContent?.relatedArtists;
+  const plays = new Map<string, number>();
+  for (const it of a?.discography?.topTracks?.items ?? []) {
+    const n = Number(it?.track?.playcount);
+    if (it?.track?.uri && Number.isFinite(n)) plays.set(it.track.uri, n);
+  }
+  const pinned = a?.profile?.pinnedItem;
+  const pickCard = pinned ? toCard(pinned.itemV2 ?? pinned.item ?? pinned) : null;
   return {
     uri: a?.uri ?? "",
     name: a?.profile?.name ?? "",
     image: imageOf(a, 300),
     header: pickImage(a?.headerImage?.data?.sources, 1500),
     monthlyListeners: a?.stats?.monthlyListeners ?? null,
-    topTracks: tracks(a?.discography?.topTracks?.items),
+    topTracks: tracks(a?.discography?.topTracks?.items).map((t) => ({ ...t, plays: plays.get(t.uri) })),
     albums: releases(d?.albums?.items),
     singles: releases(d?.singles?.items),
     releaseCount: (d?.albums?.totalCount ?? 0) + (d?.singles?.totalCount ?? 0) + (d?.compilations?.totalCount ?? 0),
     appearsOn: releases(a?.relatedContent?.appearsOn?.items),
     related: cards((related?.items ?? []).map((x: Raw) => ({ __typename: "Artist", ...x }))),
     relatedCount: related?.totalCount ?? 0,
+    verified: !!a?.onPlatformReputationTrait?.verification?.isVerified,
+    followers: a?.stats?.followers ?? null,
+    worldRank: a?.stats?.worldRank || null,
+    bio: plainText(a?.profile?.biography?.text),
+    photo: pickImage(a?.visuals?.gallery?.items?.[0]?.sources, 1000),
+    topCities: (a?.stats?.topCities?.items ?? []).map((c: Raw) => ({
+      city: c?.city ?? "",
+      country: c?.country ?? "",
+      listeners: c?.numberOfListeners ?? 0,
+    })),
+    pick: pickCard?.uri ? { card: pickCard, comment: plainText(pinned?.comment) } : null,
   };
 }
 

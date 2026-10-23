@@ -1,0 +1,290 @@
+// The song page: what is playing, big, over a strong aura. On the left the cover, the song, its
+// buttons and its main artist; on the right the lyrics, following the song: the line being sung
+// grows and lights up and stays in view, and clicking a line seeks to it.
+import { useEffect, useRef, useState } from "react";
+import { trackDetails } from "../api/spotify";
+import { t } from "../i18n";
+import type { TrackDetails } from "../api/types";
+import { Cover } from "../components/Cover";
+import { useContextMenu } from "../components/ContextMenu";
+import { openCredits } from "../components/Credits";
+import { HeartIcon, HeartOutlineIcon, MicIcon, PlaylistAddIcon } from "../components/icons";
+import { Empty } from "./common";
+import { SaveButton } from "../components/LikeButton";
+import { openPlaylistPicker, trackMenu } from "../components/menus";
+import { Segmented } from "../components/Segmented";
+import { activeLine, useLyrics } from "../state/lyrics";
+import { lyricsSize, type LyricsSize } from "../state/prefs";
+import { useNav } from "../state/nav";
+import { usePlayer, type NowPlaying } from "../state/player";
+import { useSaved } from "../state/saved";
+import { formatCount, formatDuration } from "../util/format";
+
+/** After the user scrolls by hand, the view leaves the scroll alone for this long. */
+const MANUAL_SCROLL_MS = 3000;
+
+const SIZES: { id: LyricsSize; label: string }[] = [
+  { id: "s", label: "S" },
+  { id: "m", label: "M" },
+  { id: "l", label: "L" },
+];
+
+export function SongView() {
+  const p = usePlayer();
+  const track = p.track;
+  if (!track)
+    return (
+      <div className="song-page empty">
+        <p>{t("Play a song to see it here.")}</p>
+      </div>
+    );
+  return (
+    <div className="song-page">
+      <SongInfo track={track} />
+      <SongLyrics uri={track.uri} />
+    </div>
+  );
+}
+
+function SongInfo({ track }: { track: NowPlaying }) {
+  const nav = useNav();
+  const openMenu = useContextMenu();
+  const episode = track.uri.startsWith("spotify:episode:");
+  const isTrack = track.uri.startsWith("spotify:track:");
+  const [saved, toggleSaved] = useSaved(isTrack ? track.uri : null);
+  const artistUri = track.artists[0]?.uri ?? "";
+  const [details, setDetails] = useState<{
+    uri: string;
+    value: TrackDetails;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isTrack || !artistUri) return;
+    let alive = true;
+    trackDetails(track.uri, artistUri).then(
+      (value) => alive && setDetails({ uri: track.uri, value }),
+      () => {},
+    );
+    return () => {
+      alive = false;
+    };
+  }, [track.uri, artistUri]);
+  const artist = details?.uri === track.uri ? details.value.artist : null;
+
+  return (
+    <section className="song-info">
+      <Cover src={track.image} className="song-cover" />
+      <div className="song-kind">{episode ? t("Episode") : t("Song")}</div>
+      <h1 className="song-title" title={track.name}>
+        {track.name}
+      </h1>
+      <div className="song-meta">
+        {track.artists.map((a, i) => (
+          <span key={a.uri || i}>
+            {i > 0 && ", "}
+            <a onClick={() => (a.uri ? nav.open(a.uri) : episode && nav.open(track.uri))}>{a.name}</a>
+          </span>
+        ))}
+        {track.album.name && !episode && (
+          <>
+            {" · "}
+            <a onClick={() => track.album.uri && nav.open(track.album.uri)}>{track.album.name}</a>
+          </>
+        )}
+        {track.duration_ms > 0 && <> · {formatDuration(track.duration_ms)}</>}
+      </div>
+
+      <div className="song-actions">
+        {isTrack && (
+          <button className={`pill-btn ${saved ? "liked" : ""}`} disabled={saved === undefined} onClick={toggleSaved}>
+            {saved ? <HeartIcon size={16} /> : <HeartOutlineIcon size={16} />}
+            {saved ? t("Liked") : t("Like")}
+          </button>
+        )}
+        {isTrack && (
+          <button className="pill-btn" onClick={(e) => openPlaylistPicker(e.currentTarget, track, nav, openMenu)}>
+            <PlaylistAddIcon size={16} />
+            {t("Add to playlist")}
+          </button>
+        )}
+        {episode && (
+          <button className="pill-btn" onClick={() => nav.open(track.uri)}>
+            {t("Go to episode")}
+          </button>
+        )}
+        {!episode && (
+          <button
+            className="more-btn"
+            aria-label={t("More")}
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              openMenu(
+                {
+                  clientX: r.left,
+                  clientY: r.bottom,
+                  preventDefault: () => {},
+                },
+                trackMenu(track, saved, nav),
+              );
+            }}
+          >
+            •••
+          </button>
+        )}
+      </div>
+
+      {artist && (
+        <div className="song-artist" onClick={() => artist.uri && nav.open(artist.uri)}>
+          <Cover src={artist.image} kind="artist" className="song-artist-image" />
+          <div className="song-artist-text">
+            <div className="song-artist-name">
+              {artist.name}
+              {artist.verified && (
+                <span className="song-verified" title={t("Verified artist")}>
+                  ✓
+                </span>
+              )}
+            </div>
+            {artist.monthlyListeners !== null && (
+              <div className="muted small">{t("{n} monthly listeners", { n: formatCount(artist.monthlyListeners) })}</div>
+            )}
+          </div>
+          <div className="song-artist-buttons" onClick={(e) => e.stopPropagation()}>
+            <button className="link" onClick={() => openCredits(track.uri)}>
+              {t("Credits")}
+            </button>
+            {artist.uri && <SaveButton uri={artist.uri} kind="artist" />}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SongLyrics({ uri }: { uri: string }) {
+  const p = usePlayer();
+  const state = useLyrics(uri);
+  const size = lyricsSize.use();
+  const setSize = lyricsSize.set;
+  const [, tick] = useState(0);
+  const lines = useRef<(HTMLDivElement | null)[]>([]);
+  const scrolledAt = useRef(0);
+  const dragging = useRef(false);
+
+  // Re-render a few times a second while playing, so the sung line moves.
+  useEffect(() => {
+    if (!p.playing) return;
+    const id = setInterval(() => tick((n) => n + 1), 200);
+    return () => clearInterval(id);
+  }, [p.playing]);
+
+  const l = state.status === "ready" ? state.lyrics : null;
+  const active = activeLine(l, p.position());
+
+  // Scrolling by hand (wheel, touch, the scrollbar, scroll keys) pauses following the song.
+  // Only user input counts: the scroll events of following the song itself would too.
+  useEffect(() => {
+    const manual = () => (scrolledAt.current = Date.now());
+    const inMain = (e: Event) => (e.target as Element | null)?.closest?.(".main");
+    // The lyrics scroll in their own column (the page scrolls instead in a narrow window).
+    const onWheel = (e: Event) => inMain(e) && manual();
+    // A press on the scroll container itself, not on a line inside it, is a press on its
+    // scrollbar: the pause lasts the whole drag, counted from when it ends.
+    const onDown = (e: Event) => {
+      if (!(e.target as Element | null)?.matches?.(".main, .song-lyrics-body")) return;
+      dragging.current = true;
+      manual();
+    };
+    const onUp = () => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      manual();
+    };
+    const onKey = (e: KeyboardEvent) => ["PageUp", "PageDown", "ArrowUp", "ArrowDown", "Home", "End"].includes(e.key) && manual();
+    window.addEventListener("wheel", onWheel, { capture: true, passive: true });
+    window.addEventListener("touchmove", onWheel, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("pointerup", onUp, true);
+    window.addEventListener("pointercancel", onUp, true);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("wheel", onWheel, true);
+      window.removeEventListener("touchmove", onWheel, true);
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("pointerup", onUp, true);
+      window.removeEventListener("pointercancel", onUp, true);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, []);
+
+  // Brings the sung line into view; while the user scrolls by hand, waits and tries again,
+  // so following resumes once the pause is over even if the line has not changed.
+  useEffect(() => {
+    if (active < 0) return;
+    let timer = 0;
+    const follow = () => {
+      const left = MANUAL_SCROLL_MS - (Date.now() - scrolledAt.current);
+      if (dragging.current || left > 0) {
+        timer = window.setTimeout(follow, dragging.current ? 250 : left);
+        return;
+      }
+      lines.current[active]?.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
+    };
+    follow();
+    return () => clearTimeout(timer);
+  }, [active]);
+
+  return (
+    <section className={`song-lyrics size-${size}`}>
+      <div className="song-lyrics-head">
+        <h2>{t("Lyrics")}</h2>
+        {l?.synced && <span className="muted small">{t("synced")}</span>}
+        <Segmented className="song-lyrics-size" label={t("Lyrics size")} options={SIZES} value={size} onChange={setSize} />
+      </div>
+      <div className="song-lyrics-body">
+        {state.status === "loading" && <div className="spinner" />}
+        {state.status === "failed" && (
+          <Empty className="song-lyrics-state" title={t("Couldn't load the lyrics")} text={t("Try again in a moment.")}>
+            <button className="pill-btn white" onClick={state.retry}>
+              {t("Try again")}
+            </button>
+          </Empty>
+        )}
+        {state.status === "ready" && !l && (
+          <Empty
+            className="song-lyrics-state"
+            icon={<MicIcon size={20} />}
+            title={uri.startsWith("spotify:track:") ? t("This song has no lyrics on Spotify") : t("Episodes have no lyrics")}
+            text={t("Instrumentals, episodes and local files don't have them.")}
+          />
+        )}
+        {l && (
+          <>
+            {!l.synced && <p className="song-lyrics-note">{t("These lyrics don't follow the song yet")}</p>}
+            <div className={`lyrics ${l.synced ? "synced" : ""}`}>
+              {l.lines.map((line, i) => (
+                <div
+                  key={i}
+                  ref={(el) => {
+                    lines.current[i] = el;
+                  }}
+                  className={`lyrics-line ${i === active ? "active" : i < active ? "past" : ""}`}
+                  onClick={() => l.synced && p.seek(line.start_ms)}
+                >
+                  {line.words || "♪"}
+                </div>
+              ))}
+            </div>
+            {l.provider && <p className="song-lyrics-provider">{t("Lyrics provided by {name}", { name: l.provider })}</p>}
+          </>
+        )}
+      </div>
+    </section>
+  );
+}

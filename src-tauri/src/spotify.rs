@@ -10,7 +10,7 @@ use librespot_core::{
 use librespot_oauth::OAuthClientBuilder;
 use librespot_playback::{
     audio_backend,
-    config::{AudioFormat, Bitrate, PlayerConfig, VolumeCtrl},
+    config::{AudioFormat, Bitrate, PlayerConfig},
     mixer::{self, MixerConfig},
     player::{Player, PlayerEvent},
 };
@@ -21,7 +21,7 @@ use tokio::sync::Mutex;
 
 use crate::connect::{ConnectView, Hub, NowPlaying, Repeat};
 use crate::pathfinder::Pathfinder;
-use crate::settings::Quality;
+use crate::settings::{ProgressMode, Quality};
 
 // The client id and redirect librespot itself logs in with; Spotify has this redirect registered.
 const CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
@@ -31,7 +31,20 @@ const LOGIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5 * 60
 const LOGIN_CLEANUP_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
 const HANDOFF_WAIT: std::time::Duration = std::time::Duration::from_secs(2);
 
-const LOGIN_DONE_PAGE: &str = r#"<!doctype html><html><body style="font-family:sans-serif;background:#1a1a1a;color:#ffd84d;text-align:center;padding-top:20vh"><h1>Quackify is in. You can close this tab.</h1></body></html>"#;
+/// The browser tab after the login: the duck with a check on a glass card. One page with the
+/// duck inline, and no name in it: it is shown before the app knows who logged in.
+const LOGIN_DONE_PAGE: &str = r##"<!doctype html><html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>{title}</title><style>html,body{height:100%;margin:0}body{display:grid;place-items:center;font-family:"Segoe UI Variable","Segoe UI",system-ui,sans-serif;color:#f6f4ee;background:radial-gradient(ellipse 55% 60% at 50% 45%,rgba(255,216,77,.30),transparent 70%),#0a0a0c}.card{width:min(420px,calc(100% - 48px));padding:36px 32px 30px;text-align:center;border:1px solid rgba(255,255,255,.1);border-radius:22px;background:rgba(20,20,26,.6);backdrop-filter:blur(24px) saturate(140%);box-shadow:0 20px 50px rgba(0,0,0,.5)}.duck{position:relative;display:inline-block}.check{position:absolute;right:-6px;bottom:2px;width:26px;height:26px;border-radius:50%;background:#29d39a;border:3px solid #16161b;display:grid;place-items:center}h1{margin:18px 0 8px;font-size:24px;font-weight:750}p{margin:0;color:#9a978f;font-size:14px;line-height:1.5}kbd{display:inline-block;margin-top:18px;padding:3px 8px;border:1px solid rgba(255,255,255,.14);border-radius:6px;background:rgba(255,255,255,.06);color:#f6f4ee;font:600 12px "Segoe UI",system-ui,sans-serif}</style></head><body><div class="card"><div class="duck"><svg width="88" height="88" viewBox="0 0 64 64" aria-hidden="true"><path fill="#ffd84d" d="M38 10c7.7 0 14 6.1 14 13.7 0 3.1-1 5.9-2.8 8.2C56.7 35 61 41 61 47.6 61 56.6 52.4 62 41 62H20C9.5 62 3 55.8 3 47.4c0-6.8 5.5-11.6 12.3-11.6 3.2 0 6 1 8.1 2.9-.7-2-1.1-4.1-1.1-6.4C22.3 18.2 29.3 10 38 10z"/><path fill="#ff9f1c" d="M50 21.5c4.8-.6 9.2.4 11 2.6-1.8 2.6-6.4 4-11.6 3.6z"/><circle cx="42" cy="20" r="3" fill="#1a1a1a"/><path fill="#f2c230" d="M20 44c6 6 18 7 26 1-3 8-13 11-21 8-4-1.5-6-5-5-9z"/></svg><span class="check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0a0a0c" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></div><h1>{heading}</h1><p>{text}</p><kbd>Ctrl W</kbd></div></body></html>"##;
+
+/// The page in the app's language (the one the Settings page last sent).
+fn login_done_page(language: &str) -> String {
+    let (lang, title, heading, text) = if language == "pt" {
+        ("pt-BR", "Quackify: login concluído", "Pronto, o Quackify entrou", "Pode fechar esta aba e voltar pro app. A música já tá te esperando.")
+    } else {
+        ("en", "Quackify: logged in", "All set, Quackify is in", "You can close this tab and go back to the app. Your music is waiting.")
+    };
+    LOGIN_DONE_PAGE.replace("{lang}", lang).replace("{title}", title).replace("{heading}", heading).replace("{text}", text)
+}
+
 
 struct Engine {
     session: Session,
@@ -98,10 +111,8 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     let initial_volume = cache.volume().unwrap_or(u16::MAX / 2);
     let session = Session::new(SessionConfig { autoplay: Some(settings.autoplay), ..Default::default() }, Some(cache));
 
-    // Linear: the slider's 50% is half the level. librespot's default curve (log, 60 dB) makes the
-    // lower half of the slider nearly silent.
-    let mixer_config = MixerConfig { volume_ctrl: VolumeCtrl::Linear, ..Default::default() };
-    let mixer = mixer::find(None).ok_or("no mixer")?(mixer_config)
+    // librespot's default volume curve (log, 60 dB), the one Spotify's own apps use.
+    let mixer = mixer::find(None).ok_or("no mixer")?(MixerConfig::default())
         .map_err(|e| e.to_string())?;
     let backend = audio_backend::find(None).ok_or("no audio backend")?;
     let player_config = PlayerConfig {
@@ -115,12 +126,17 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
         gapless: settings.gapless,
         ..Default::default()
     };
-    let player = Player::new(
-        player_config,
-        session.clone(),
-        mixer.get_soft_volume(),
-        move || backend(None, AudioFormat::default()),
-    );
+    // Wave and Live play through Quackify's own output, with the meter; if it cannot open, rodio.
+    let meter = (settings.progress_mode != ProgressMode::Simple).then(|| (app.clone(), mixer.get_soft_volume()));
+    let player = Player::new(player_config, session.clone(), mixer.get_soft_volume(), move || {
+        if let Some((app, volume)) = meter {
+            match crate::meter::OutputSink::open(app, volume) {
+                Ok(sink) => return Box::new(sink),
+                Err(e) => eprintln!("[output] falling back to rodio: {e}"),
+            }
+        }
+        backend(None, AudioFormat::default())
+    });
 
     let config = ConnectConfig {
         name: settings.device_name(),
@@ -141,8 +157,12 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
     tauri::async_runtime::spawn(async move {
         while let Some(event) = events.recv().await {
             let ui = match event {
-                PlayerEvent::Loading { track_id, .. } => Some(UiEvent::Loading { uri: track_id.to_string() }),
+                PlayerEvent::Loading { track_id, .. } => {
+                    hub2.set_local_stopped(false);
+                    Some(UiEvent::Loading { uri: track_id.to_string() })
+                }
                 PlayerEvent::Playing { track_id, position_ms, .. } => {
+                    hub2.set_local_stopped(false);
                     Some(UiEvent::Playing { uri: track_id.to_string(), position_ms })
                 }
                 PlayerEvent::Paused { track_id, position_ms, .. } => {
@@ -152,7 +172,10 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
                 | PlayerEvent::PositionCorrection { track_id, position_ms, .. } => {
                     Some(UiEvent::Seeked { uri: track_id.to_string(), position_ms })
                 }
-                PlayerEvent::Stopped { .. } => Some(UiEvent::Stopped),
+                PlayerEvent::Stopped { .. } => {
+                    hub2.set_local_stopped(true);
+                    Some(UiEvent::Stopped)
+                }
                 PlayerEvent::Unavailable { track_id, .. } => Some(UiEvent::Unavailable { uri: track_id.to_string() }),
                 PlayerEvent::TrackChanged { audio_item } => {
                     hub2.announce_track(audio_item.uri.clone());
@@ -298,10 +321,11 @@ fn wake_redirect_listener() {
 /// Opens the Spotify consent page in the browser and waits for the redirect.
 #[tauri::command]
 pub async fn spotify_login(app: AppHandle, state: State<'_, SpotifyState>) -> Result<Status, String> {
-    let mut waiting = tauri::async_runtime::spawn_blocking(|| {
+    let page_lang = crate::settings::current(&app).language;
+    let mut waiting = tauri::async_runtime::spawn_blocking(move || {
         OAuthClientBuilder::new(CLIENT_ID, REDIRECT_URI, SCOPES.to_vec())
             .open_in_browser()
-            .with_custom_message(LOGIN_DONE_PAGE)
+            .with_custom_message(&login_done_page(&page_lang))
             .build()
             .and_then(|client| client.get_access_token())
             .map_err(|e| e.to_string())
@@ -392,9 +416,10 @@ pub async fn spotify_player_state(state: State<'_, SpotifyState>) -> Result<Play
 pub async fn spotify_play_context(
     context_uri: String,
     track_uri: Option<String>,
+    position_ms: Option<u32>,
     state: State<'_, SpotifyState>,
 ) -> Result<(), String> {
-    hub(&state).await?.play_context(context_uri, track_uri).await
+    hub(&state).await?.play_context(context_uri, track_uri, position_ms).await
 }
 
 /// Plays a loose list of tracks (search results) from `index`.
@@ -648,6 +673,13 @@ fn parse_lyrics(v: &Value) -> Option<Lyrics> {
 }
 
 /// The lyrics of a track, or nothing when Spotify has none for it.
+/// The loudness of each stretch of a song, before it plays (waveform.rs).
+#[tauri::command]
+pub async fn spotify_waveform(uri: String, state: State<'_, SpotifyState>) -> Result<Vec<f32>, String> {
+    let session = session(&state).await?;
+    crate::waveform::measure(&session, &uri).await
+}
+
 #[tauri::command]
 pub async fn spotify_lyrics(uri: String, state: State<'_, SpotifyState>) -> Result<Option<Lyrics>, String> {
     use http::{header, HeaderMap, HeaderValue, Method};
@@ -730,5 +762,18 @@ mod tests {
         assert!(!l.synced);
         assert_eq!(l.background, None);
         assert_eq!(parse_lyrics(&serde_json::json!({ "lyrics": { "lines": [] } })), None);
+    }
+
+    #[test]
+    fn login_page_in_both_languages() {
+        let pt = login_done_page("pt");
+        assert!(pt.contains("<html lang=\"pt-BR\">") && pt.contains("Pronto, o Quackify entrou") && pt.contains("login concluído"));
+        let en = login_done_page("en");
+        assert!(en.contains("<html lang=\"en\">") && en.contains("All set, Quackify is in"));
+        // No placeholder left, and the CSS braces untouched.
+        for page in [&pt, &en] {
+            assert!(!page.contains("{lang}") && !page.contains("{title}") && !page.contains("{heading}") && !page.contains("{text}"));
+            assert!(page.contains("html,body{height:100%;margin:0}"));
+        }
     }
 }
