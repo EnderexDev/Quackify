@@ -72,7 +72,7 @@ export default {
   "Device name": "Nome do aparelho",
   "How this computer shows up in your other Spotify apps.": "Como este computador aparece nos teus outros apps do Spotify.",
   "Count plays on Spotify": "Contar no Spotify",
-  "Songs you play here go to your Spotify listening history, as Spotify's own apps report them. Spotify does not allow this for unofficial apps: turn it on at your own risk.": "As músicas que tu ouve aqui vão pro teu histórico do Spotify, do jeito que os apps oficiais registram. O Spotify não autoriza isso em apps não oficiais: liga por tua conta e risco.",
+  "Songs you play here go to your Spotify listening history, as Spotify's own apps report them. Spotify does not say whether unofficial apps may do this: turn it on at your own risk.": "As músicas que tu ouve aqui vão pro teu histórico do Spotify, do jeito que os apps oficiais registram. O Spotify não diz se apps não oficiais podem fazer isso: liga por tua conta e risco.",
   "Spotify links": "Links do Spotify",
   "Open Spotify links in Quackify": "Abrir links do Spotify no Quackify",
   "Active": "Ativo",

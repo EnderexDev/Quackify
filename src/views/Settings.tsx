@@ -393,7 +393,7 @@ export function SettingsView({ account }: { account: Account }) {
             </Row>
             <Row
               title={t("Count plays on Spotify")}
-              note={t("Songs you play here go to your Spotify listening history, as Spotify's own apps report them. Spotify does not allow this for unofficial apps: turn it on at your own risk.")}
+              note={t("Songs you play here go to your Spotify listening history, as Spotify's own apps report them. Spotify does not say whether unofficial apps may do this: turn it on at your own risk.")}
             >
               <Toggle on={s.report_listening} disabled={applying} onChange={(on) => save({ report_listening: on })} />
             </Row>

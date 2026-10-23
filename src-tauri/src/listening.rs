@@ -2,7 +2,7 @@
 // report it. librespot sends nothing, so without this Spotify never hears of a song played in
 // Quackify (measured 23/10/26: 7 minutes played, nothing in recently played; with the report,
 // the album was on top two minutes later). Off unless the Settings switch is on: Spotify does not
-// allow it for unofficial apps.
+// say whether unofficial apps may.
 //
 // One report per song played, with the time it really played: pauses do not count and a seek
 // adds nothing. The format follows librespot PR #1759 (RawCoreStream, from desktop 1.2.96.518).

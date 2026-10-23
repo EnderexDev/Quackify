@@ -82,7 +82,7 @@ pub struct Settings {
     /// tray menu and the browser page after login follow it. The choice itself lives in the page.
     pub language: String,
     /// Songs played here go to the account's listening history, as Spotify's own apps report
-    /// them (listening.rs). Off unless switched on: Spotify does not allow it for unofficial apps.
+    /// them (listening.rs). Off unless switched on: Spotify does not say whether unofficial apps may.
     pub report_listening: bool,
 }
 
