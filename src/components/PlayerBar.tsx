@@ -373,9 +373,11 @@ export function VolumePercent({
 
   const commit = () => {
     if (text === null) return;
-    const n = Number(text.replace("%", "").replace(",", ".").trim());
+    // Without the % first: a lone "%" would be Number("") = 0 and mute.
+    const typed = text.replace("%", "").replace(",", ".").trim();
+    const n = Number(typed);
     setText(null);
-    if (text.trim() !== "" && Number.isFinite(n)) onCommit(Math.min(100, Math.max(0, n)) / 100);
+    if (typed !== "" && Number.isFinite(n)) onCommit(Math.min(100, Math.max(0, n)) / 100);
   };
 
   return (

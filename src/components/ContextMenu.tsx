@@ -100,14 +100,19 @@ function Menu({ x, y, items, onDone }: { x: number; y: number; items: MenuItem[]
     });
   }, [x, y, items]);
 
+  // Each opening gets its own number: leaving a submenu and coming back starts a new load, and
+  // only the latest one may fill it.
+  const subRequest = useRef(0);
   const openSub = async (index: number, load: () => Promise<MenuItem[]> | MenuItem[], head: MenuItem[] = []) => {
+    const request = ++subRequest.current;
     setSub({ index, items: null, head });
+    let items: MenuItem[];
     try {
-      const loaded = await load();
-      setSub((s) => (s?.index === index ? { ...s, items: loaded } : s));
+      items = await load();
     } catch {
-      setSub((s) => (s?.index === index ? { ...s, items: [{ label: t("Could not load"), disabled: true }] } : s));
+      items = [{ label: t("Could not load"), disabled: true }];
     }
+    if (request === subRequest.current) setSub((s) => (s?.index === index ? { ...s, items } : s));
   };
 
   return (
