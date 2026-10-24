@@ -1,7 +1,7 @@
 // The right-click menu. `useContextMenu()` gives `open(event, items)`; one menu shows at a time.
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { t } from "../i18n";
-import { CheckIcon, ChevronRightIcon, PlayIcon, DiscIcon, EditIcon, HeartIcon, HeartOutlineIcon, MoreIcon, PlaylistAddIcon, PlusIcon, QueueIcon, RepeatIcon, UserIcon } from "./icons";
+import { CheckIcon, ChevronRightIcon, ClockIcon, CloseIcon, CodeIcon, LinkIcon, OpenIcon, PauseIcon, PinIcon, PodcastIcon, ShareIcon, TrashIcon, PlayIcon, DiscIcon, EditIcon, HeartIcon, HeartOutlineIcon, MoreIcon, PlaylistAddIcon, PlusIcon, QueueIcon, RepeatIcon, UserIcon } from "./icons";
 
 /** The icons a menu item can show on its left (Figma "menu da música"). */
 const ICONS = {
@@ -16,6 +16,16 @@ const ICONS = {
   plus: PlusIcon,
   edit: EditIcon,
   play: PlayIcon,
+  pause: PauseIcon,
+  open: OpenIcon,
+  link: LinkIcon,
+  share: ShareIcon,
+  trash: TrashIcon,
+  code: CodeIcon,
+  podcast: PodcastIcon,
+  clock: ClockIcon,
+  pin: PinIcon,
+  close: CloseIcon,
 };
 
 export type MenuItem =

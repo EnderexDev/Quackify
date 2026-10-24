@@ -202,6 +202,7 @@ export function useLibraryActions(onPinned?: () => void) {
           "separator",
           {
             label: c.pinned ? (c.kind === "folder" ? t("Unpin folder") : t("Unpin")) : c.kind === "folder" ? t("Pin folder") : t("Pin"),
+            icon: "pin",
             onClick: () =>
               pinInLibrary(c.uri, !c.pinned).then(() => {
                 notify(c.pinned ? t("Unpinned") : t("Pinned to the top of Your Library"));
@@ -216,7 +217,7 @@ export function useLibraryActions(onPinned?: () => void) {
     e.preventDefault();
     e.stopPropagation();
     const at = { clientX: e.clientX, clientY: e.clientY, preventDefault: () => {} };
-    if (c.kind === "folder") return openMenu(at, [{ label: t("Open"), onClick: () => nav.open(c.uri, c.title) }, ...pinItem(c)]);
+    if (c.kind === "folder") return openMenu(at, [{ label: t("Open"), icon: "open", onClick: () => nav.open(c.uri, c.title) }, ...pinItem(c)]);
     if (c.kind === "liked") return openMenu(at, [...cardMenu(c, undefined, nav), ...pinItem(c)]);
     areSaved([c.uri]).then(
       ([saved]) => openMenu(at, [...cardMenu(c, saved, nav), ...pinItem(c)]),

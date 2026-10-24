@@ -108,9 +108,10 @@ export function trackMenu(
     "separator",
     {
       label: t("Share"),
+      icon: "share",
       submenu: () => [
-        { label: t("Copy song link"), onClick: () => copy(webLink(track.uri)) },
-        { label: t("Embed track"), onClick: () => copy(embedCode(track.uri), t("Embed code copied")) },
+        { label: t("Copy song link"), icon: "link", onClick: () => copy(webLink(track.uri)) },
+        { label: t("Embed track"), icon: "code", onClick: () => copy(embedCode(track.uri), t("Embed code copied")) },
       ],
     },
   ];
@@ -183,10 +184,10 @@ export function cardMenu(card: Card, saved: boolean | undefined, nav: Nav): Menu
   const items: MenuItem[] = [
     isTrack
       ? { label: t("Play"), icon: "play", onClick: () => play.tracks([card.uri], 0).catch(toast) }
-      : { label: t("Open"), onClick: () => nav.open(card.uri, card.title) },
+      : { label: t("Open"), icon: "open", onClick: () => nav.open(card.uri, card.title) },
   ];
   if (isTrack) items.push({ label: t("Add to queue"), icon: "queue", onClick: () => play.addToQueue(card.uri).catch(toast) });
-  if (card.kind === "user") return [...items, "separator", { label: t("Copy link"), onClick: () => copy(webLink(card.uri)) }];
+  if (card.kind === "user") return [...items, "separator", { label: t("Copy link"), icon: "link", onClick: () => copy(webLink(card.uri)) }];
   if (card.kind !== "liked") {
     items.push({
       label: isArtist
@@ -198,7 +199,7 @@ export function cardMenu(card: Card, saved: boolean | undefined, nav: Nav): Menu
       disabled: saved === undefined,
       onClick: () => setSaved(card.uri, !saved),
     });
-    items.push("separator", { label: t("Copy link"), onClick: () => copy(webLink(card.uri)) });
+    items.push("separator", { label: t("Copy link"), icon: "link", onClick: () => copy(webLink(card.uri)) });
   }
   return items;
 }
@@ -284,12 +285,12 @@ export function collectionMenu(o: {
         : { label: t("Go to artist"), icon: "user", submenu: () => o.artists.map((a) => ({ label: a.name, onClick: () => o.nav.open(a.uri) })) },
     );
   }
-  const copyLink: MenuItem = { label: t("Copy link"), onClick: () => copy(webLink(o.uri)) };
+  const copyLink: MenuItem = { label: t("Copy link"), icon: "link", onClick: () => copy(webLink(o.uri)) };
   // The user's own playlist, as in the Figma: Edit details and Copy link, then Delete in red last.
   if (o.own) {
     items.push("separator", { label: t("Edit details"), icon: "edit", onClick: o.onEdit });
     if (o.kind !== "liked") items.push(copyLink);
-    items.push("separator", { label: t("Delete"), danger: true, onClick: o.onDelete });
+    items.push("separator", { label: t("Delete"), icon: "trash", danger: true, onClick: o.onDelete });
   } else if (o.kind !== "liked") items.push("separator", copyLink);
   return items;
 }
@@ -299,7 +300,7 @@ export function followMenu(uri: string, saved: boolean | undefined): MenuItem[] 
   return [
     { label: saved ? t("Unfollow") : t("Follow"), icon: "user", disabled: saved === undefined, onClick: () => setSaved(uri, !saved) },
     "separator",
-    { label: t("Copy link"), onClick: () => copy(webLink(uri)) },
+    { label: t("Copy link"), icon: "link", onClick: () => copy(webLink(uri)) },
   ];
 }
 

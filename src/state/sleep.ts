@@ -54,7 +54,7 @@ export function sleepMenu(trackUri: string | null, episode: boolean): MenuItem[]
       disabled: !trackUri,
       onClick: () => trackUri && setSleep({ kind: "end", uri: trackUri }),
     },
-    ...(s ? ["separator" as const, { label: t("Turn off timer"), onClick: () => setSleep(null) }] : []),
+    ...(s ? ["separator" as const, { label: t("Turn off timer"), icon: "close" as const, onClick: () => setSleep(null) }] : []),
   ];
 }
 

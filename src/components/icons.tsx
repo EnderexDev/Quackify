@@ -434,3 +434,38 @@ export const CloseIcon = (p: P) => (
     <path d="m6.5 6.5 11 11m0-11-11 11" />
   </Icon>
 );
+
+/** Not in the Figma set either: so every menu item has an icon (his call, 24/10/26). */
+export const OpenIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M13.5 4.5h6v6M19.5 4.5l-8 8" />
+    <path d="M17.5 14v3.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2H10" />
+  </Icon>
+);
+
+export const LinkIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M10.2 13.8a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.1 1.1" />
+    <path d="M13.8 10.2a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.1-1.1" />
+  </Icon>
+);
+
+export const ShareIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M12 3.8v11M8 7.8l4-4 4 4" />
+    <path d="M8 11H6.5a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2H16" />
+  </Icon>
+);
+
+export const TrashIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="M4.5 7h15M9.5 7V5.2c0-.6.5-1 1-1h3c.6 0 1 .4 1 1V7" />
+    <path d="m6.5 7 .8 11.4a1.8 1.8 0 0 0 1.8 1.6h5.8a1.8 1.8 0 0 0 1.8-1.6L17.5 7M10.2 11v5M13.8 11v5" />
+  </Icon>
+);
+
+export const CodeIcon = (p: P) => (
+  <Icon {...p}>
+    <path d="m8.5 8-4 4 4 4M15.5 8l4 4-4 4M13.5 5.5l-3 13" />
+  </Icon>
+);

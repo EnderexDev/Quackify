@@ -174,11 +174,11 @@ function episodeWhen(e: Episode) {
 
 function episodeMenu(e: Episode, playThis: () => void, nav: ReturnType<typeof useNav>, playing = false): MenuItem[] {
   return [
-    { label: playing ? t("Pause") : t("Play"), onClick: playThis },
-    { label: t("Add to queue"), onClick: () => play.addToQueue(e.uri).then(() => notify(t("Added to queue")), toast) },
+    { label: playing ? t("Pause") : t("Play"), icon: playing ? "pause" : "play", onClick: playThis },
+    { label: t("Add to queue"), icon: "queue", onClick: () => play.addToQueue(e.uri).then(() => notify(t("Added to queue")), toast) },
     "separator",
-    { label: t("Go to podcast"), onClick: () => e.show.uri && nav.open(e.show.uri), disabled: !e.show.uri },
-    { label: t("Copy episode link"), onClick: () => copy(webLink(e.uri)) },
+    { label: t("Go to podcast"), icon: "podcast", onClick: () => e.show.uri && nav.open(e.show.uri), disabled: !e.show.uri },
+    { label: t("Copy episode link"), icon: "link", onClick: () => copy(webLink(e.uri)) },
   ];
 }
 

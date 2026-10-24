@@ -346,7 +346,7 @@ export function QueueRow({
       onContextMenu={(e) => {
         if (!track) return;
         const items: MenuItem[] = [...trackMenu({ ...track, album: track.album.uri ? track.album : null }, saved, nav)];
-        if (onRemove) items.unshift({ label: t("Remove from queue"), onClick: onRemove }, "separator");
+        if (onRemove) items.unshift({ label: t("Remove from queue"), icon: "trash", onClick: onRemove }, "separator");
         openMenu(e, items);
       }}
     >

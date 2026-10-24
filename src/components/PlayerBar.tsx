@@ -104,9 +104,9 @@ export function PlayerBar({ panel, onPanel }: { panel: Panel; onPanel: (p: Exclu
   // Right click on the song: its menu, with the sleep timer at the end.
   const songMenu = (e: React.MouseEvent) => {
     if (!song) return;
-    const sleepItem: MenuItem = { label: t("Sleep timer"), submenu: () => sleepMenu(song.uri, episode) };
+    const sleepItem: MenuItem = { label: t("Sleep timer"), icon: "clock", submenu: () => sleepMenu(song.uri, episode) };
     const items: MenuItem[] = episode
-      ? [{ label: t("Go to episode"), onClick: () => nav.open(song.uri) }, "separator", sleepItem]
+      ? [{ label: t("Go to episode"), icon: "podcast", onClick: () => nav.open(song.uri) }, "separator", sleepItem]
       : [...trackMenu(song, saved, nav), "separator", sleepItem];
     openMenu(e, items);
   };
