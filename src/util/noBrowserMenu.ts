@@ -2,7 +2,7 @@
 // open where they exist. Text fields keep it, for cut, copy and paste. Imported once, for its effect.
 window.addEventListener("contextmenu", (e) => {
   const el = e.target as HTMLElement | null;
-  if (el?.closest("input, textarea, [contenteditable='true']")) return;
+  if (el?.closest("input, textarea") || el?.isContentEditable) return;
   e.preventDefault();
 });
 
