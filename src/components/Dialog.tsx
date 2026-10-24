@@ -11,11 +11,14 @@ export function Dialog({
   title,
   onClose,
   busy = false,
+  className,
   children,
 }: {
   title: string;
   onClose: () => void;
   busy?: boolean;
+  /** Extra class on the card, for its width. */
+  className?: string;
   children: ReactNode;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -50,7 +53,7 @@ export function Dialog({
 
   return (
     <div className="dialog-backdrop" onMouseDown={close}>
-      <div ref={box} className="dialog" tabIndex={-1} onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}>
+      <div ref={box} className={`dialog ${className ?? ""}`} tabIndex={-1} onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}>
         <h2>{title}</h2>
         {children}
       </div>
@@ -85,24 +88,27 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel,
+  danger,
   onConfirm,
   onClose,
 }: {
   title: string;
   message: string;
   confirmLabel: string;
+  /** The action deletes something: the button is red. */
+  danger?: boolean;
   onConfirm: () => Promise<void> | void;
   onClose: () => void;
 }) {
   const { busy, submit } = useSubmit(onConfirm, onClose);
   return (
-    <Dialog title={title} onClose={onClose} busy={busy}>
+    <Dialog title={title} onClose={onClose} busy={busy} className="confirm">
       <p className="muted">{message}</p>
       <div className="dialog-actions">
         <button className="secondary" onClick={onClose} disabled={busy}>
           {t("Cancel")}
         </button>
-        <button className="primary" disabled={busy} onClick={submit}>
+        <button className={`primary ${danger ? "danger" : ""}`} disabled={busy} onClick={submit}>
           {confirmLabel}
         </button>
       </div>
@@ -147,7 +153,7 @@ export function EditDetailsDialog({
         <textarea
           value={d}
           maxLength={300}
-          rows={4}
+          rows={2}
           disabled={busy}
           placeholder={t("Add an optional description")}
           onChange={(e) => setD(e.currentTarget.value)}

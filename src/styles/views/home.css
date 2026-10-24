@@ -121,10 +121,10 @@
   z-index: 20;
   top: calc(100% + 8px);
   right: 0;
-  width: 320px;
-  padding: 14px 10px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  width: 300px;
+  padding: 12px 10px 6px;
+  border: 1px solid var(--surface-3);
+  border-radius: 20px;
   background: var(--popup);
   -webkit-backdrop-filter: var(--blur-popup);
   backdrop-filter: var(--blur-popup);
@@ -144,12 +144,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 8px 10px;
+  padding: 0 8px 6px;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .customize-head .link {
-  font-size: 12px;
+  font-size: 11.5px;
 }
 
 .customize-list {
@@ -160,10 +161,10 @@
 .customize-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 40px;
+  gap: 10px;
+  height: 38px;
   padding: 0 8px;
-  border-radius: var(--r-md);
+  border-radius: 10px;
   border-top: 2px solid transparent;
   border-bottom: 2px solid transparent;
   cursor: grab;
@@ -192,13 +193,15 @@
 
 .customize-grip {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
+  opacity: 0.7;
 }
 
 .customize-title {
   flex: 1;
   min-width: 0;
   font-size: 13px;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -230,8 +233,8 @@
 }
 
 .customize-add {
-  margin-top: 6px;
-  padding-top: 6px;
+  margin-top: 2px;
+  padding-top: 2px;
   border-top: 1px solid var(--line);
 }
 
@@ -240,10 +243,11 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  height: 36px;
-  padding: 0 8px;
-  border-radius: var(--r-md);
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
   font-size: 13px;
+  font-weight: 500;
   text-align: left;
 }
 

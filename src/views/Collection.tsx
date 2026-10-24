@@ -392,6 +392,7 @@ function Loaded({ first }: { first: Data }) {
           title={t("Delete from Your Library?")}
           message={t("This will delete {name} from Your Library.", { name: title })}
           confirmLabel={t("Delete")}
+          danger
           onClose={() => setDialog(null)}
           onConfirm={async () => {
             try {

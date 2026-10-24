@@ -149,7 +149,7 @@ export function TrackList({
     const at = { clientX: e.clientX, clientY: e.clientY, preventDefault: () => {} };
     const rows = indices.map((i) => tracks[i]);
     const extra: MenuItem[] = removable(indices)
-      ? ["separator", { label: t("Remove from {name}", { name: playlistName ?? t("this playlist") }), onClick: () => onRemove!(indices) }]
+      ? ["separator", { label: t("Remove from {name}", { name: playlistName ?? t("this playlist") }), danger: true, onClick: () => onRemove!(indices) }]
       : [];
     areSaved(rows.map((t) => t.uri)).then(
       (saved) => openMenu(at, [...tracksMenu(rows, saved.every(Boolean), nav), ...extra]),
@@ -173,7 +173,7 @@ export function TrackList({
       const remove = removable([i]) ? () => onRemove!([i]) : undefined;
       openMenu(e, [
         ...trackMenu(tracks[i], knownSaved(tracks[i].uri), nav),
-        ...(remove ? (["separator", { label: t("Remove from {name}", { name: playlistName ?? t("this playlist") }), onClick: remove }] as const) : []),
+        ...(remove ? (["separator", { label: t("Remove from {name}", { name: playlistName ?? t("this playlist") }), danger: true, onClick: remove }] as const) : []),
       ]);
     },
     // Dragging a selected row takes the whole selection along.

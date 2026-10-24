@@ -129,60 +129,89 @@
   position: relative;
 }
 
+/* Figma "seletor de aparelhos": a 250px glass card like the menus; where it plays on top in
+   yellow (green when it is another device), then the others with an 18px icon. */
 .devices-pop {
   position: absolute;
   right: -40px;
   bottom: 40px;
-  width: 320px;
-  padding: 16px 8px 8px;
-  background: var(--popup);
-  backdrop-filter: var(--blur-popup);
-  border-radius: 10px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
   z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 250px;
+  padding: 6px 8px;
+  background: var(--popup);
+  -webkit-backdrop-filter: var(--blur-popup);
+  backdrop-filter: var(--blur-popup);
+  border: 1px solid var(--surface-3);
+  border-radius: 16px;
+  box-shadow: var(--shadow-popup);
+  animation: pop-in var(--t-mid) var(--ease-spring);
+  transform-origin: bottom right;
 }
 
-.devices-title {
-  font-weight: 800;
-  font-size: 16px;
-  padding: 0 8px 12px;
+.devices-pop .menu-sep {
+  flex: none;
+  height: 1px;
+  background: var(--line);
+}
+
+.devices-now {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  min-width: 0;
+}
+
+.devices-now-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devices-now.remote .devices-now-name {
+  color: var(--green);
 }
 
 .devices-sub {
+  padding: 6px 10px 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 12px 8px 6px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .device {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   width: 100%;
-  padding: 10px 8px;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
   text-align: left;
+}
+
+.device > svg {
+  flex: none;
 }
 
 button.device:hover {
   background: var(--surface-2);
 }
 
-.device.current {
-  color: var(--accent);
-}
-
 .device-name {
+  font-size: 13px;
   font-weight: 600;
 }
 
 .device-sub {
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--muted);
-}
-
-.device.current .device-sub {
-  color: var(--accent);
-  opacity: 0.8;
 }

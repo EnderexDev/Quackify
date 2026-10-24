@@ -39,6 +39,7 @@ export function playlistPicker(track: { uri: string; name?: string }, nav: Nav):
     submenuHead: [
       {
         label: t("New playlist"),
+        icon: "plus",
         onClick: () => newPlaylist({ songs: async () => [track.uri], label: track.name ?? t("this song"), name: track.name }),
       },
       "separator",
@@ -74,30 +75,34 @@ export function trackMenu(
   return [
     {
       label: t("Add to queue"),
+      icon: "queue",
       onClick: () => play.addToQueue(track.uri).then(() => notify(t("Added to queue")), toast),
     },
-    { label: t("Add to playlist"), ...playlistPicker(track, nav) },
+    { label: t("Add to playlist"), icon: "playlist-add", ...playlistPicker(track, nav) },
     {
       label: saved ? t("Remove from Liked Songs") : t("Save to Liked Songs"),
+      icon: saved ? "liked" : "heart",
+      hint: "Alt Shift B",
       disabled: saved === undefined,
       onClick: () => setSaved(track.uri, !saved),
     },
     "separator",
     ...(track.artists.length === 1
-      ? [{ label: t("Go to artist"), onClick: () => nav.open(track.artists[0].uri) }]
+      ? [{ label: t("Go to artist"), icon: "user" as const, onClick: () => nav.open(track.artists[0].uri) }]
       : track.artists.length > 1
         ? [
             {
               label: t("Go to artist"),
+              icon: "user" as const,
               submenu: () => track.artists.map((a) => ({ label: a.name, onClick: () => nav.open(a.uri) })),
             },
           ]
         : []),
-    ...(track.album?.uri ? [{ label: t("Go to album"), onClick: () => nav.open(track.album!.uri) }] : []),
+    ...(track.album?.uri ? [{ label: t("Go to album"), icon: "disc" as const, onClick: () => nav.open(track.album!.uri) }] : []),
     ...(track.uri.startsWith("spotify:track:")
       ? [
-          { label: t("Go to song radio"), onClick: () => songRadio(track.uri).then((u) => nav.open(u), toast) },
-          { label: t("Show credits"), onClick: () => openCredits(track.uri) },
+          { label: t("Go to song radio"), icon: "radio" as const, onClick: () => songRadio(track.uri).then((u) => nav.open(u), toast) },
+          { label: t("Show credits"), icon: "more" as const, onClick: () => openCredits(track.uri) },
         ]
       : []),
     "separator",
@@ -124,6 +129,8 @@ export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSav
     {
       id: "queue",
       label: t("Add to queue"),
+      icon: "queue",
+      hint: t("up to {n}", { n: QUEUE_LIMIT }),
       onClick: async () => {
         try {
           const queued = playable.slice(0, QUEUE_LIMIT);
@@ -137,9 +144,11 @@ export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSav
     {
       id: "playlist",
       label: t("Add to playlist"),
+      icon: "playlist-add",
       submenuHead: [
         {
           label: t("New playlist"),
+          icon: "plus",
           onClick: () => newPlaylist({ songs: async () => uris, label: n }),
         },
         "separator",
@@ -153,6 +162,7 @@ export function tracksMenu(tracks: { uri: string; playable?: boolean }[], allSav
     {
       id: "liked",
       label: allSaved ? t("Remove from Liked Songs") : t("Save to Liked Songs"),
+      icon: allSaved ? "liked" : "heart",
       disabled: allSaved === undefined,
       onClick: () => {
         const want = !allSaved;
@@ -175,7 +185,7 @@ export function cardMenu(card: Card, saved: boolean | undefined, nav: Nav): Menu
       ? { label: t("Play"), onClick: () => play.tracks([card.uri], 0).catch(toast) }
       : { label: t("Open"), onClick: () => nav.open(card.uri, card.title) },
   ];
-  if (isTrack) items.push({ label: t("Add to queue"), onClick: () => play.addToQueue(card.uri).catch(toast) });
+  if (isTrack) items.push({ label: t("Add to queue"), icon: "queue", onClick: () => play.addToQueue(card.uri).catch(toast) });
   if (card.kind === "user") return [...items, "separator", { label: t("Copy link"), onClick: () => copy(webLink(card.uri)) }];
   if (card.kind !== "liked") {
     items.push({
@@ -220,6 +230,8 @@ export function collectionMenu(o: {
   const items: MenuItem[] = [
     {
       label: t("Add to queue"),
+      icon: "queue",
+      hint: t("up to {n}", { n: QUEUE_LIMIT }),
       onClick: async () => {
         try {
           const uris = await o.songs();
@@ -232,9 +244,11 @@ export function collectionMenu(o: {
     },
     {
       label: t("Add to playlist"),
+      icon: "playlist-add",
       submenuHead: [
         {
           label: t("New playlist"),
+          icon: "plus",
           onClick: () => newPlaylist({ songs: o.songs, label: o.title, name: o.title }),
         },
         "separator",
@@ -264,21 +278,24 @@ export function collectionMenu(o: {
     items.push("separator");
     items.push(
       o.artists.length === 1
-        ? { label: t("Go to artist"), onClick: () => o.nav.open(o.artists[0].uri) }
-        : { label: t("Go to artist"), submenu: () => o.artists.map((a) => ({ label: a.name, onClick: () => o.nav.open(a.uri) })) },
+        ? { label: t("Go to artist"), icon: "user", onClick: () => o.nav.open(o.artists[0].uri) }
+        : { label: t("Go to artist"), icon: "user", submenu: () => o.artists.map((a) => ({ label: a.name, onClick: () => o.nav.open(a.uri) })) },
     );
   }
+  const copyLink: MenuItem = { label: t("Copy link"), onClick: () => copy(webLink(o.uri)) };
+  // The user's own playlist, as in the Figma: Edit details and Copy link, then Delete in red last.
   if (o.own) {
-    items.push("separator", { label: t("Edit details"), onClick: o.onEdit }, { label: t("Delete"), onClick: o.onDelete });
-  }
-  if (o.kind !== "liked") items.push("separator", { label: t("Copy link"), onClick: () => copy(webLink(o.uri)) });
+    items.push("separator", { label: t("Edit details"), icon: "edit", onClick: o.onEdit });
+    if (o.kind !== "liked") items.push(copyLink);
+    items.push("separator", { label: t("Delete"), danger: true, onClick: o.onDelete });
+  } else if (o.kind !== "liked") items.push("separator", copyLink);
   return items;
 }
 
 /** The ••• menu of an artist's or a podcast's own page. */
 export function followMenu(uri: string, saved: boolean | undefined): MenuItem[] {
   return [
-    { label: saved ? t("Unfollow") : t("Follow"), disabled: saved === undefined, onClick: () => setSaved(uri, !saved) },
+    { label: saved ? t("Unfollow") : t("Follow"), icon: "user", disabled: saved === undefined, onClick: () => setSaved(uri, !saved) },
     "separator",
     { label: t("Copy link"), onClick: () => copy(webLink(uri)) },
   ];

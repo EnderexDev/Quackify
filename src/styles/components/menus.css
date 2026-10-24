@@ -55,41 +55,50 @@
   color: var(--text);
 }
 
+/* Menus (Figma "menu da música"): a glass card with 16px corners, rows of 32px 2px apart, a 16px
+   icon, 13px text, a shortcut in grey at the right. */
 .menu {
   position: fixed;
   z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 220px;
   max-width: 320px;
-  padding: 4px;
+  padding: 6px;
   background: var(--popup);
+  -webkit-backdrop-filter: var(--blur-popup);
   backdrop-filter: var(--blur-popup);
-  border-radius: 6px;
-  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--surface-3);
+  border-radius: 16px;
+  box-shadow: var(--shadow-popup);
 }
 
 .menu.submenu {
   position: absolute;
-  left: calc(100% + 2px);
-  top: -4px;
+  left: calc(100% + 4px);
+  top: -7px;
   max-height: 60vh;
   overflow-y: auto;
 }
 
 .menu.submenu.flip {
   left: auto;
-  right: calc(100% + 2px);
+  right: calc(100% + 4px);
 }
 
 .menu-item {
   position: relative;
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 10px 0 6px;
-  border-radius: 3px;
+  gap: 10px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
   cursor: default;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .menu-item:not(.disabled):hover,
@@ -101,10 +110,18 @@
   color: var(--muted);
 }
 
+.menu-item.danger {
+  color: var(--danger);
+}
+
 .menu-check {
+  flex: none;
   width: 16px;
   display: grid;
   place-items: center;
+}
+
+.menu-check.on {
   color: var(--accent);
 }
 
@@ -115,10 +132,21 @@
   text-overflow: ellipsis;
 }
 
+.menu-hint {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.menu-chevron {
+  flex: none;
+  color: var(--muted);
+}
+
 .menu-sep {
+  flex: none;
   height: 1px;
-  margin: 4px 0;
-  background: var(--surface-2);
+  background: var(--line);
 }
 
 .queue {

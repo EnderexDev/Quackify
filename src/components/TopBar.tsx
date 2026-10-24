@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { t } from "../i18n";
 import { useNav } from "../state/nav";
 import { toggleCinema, toggleMini } from "../state/windows";
-import { BackIcon, DuckIcon, ExpandIcon, ForwardIcon, KeyboardIcon, LogOutIcon, MiniPlayerIcon, SearchIcon, SettingsIcon } from "./icons";
+import { BackIcon, DuckIcon, ExpandIcon, ForwardIcon, KeyboardIcon, MiniPlayerIcon, SearchIcon, SettingsIcon } from "./icons";
 import { Segmented } from "./Segmented";
 
 // Labels read at render, so they follow the language.
@@ -150,28 +150,27 @@ function AvatarMenu({
       </button>
       <div className="menu-sep" />
       <button className="avatar-menu-item" role="menuitem" onClick={pick(onSettings)}>
-        <SettingsIcon size={18} />
+        <SettingsIcon size={16} />
         <span>{t("Settings")}</span>
-        <kbd>Ctrl P</kbd>
+        <span className="menu-hint">Ctrl P</span>
       </button>
       <button className="avatar-menu-item" role="menuitem" onClick={pick(toggleMini)}>
-        <MiniPlayerIcon size={18} />
+        <MiniPlayerIcon size={16} />
         <span>{t("Mini player")}</span>
-        <kbd>Ctrl M</kbd>
+        <span className="menu-hint">Ctrl M</span>
       </button>
       <button className="avatar-menu-item" role="menuitem" onClick={pick(toggleCinema)}>
-        <ExpandIcon size={18} />
+        <ExpandIcon size={16} />
         <span>{t("Cinema mode")}</span>
-        <kbd>F11</kbd>
+        <span className="menu-hint">F11</span>
       </button>
       <button className="avatar-menu-item" role="menuitem" onClick={pick(onShortcuts)}>
-        <KeyboardIcon size={18} />
+        <KeyboardIcon size={16} />
         <span>{t("Keyboard shortcuts")}</span>
-        <kbd>Ctrl /</kbd>
+        <span className="menu-hint">Ctrl /</span>
       </button>
       <div className="menu-sep" />
       <button className="avatar-menu-item danger" role="menuitem" onClick={pick(onLogout)}>
-        <LogOutIcon size={18} />
         <span>{t("Log out")}</span>
       </button>
     </div>

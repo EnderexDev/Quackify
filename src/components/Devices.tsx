@@ -63,20 +63,18 @@ export function DevicePicker() {
       </button>
       {open && (
         <div className="devices-pop">
-          <div className="devices-title">{t("Connect to a device")}</div>
+          {/* Figma "seletor de aparelhos": where it plays on top, then the others. */}
           {current && (
-            <div className="device current">
-              <DeviceIcon kind={current.kind} size={28} />
-              <div>
-                <div className="device-name">{current.is_local ? t("This computer") : current.name}</div>
-                <div className="device-sub">{player.remoteDevice ? t("Listening on") : "Quackify"}</div>
-              </div>
+            <div className={`devices-now ${current.is_local ? "" : "remote"}`}>
+              <div className="devices-now-name">{current.is_local ? t("Playing on this computer") : t("Playing on {name}", { name: current.name })}</div>
+              <div className="device-sub">{current.is_local ? "Quackify" : kindLabel(current.kind)}</div>
             </div>
           )}
-          {others.length > 0 && <div className="devices-sub">{t("Select another device")}</div>}
+          {current && others.length > 0 && <div className="menu-sep" />}
+          {others.length > 0 && <div className="devices-sub">{t("Other devices")}</div>}
           {others.map((d) => (
             <button key={d.id} className="device" onClick={() => pick(d)}>
-              <DeviceIcon kind={d.kind} size={24} />
+              <DeviceIcon kind={d.kind} size={18} />
               <div>
                 <div className="device-name">{d.is_local ? t("This computer") : d.name}</div>
                 <div className="device-sub">{d.is_local ? "Quackify" : kindLabel(d.kind)}</div>

@@ -49,54 +49,113 @@
   place-items: center;
 }
 
+/* Dialogs (Figma "Diálogos e menus"): a glass card with 22px corners, the title in 18px, pill
+   buttons of 31px: Cancel bare, the action in white (red when it deletes), Close soft. */
 .dialog {
-  width: min(480px, 92vw);
+  width: min(440px, 92vw);
+  padding: 20px 22px 18px;
   background: var(--popup);
+  -webkit-backdrop-filter: var(--blur-popup);
   backdrop-filter: var(--blur-popup);
-  border-radius: 10px;
-  padding: 24px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--surface-3);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.dialog.confirm {
+  width: min(320px, 92vw);
 }
 
 .dialog h2 {
-  font-size: 22px;
-  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+
+.dialog > p.muted {
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
-  font-size: 12px;
-  font-weight: 700;
+  gap: 4px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--muted);
 }
 
 .field input,
 .field textarea {
-  background: var(--surface-3);
+  background: var(--surface-2);
   border: 1px solid transparent;
-  border-radius: 4px;
-  padding: 10px 12px;
+  border-radius: 10px;
+  padding: 9px 12px;
   color: var(--text);
   font: inherit;
-  font-size: 14px;
-  font-weight: 400;
+  font-size: 13px;
+  font-weight: 600;
   outline: none;
   resize: none;
 }
 
 .field input:focus,
 .field textarea:focus {
-  border-color: var(--muted);
+  border-color: color-mix(in srgb, var(--text) 55%, transparent);
 }
 
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 14px;
+}
+
+.dialog-actions .primary,
+.dialog-actions .secondary {
+  height: 31px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--r-pill);
+  font-size: 12.5px;
+}
+
+.dialog-actions .primary {
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+.dialog-actions .primary:not(:disabled):hover {
+  background: var(--text);
+  opacity: 0.88;
+  transform: none;
+}
+
+.dialog-actions .primary.danger {
+  background: var(--danger);
+  color: #111114;
+}
+
+.dialog-actions .secondary {
+  padding: 0 14px;
+  background: none;
+  color: color-mix(in srgb, var(--text) 75%, transparent);
+  font-weight: 600;
+}
+
+.dialog-actions .secondary:hover {
+  color: var(--text);
+}
+
+/* Alone, as Close in Credits and Shortcuts: a soft fill. */
+.dialog-actions .secondary:only-child {
+  padding: 0 16px;
+  background: var(--surface-3);
+  color: var(--text);
 }
 
 .dialog:focus {
@@ -105,17 +164,9 @@
 
 /* ---- New playlist (Figma "nova playlist"): name and description, Also add, Create in white ---- */
 
-.dialog:has(.new-playlist) {
-  width: min(460px, 92vw);
-  padding: 20px;
-  border-radius: 18px;
-  border: 1px solid var(--line);
-}
-
 .dialog:has(.new-playlist) h2 {
   font-size: 17px;
   font-weight: 700;
-  margin-bottom: 14px;
 }
 
 .new-playlist-fields {
@@ -127,41 +178,43 @@
 .new-playlist-name,
 .new-playlist-description {
   width: 100%;
-  padding: 11px 13px;
+  padding: 10px 12px;
   border: 1.5px solid transparent;
   border-radius: 10px;
   background: var(--surface-2);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: 12.5px;
+  font-weight: 500;
   outline: none;
   resize: none;
   transition: border-color var(--t-fast);
 }
 
 .new-playlist-name {
+  font-size: 13.5px;
   font-weight: 600;
 }
 
 .new-playlist-name:focus,
 .new-playlist-description:focus {
-  border-color: color-mix(in srgb, var(--text) 70%, transparent);
+  border-color: color-mix(in srgb, var(--text) 60%, transparent);
 }
 
 .new-playlist-actions {
-  align-items: center;
-  margin-top: 16px;
+  margin-top: 14px;
 }
 
 /* "Also add …": a white check on the left, the buttons on the right. */
 .new-playlist-check {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   min-width: 0;
   margin-right: auto;
-  color: var(--text);
-  font-size: 13px;
+  color: color-mix(in srgb, var(--text) 75%, transparent);
+  font-size: 12px;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -170,10 +223,10 @@
 .new-playlist-check .box {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex: none;
-  border-radius: 5px;
+  border-radius: 4px;
   border: 1.5px solid var(--muted);
 }
 
@@ -181,27 +234,4 @@
   border-color: var(--text);
   background: var(--text);
   color: var(--bg);
-}
-
-.new-playlist-actions .secondary {
-  background: none;
-  border: none;
-}
-
-.new-playlist-create {
-  background: var(--text);
-  color: var(--bg);
-  border-radius: var(--r-pill);
-}
-
-.new-playlist-create:not(:disabled):hover {
-  background: var(--text);
-  opacity: 0.88;
-}
-
-.new-playlist-actions .primary,
-.new-playlist-actions .secondary {
-  height: 36px;
-  padding: 0 18px;
-  font-size: 13.5px;
 }

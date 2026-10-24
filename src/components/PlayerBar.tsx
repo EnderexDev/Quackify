@@ -379,7 +379,7 @@ export function VolumePercent({
   };
 
   return (
-    <label className="volume-pct" onWheel={text === null ? onWheel : undefined} title={t("Volume")}>
+    <label className={`volume-pct ${text === null ? "" : "editing"}`} onWheel={text === null ? onWheel : undefined} title={t("Volume")}>
       <input
         value={text ?? shown}
         inputMode="numeric"
@@ -403,7 +403,8 @@ export function VolumePercent({
           }
         }}
       />
-      %
+      {/* While typing the box holds only the number, as in the Figma "volume % (editando)". */}
+      {text === null && "%"}
     </label>
   );
 }

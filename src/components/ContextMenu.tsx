@@ -1,7 +1,21 @@
 // The right-click menu. `useContextMenu()` gives `open(event, items)`; one menu shows at a time.
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { t } from "../i18n";
-import { CheckIcon, ChevronRightIcon } from "./icons";
+import { CheckIcon, ChevronRightIcon, DiscIcon, EditIcon, HeartIcon, HeartOutlineIcon, MoreIcon, PlaylistAddIcon, PlusIcon, QueueIcon, RepeatIcon, UserIcon } from "./icons";
+
+/** The icons a menu item can show on its left (Figma "menu da música"). */
+const ICONS = {
+  queue: QueueIcon,
+  "playlist-add": PlaylistAddIcon,
+  heart: HeartOutlineIcon,
+  liked: HeartIcon,
+  user: UserIcon,
+  disc: DiscIcon,
+  radio: RepeatIcon,
+  more: MoreIcon,
+  plus: PlusIcon,
+  edit: EditIcon,
+};
 
 export type MenuItem =
   | "separator"
@@ -16,7 +30,22 @@ export type MenuItem =
       submenuHead?: MenuItem[];
       checked?: boolean;
       disabled?: boolean;
+      icon?: keyof typeof ICONS;
+      /** Small grey text at the right, such as a shortcut. */
+      hint?: string;
+      /** Red, for what removes something. */
+      danger?: boolean;
     };
+
+/** The left slot: the check when the item has one, otherwise its icon. */
+function ItemStart({ item }: { item: Exclude<MenuItem, "separator"> }) {
+  const Icon = item.icon && ICONS[item.icon];
+  return (
+    <span className={`menu-check ${item.checked ? "on" : ""}`}>
+      {item.checked ? <CheckIcon size={14} /> : Icon && <Icon size={16} />}
+    </span>
+  );
+}
 
 type Open = (e: { clientX: number; clientY: number; preventDefault: () => void }, items: MenuItem[]) => void;
 
@@ -89,7 +118,7 @@ function Menu({ x, y, items, onDone }: { x: number; y: number; items: MenuItem[]
         ) : (
           <div
             key={i}
-            className={`menu-item ${item.disabled ? "disabled" : ""} ${sub?.index === i ? "open" : ""}`}
+            className={`menu-item ${item.disabled ? "disabled" : ""} ${item.danger ? "danger" : ""} ${sub?.index === i ? "open" : ""}`}
             onMouseEnter={() => (item.submenu ? sub?.index !== i && openSub(i, item.submenu, item.submenuHead) : setSub(null))}
             onClick={() => {
               if (item.disabled || item.submenu) return;
@@ -97,9 +126,10 @@ function Menu({ x, y, items, onDone }: { x: number; y: number; items: MenuItem[]
               onDone();
             }}
           >
-            <span className="menu-check">{item.checked && <CheckIcon size={14} />}</span>
+            <ItemStart item={item} />
             <span className="menu-label">{item.label}</span>
-            {item.submenu && <ChevronRightIcon size={14} />}
+            {item.hint && <span className="menu-hint">{item.hint}</span>}
+            {item.submenu && <ChevronRightIcon size={14} className="menu-chevron" />}
             {sub?.index === i && (
               <SubMenu head={sub.head} items={sub.items} onDone={onDone} />
             )}
@@ -127,15 +157,16 @@ function SubMenu({ head, items, onDone }: { head: MenuItem[]; items: MenuItem[] 
         ) : (
           <div
             key={i}
-            className={`menu-item ${item.disabled ? "disabled" : ""}`}
+            className={`menu-item ${item.disabled ? "disabled" : ""} ${item.danger ? "danger" : ""}`}
             onClick={() => {
               if (item.disabled) return;
               item.onClick?.();
               onDone();
             }}
           >
-            <span className="menu-check">{item.checked && <CheckIcon size={14} />}</span>
+            <ItemStart item={item} />
             <span className="menu-label">{item.label}</span>
+            {item.hint && <span className="menu-hint">{item.hint}</span>}
           </div>
         ),
       )}
