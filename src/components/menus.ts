@@ -182,7 +182,7 @@ export function cardMenu(card: Card, saved: boolean | undefined, nav: Nav): Menu
   const isTrack = card.kind === "track" || card.kind === "episode";
   const items: MenuItem[] = [
     isTrack
-      ? { label: t("Play"), onClick: () => play.tracks([card.uri], 0).catch(toast) }
+      ? { label: t("Play"), icon: "play", onClick: () => play.tracks([card.uri], 0).catch(toast) }
       : { label: t("Open"), onClick: () => nav.open(card.uri, card.title) },
   ];
   if (isTrack) items.push({ label: t("Add to queue"), icon: "queue", onClick: () => play.addToQueue(card.uri).catch(toast) });
@@ -194,6 +194,7 @@ export function cardMenu(card: Card, saved: boolean | undefined, nav: Nav): Menu
         : isTrack
           ? saved ? t("Remove from Liked Songs") : t("Save to Liked Songs")
           : saved ? t("Remove from Your Library") : t("Save to Your Library"),
+      icon: isArtist ? "user" : saved ? "liked" : "heart",
       disabled: saved === undefined,
       onClick: () => setSaved(card.uri, !saved),
     });
@@ -270,6 +271,7 @@ export function collectionMenu(o: {
   if (o.kind !== "liked" && !o.own) {
     items.push({
       label: o.saved ? t("Remove from Your Library") : t("Save to Your Library"),
+      icon: o.saved ? "liked" : "heart",
       disabled: o.saved === undefined,
       onClick: () => setSaved(o.uri, !o.saved),
     });

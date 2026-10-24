@@ -1,7 +1,7 @@
 // The right-click menu. `useContextMenu()` gives `open(event, items)`; one menu shows at a time.
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { t } from "../i18n";
-import { CheckIcon, ChevronRightIcon, DiscIcon, EditIcon, HeartIcon, HeartOutlineIcon, MoreIcon, PlaylistAddIcon, PlusIcon, QueueIcon, RepeatIcon, UserIcon } from "./icons";
+import { CheckIcon, ChevronRightIcon, PlayIcon, DiscIcon, EditIcon, HeartIcon, HeartOutlineIcon, MoreIcon, PlaylistAddIcon, PlusIcon, QueueIcon, RepeatIcon, UserIcon } from "./icons";
 
 /** The icons a menu item can show on its left (Figma "menu da música"). */
 const ICONS = {
@@ -15,6 +15,7 @@ const ICONS = {
   more: MoreIcon,
   plus: PlusIcon,
   edit: EditIcon,
+  play: PlayIcon,
 };
 
 export type MenuItem =

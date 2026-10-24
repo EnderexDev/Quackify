@@ -4,7 +4,9 @@ import { locale, t } from "../i18n";
 import { artist, collection, getHome, library, play, show, showEpisodes } from "../api/spotify";
 import type { Card as CardData, Episode, Section } from "../api/types";
 import { Card, ShelfRow } from "../components/Card";
+import { useContextMenu } from "../components/ContextMenu";
 import { Cover } from "../components/Cover";
+import { cardMenuHandler } from "../components/menus";
 import { ClockIcon, CloseIcon, EditIcon, PinIcon, PlusIcon } from "../components/icons";
 import { PlayButton } from "../components/PlayButton";
 import { Toggle } from "../components/Toggle";
@@ -182,12 +184,13 @@ export function Home({ name }: { name: string }) {
 
 function Shortcut({ card }: { card: CardData }) {
   const nav = useNav();
+  const openMenu = useContextMenu();
   const getPlayer = usePlayerNow();
   const playingContext = usePlayerSelect((p) => p.contextUri);
   const playing = usePlayerSelect((p) => p.playing);
   const isCurrent = playingContext === card.uri;
   return (
-    <div className="shortcut" onClick={() => nav.open(card.uri)} title={card.title}>
+    <div className="shortcut" onClick={() => nav.open(card.uri)} onContextMenu={cardMenuHandler(card, nav, openMenu)} title={card.title}>
       <Cover src={card.image} kind={card.kind} className="shortcut-cover" />
       <span className={`shortcut-title ${isCurrent ? "accent" : ""}`}>{card.title}</span>
       <PlayButton
@@ -347,6 +350,7 @@ function ContinueGrid({ items }: { items: Halfway[] }) {
 
 function ContinueTile({ episode: e }: { episode: Episode }) {
   const nav = useNav();
+  const openMenu = useContextMenu();
   const getPlayer = usePlayerNow();
   const trackUri = usePlayerSelect((p) => p.track?.uri ?? null);
   const playing = usePlayerSelect((p) => p.playing);
@@ -355,7 +359,12 @@ function ContinueTile({ episode: e }: { episode: Episode }) {
   const playThis = () =>
     isCurrent ? getPlayer().toggle() : (e.show.uri ? play.context(e.show.uri, e.uri) : play.tracks([e.uri], 0)).catch(toast);
   return (
-    <div className="continue-tile" onClick={() => nav.open(e.uri)} title={e.name}>
+    <div
+      className="continue-tile"
+      onClick={() => nav.open(e.uri)}
+      onContextMenu={cardMenuHandler({ uri: e.uri, kind: "episode", title: e.name, subtitle: e.show.name, image: e.image }, nav, openMenu)}
+      title={e.name}
+    >
       <Cover src={e.image} kind="show" className="continue-cover" />
       <div className="continue-text">
         <div className={`continue-title ${isCurrent ? "accent" : ""}`}>{e.name}</div>
@@ -376,6 +385,7 @@ function ContinueTile({ episode: e }: { episode: Episode }) {
  * Play picks up at that song and place. */
 function ContinueContext({ card, spot }: { card: ContextCard; spot: Spot }) {
   const nav = useNav();
+  const openMenu = useContextMenu();
   const getPlayer = usePlayerNow();
   const playingContext = usePlayerSelect((p) => p.contextUri);
   const playing = usePlayerSelect((p) => p.playing);
@@ -385,7 +395,7 @@ function ContinueContext({ card, spot }: { card: ContextCard; spot: Spot }) {
   const done = Math.min(1, ((spot.index ?? 0) + (spot.dur ? spot.pos / spot.dur : 0)) / total);
   const playThis = () => (isCurrent ? getPlayer().toggle() : play.context(card.uri, spot.track, spot.pos).catch(toast));
   return (
-    <div className="continue-tile" onClick={() => nav.open(card.uri, card.title)} title={card.title}>
+    <div className="continue-tile" onClick={() => nav.open(card.uri, card.title)} onContextMenu={cardMenuHandler(card, nav, openMenu)} title={card.title}>
       <Cover src={card.image} kind={card.kind} className="continue-cover" />
       <div className="continue-text">
         <div className={`continue-title ${isCurrent ? "accent" : ""}`}>{card.title}</div>
