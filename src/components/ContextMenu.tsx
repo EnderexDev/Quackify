@@ -53,7 +53,10 @@ const MenuContext = createContext<Open>(() => {});
 export const useContextMenu = () => useContext(MenuContext);
 
 export function ContextMenuProvider({ children }: { children: ReactNode }) {
-  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[]; id: number } | null>(null);
+  // A new id per opening: a menu opened over another (a card waits for Spotify before opening its
+  // own) mounts fresh, without the old one's submenu.
+  const opened = useRef(0);
 
   useEffect(() => {
     if (!menu) return;
@@ -74,13 +77,13 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
   // The same function every render, so opening a menu does not re-render everything that can open one.
   const open: Open = useCallback((e, items) => {
     e.preventDefault();
-    setMenu({ x: e.clientX, y: e.clientY, items });
+    setMenu({ x: e.clientX, y: e.clientY, items, id: ++opened.current });
   }, []);
 
   return (
     <MenuContext.Provider value={open}>
       {children}
-      {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onDone={() => setMenu(null)} />}
+      {menu && <Menu key={menu.id} x={menu.x} y={menu.y} items={menu.items} onDone={() => setMenu(null)} />}
     </MenuContext.Provider>
   );
 }
