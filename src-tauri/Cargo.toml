@@ -1,6 +1,6 @@
 [package]
 name = "quackify"
-version = "0.3.0"
+version = "0.3.1"
 description = "Quackify: a yellow, duck-flavoured Spotify client for Windows"
 authors = ["EnderexDev"]
 edition = "2024"
