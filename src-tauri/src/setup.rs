@@ -165,11 +165,9 @@ async fn setup_install(app: AppHandle, dir: String, desktop: bool) -> Result<(),
     let shortcut = desktop_shortcut(&crate::variant::name(&app));
     tauri::async_runtime::spawn_blocking(move || {
         let installer = std::env::temp_dir().join(format!("Quackify-Install-{}.exe", std::process::id()));
-        let extracted = extract(offset, len, &installer);
+        let bytes = extract(offset, len);
         let had_shortcut = shortcut.as_ref().is_some_and(|p| p.exists());
-        let result = extracted.and_then(|_| run_nsis(&installer, &[], Path::new(&dir)));
-        let _ = std::fs::remove_file(&installer);
-        result?;
+        bytes.and_then(|bytes| install_from(&installer, &bytes, &[], Path::new(&dir)))?;
         // Silent NSIS always makes the desktop shortcut; /NS would skip the Start menu's too.
         if !desktop && !had_shortcut {
             if let Some(p) = shortcut {
@@ -182,13 +180,40 @@ async fn setup_install(app: AppHandle, dir: String, desktop: bool) -> Result<(),
     .map_err(|e| e.to_string())?
 }
 
-fn extract(offset: u64, len: u64, to: &Path) -> Result<(), String> {
+/// The installer inside this exe.
+fn extract(offset: u64, len: u64) -> Result<Vec<u8>, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let mut from = File::open(exe).map_err(|e| e.to_string())?;
     from.seek(SeekFrom::Start(offset)).map_err(|e| e.to_string())?;
-    let mut out = File::create(to).map_err(|e| format!("could not write the installer: {e}"))?;
-    std::io::copy(&mut from.take(len), &mut out).map_err(|e| format!("could not write the installer: {e}"))?;
-    Ok(())
+    let mut bytes = Vec::with_capacity(len as usize);
+    from.take(len).read_to_end(&mut bytes).map_err(|e| format!("could not read the installer: {e}"))?;
+    Ok(bytes)
+}
+
+/// Writes `bytes` to `path` and runs them as NSIS, the file held so nothing can change or delete
+/// it in between: reopened sharing only reading (Windows still runs it), then checked against
+/// `bytes`, the copy whose signature the updater checked.
+fn install_from(path: &Path, bytes: &[u8], flags: &[&str], dir: &Path) -> Result<(), String> {
+    std::fs::write(path, bytes).map_err(|e| format!("could not write the installer: {e}"))?;
+    let result = (|| {
+        let mut options = std::fs::OpenOptions::new();
+        options.read(true);
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            // FILE_SHARE_READ only: no writing or deleting while this handle lives.
+            options.share_mode(0x1);
+        }
+        let mut held = options.open(path).map_err(|e| format!("could not open the installer: {e}"))?;
+        let mut on_disk = Vec::with_capacity(bytes.len());
+        held.read_to_end(&mut on_disk).map_err(|e| format!("could not read the installer: {e}"))?;
+        if on_disk != bytes {
+            return Err("the installer changed on disk before it ran".to_string());
+        }
+        run_nsis(path, flags, dir)
+    })();
+    let _ = std::fs::remove_file(path);
+    result
 }
 
 /// Runs NSIS silently into `dir` and waits for it.
@@ -271,10 +296,7 @@ async fn setup_update(app: AppHandle, progress: Channel<Progress>) -> Result<(),
     let _ = progress.send(Progress::Installing);
     tauri::async_runtime::spawn_blocking(move || {
         let installer = std::env::temp_dir().join(format!("Quackify-Update-{}.exe", update.version));
-        std::fs::write(&installer, bytes).map_err(|e| format!("could not write the update: {e}"))?;
-        let result = run_nsis(&installer, &["/UPDATE", "/R"], &dir);
-        let _ = std::fs::remove_file(&installer);
-        result
+        install_from(&installer, &bytes, &["/UPDATE", "/R"], &dir)
     })
     .await
     .map_err(|e| e.to_string())??;

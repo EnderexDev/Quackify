@@ -17,7 +17,8 @@ export function packSetup(exe, installer, out) {
   writeFileSync(out, Buffer.concat([app, nsis, length, MAGIC]));
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Run as a script, not imported (release.mjs, node -e, the REPL: argv[1] is not this file there).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [exe, installer, out] = process.argv.slice(2);
   if (!out) {
     console.error("usage: node scripts/pack-setup.mjs <quackify.exe> <nsis setup.exe> <out.exe>");
