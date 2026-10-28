@@ -14,6 +14,7 @@ import { cinemaAuto, liveFps, playerLyrics, type LiveFps } from "../state/prefs"
 import { setTheme, useTheme } from "../state/theme";
 import { setMotion, useMotion } from "../state/motion";
 import { notify, toast  } from "../state/toast";
+import { checkForUpdate, installUpdate, updatesOn, useUpdate } from "../state/update";
 import { locale, setLang, t, useLangChoice } from "../i18n";
 import { Loading } from "./common";
 
@@ -458,6 +459,7 @@ export function SettingsView({ account }: { account: Account }) {
                 <div className="muted small">{t("A Spotify player, yellow, with a duck's taste.")}</div>
               </div>
             </div>
+            <UpdateRow />
             <p className="muted small settings-note">
               {t("Not in Quackify yet: crossfade, the equalizer and mono audio (its player has none of them). Lossless audio and downloads for offline listening are only allowed in Spotify's own apps.")}
             </p>
@@ -540,6 +542,42 @@ function SettingsIndex() {
         </button>
       ))}
     </nav>
+  );
+}
+
+/** Updates (state/update.ts): what the last check said and the button for the next step. */
+function UpdateRow() {
+  const u = useUpdate();
+  const [on, setOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    updatesOn().then(setOn);
+  }, []);
+  if (on === null) return null;
+  if (!on) return <Row title={t("Updates")} note={t("Quackify Dev does not update itself: it runs from the code.")}>{null}</Row>;
+  const note =
+    u.kind === "checking"
+      ? t("Checking…")
+      : u.kind === "latest"
+        ? t("Up to date. Checked at {time}.", { time: new Date(u.at).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" }) })
+        : u.kind === "available"
+          ? t("Quackify {version} is out. Updating closes Quackify for a moment and opens it again.", { version: u.version })
+          : u.kind === "downloading"
+            ? t("Downloading Quackify {version}…", { version: u.version })
+            : u.kind === "error"
+              ? t("The last check failed: {error}", { error: u.message })
+              : t("Quackify looks for a new version when it starts and every 6 hours.");
+  return (
+    <Row title={t("Updates")} note={note}>
+      {u.kind === "available" || u.kind === "downloading" ? (
+        <button className="pill-button" disabled={u.kind === "downloading"} onClick={installUpdate}>
+          {u.kind === "downloading" ? (u.percent === null ? t("Downloading…") : `${u.percent}%`) : t("Update to {version}", { version: u.version })}
+        </button>
+      ) : (
+        <button className="pill-button" disabled={u.kind === "checking"} onClick={() => checkForUpdate()}>
+          {t("Check for updates")}
+        </button>
+      )}
+    </Row>
   );
 }
 

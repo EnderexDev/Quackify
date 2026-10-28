@@ -9,9 +9,12 @@ import App from "./App";
 import { MiniPlayer } from "./components/MiniPlayer";
 import { PlayerProvider } from "./state/player";
 import { isMini } from "./state/windows";
+import { startUpdateChecks } from "./state/update";
 import "./styles/index.css";
 
 if (isMini) document.documentElement.classList.add("mini-window");
+// The main window asks for updates; the mini player leaves it to it.
+else startUpdateChecks();
 
 /** The mini player's window: the same player, which leaves the history to the main window; it
  * starts over when the language changes, like the main window's shell. */
