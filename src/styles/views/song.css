@@ -282,6 +282,10 @@
 }
 
 .lyrics.synced .lyrics-line {
+  /* Room for the sung line to scale up from the left without the scroll box cutting it; every
+     line the same, so a line keeps its wrap when it lights up. */
+  max-width: calc(100% / 1.08);
+  overflow-wrap: anywhere;
   color: var(--muted);
   opacity: 0.75;
   cursor: pointer;

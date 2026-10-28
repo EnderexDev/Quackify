@@ -199,6 +199,10 @@
   line-height: 1.25;
   letter-spacing: -0.01em;
   color: rgba(246, 244, 238, 0.38);
+  /* Wraps narrow enough that the sung line, scaled up from the left, still fits the card; every
+     line the same, so a line keeps its wrap when it lights up. */
+  max-width: calc(100% / 1.14);
+  overflow-wrap: anywhere;
   transform-origin: left center;
   transition:
     color 400ms var(--ease-out),
