@@ -37,10 +37,11 @@ export async function reportProblem(detail?: string) {
       "",
       `Quackify ${version} · ${navigator.userAgent.match(/Windows NT [\d.]+/)?.[0] ?? navigator.platform}`,
       t("Logs: Settings > About > Open log folder, then drag the newest file here."),
-      ...(detail && cut > 0 ? ["", "```", detail.slice(0, cut), "```"] : []),
+      ...(detail && cut > 0 ? ["", "```", Array.from(detail).slice(0, cut).join(""), "```"] : []),
     ].join("\n");
   // GitHub turns away a URL past about 8 KB, and encoding can make each character 9 bytes:
-  // the detail is cut until the encoded body fits.
+  // the detail is cut until the encoded body fits. It is cut by code points: half an emoji makes
+  // encodeURIComponent throw.
   let cut = 3000;
   while (cut > 0 && encodeURIComponent(body(cut)).length > MAX_BODY) cut = Math.floor(cut / 2);
   return openUrl(`${ISSUES}?body=${encodeURIComponent(body(cut))}`);

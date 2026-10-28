@@ -507,8 +507,10 @@ pub async fn spotify_logout(app: AppHandle, state: State<'_, SpotifyState>) -> R
     // credentials back in between. They go first: if they cannot be deleted, the session stays.
     let mut slot = state.0.lock().await;
     let file = cache_dir(&app)?.join("credentials.json");
-    if file.exists() {
-        std::fs::remove_file(file).map_err(|e| e.to_string())?;
+    // Only a file that is not there counts as deleted: exists() also says no when it cannot look.
+    match std::fs::remove_file(file) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
+        _ => {}
     }
     if let Some(old) = slot.take() {
         old.shutdown().await;
