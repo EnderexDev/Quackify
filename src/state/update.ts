@@ -1,12 +1,13 @@
-// Updates without an installer: the app asks GitHub's latest release (its latest.json, see
-// scripts/release.mjs) a moment after it starts and every 6 hours, and Settings > About can ask
-// any time. A new version is downloaded, its signature checked against the key in
-// tauri.conf.json, and its installer run with no questions; Windows closes Quackify for it and
-// the installer opens it again. Quackify Dev never asks: it would install the official app.
+// Updates without an installer to run by hand: the app asks GitHub's latest release (its
+// latest.json, see scripts/release.mjs) a moment after it starts and every 6 hours, and
+// Settings > About can ask any time. Updating hands over to Quackify's own update window
+// (setup.rs), which downloads the version, checks its signature against the key in
+// tauri.conf.json, installs it and opens the new Quackify. Quackify Dev never asks: it would
+// install the official app.
 import { useSyncExternalStore } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { getIdentifier } from "@tauri-apps/api/app";
-import { check, type Update } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { check } from "@tauri-apps/plugin-updater";
 import { t } from "../i18n";
 import { notify, toast } from "./toast";
 
@@ -15,14 +16,15 @@ export type UpdateState =
   | { kind: "checking" }
   | { kind: "latest"; at: number }
   | { kind: "available"; version: string }
-  | { kind: "downloading"; version: string; percent: number | null }
+  | { kind: "starting"; version: string }
   | { kind: "error"; message: string };
 
 const FIRST_CHECK_MS = 10_000;
 const EVERY_MS = 6 * 60 * 60 * 1000;
 
 let state: UpdateState = { kind: "idle" };
-let found: Update | null = null;
+/** The newest version heard of, kept when a later check fails. */
+let found: string | null = null;
 /** The version a notice was already shown for, so the 6-hour check does not repeat it. */
 let told: string | null = null;
 const listeners = new Set<() => void>();
@@ -49,13 +51,13 @@ export const updatesOn = () => (official ??= getIdentifier().then((id) => !id.en
 /** Asks for a new version. `quiet`: the timer's check, which says nothing unless one is found. */
 export async function checkForUpdate(quiet = false) {
   if (!(await updatesOn())) return;
-  if (state.kind === "checking" || state.kind === "downloading") return;
+  if (state.kind === "checking" || state.kind === "starting") return;
   set({ kind: "checking" });
   try {
     const update = await check();
-    // Each check hands back a new Update held on the Rust side: the old one is let go.
-    if (found && found !== update) found.close().catch(() => {});
-    found = update;
+    // Only its version is used here: the update window downloads it again on its own side.
+    update?.close().catch(() => {});
+    found = update?.version ?? null;
     if (!update) {
       set({ kind: "latest", at: Date.now() });
       if (!quiet) notify(t("Quackify is up to date"), { kind: "info" });
@@ -71,33 +73,20 @@ export async function checkForUpdate(quiet = false) {
     }
   } catch (e) {
     // A version found before is still there to install: its notice's Update button keeps working.
-    set(found ? { kind: "available", version: found.version } : { kind: "error", message: String(e) });
+    set(found ? { kind: "available", version: found } : { kind: "error", message: String(e) });
     if (!quiet) toast(t("Could not check for updates: {error}", { error: String(e) }));
   }
 }
 
-/** Downloads and installs the version found. On Windows the installer closes Quackify itself. */
+/** Closes Quackify and opens the update window, which installs the version found. */
 export async function installUpdate() {
-  const update = found;
-  // Only from "available": a check still on its way would close this Update when it lands.
-  if (!update || state.kind !== "available") return;
-  let total = 0;
-  let got = 0;
-  set({ kind: "downloading", version: update.version, percent: null });
+  if (!found || state.kind !== "available") return;
+  const version = found;
+  set({ kind: "starting", version });
   try {
-    await update.downloadAndInstall((event) => {
-      if (event.event === "Started") total = event.data.contentLength ?? 0;
-      else if (event.event === "Progress") {
-        got += event.data.chunkLength;
-        // Thousands of chunks: Settings re-renders only when the shown number moves.
-        const percent = total ? Math.min(100, Math.round((got / total) * 100)) : null;
-        if (state.kind === "downloading" && percent !== state.percent) set({ kind: "downloading", version: update.version, percent });
-      }
-    });
-    // Only reached where the installer does not close the app.
-    await relaunch();
+    await invoke("update_in_window");
   } catch (e) {
-    set({ kind: "available", version: update.version });
+    set({ kind: "available", version });
     toast(t("Could not update: {error}", { error: String(e) }));
   }
 }

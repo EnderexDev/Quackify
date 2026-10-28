@@ -9,6 +9,7 @@ mod meter;
 mod mini;
 mod pathfinder;
 mod settings;
+mod setup;
 mod spotify;
 #[cfg(windows)]
 mod thumbbar;
@@ -20,6 +21,12 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let context = tauri::generate_context!();
+    // Quackify-Setup.exe or the update window: the installer instead of the app.
+    if let Some(mode) = setup::mode() {
+        return setup::run(context, mode);
+    }
+    setup::clean_up();
     tauri::Builder::default()
         // First, so a second launch only brings this window back instead of starting a second device.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -30,7 +37,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         .manage(spotify::SpotifyState::default())
         .manage(discord::Discord::default())
         .setup(|app| {
@@ -121,7 +127,8 @@ pub fn run() {
             mini::mini_player_lyrics,
             mini::mini_player_set_lyrics,
             mini::mini_player_show_main,
+            setup::update_in_window,
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running tauri application");
 }

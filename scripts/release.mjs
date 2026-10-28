@@ -4,13 +4,16 @@
 //
 // From a clean checkout (any branch or worktree, ahead of main): puts the version in package.json, Cargo.toml and tauri.conf.json, builds the
 // installer signed with the key in ~/.tauri/quackify.key (TAURI_SIGNING_PRIVATE_KEY overrides it),
-// commits and pushes the version, and creates the GitHub release vX with the installer, its
-// signature and latest.json, the file the apps read at releases/latest/download/latest.json.
+// packs Quackify-Setup.exe (pack-setup.mjs), commits and pushes the version, and creates the
+// GitHub release vX with Quackify-Setup.exe (what people download), the NSIS installer and its
+// signature (what the update window downloads) and latest.json, the file the apps read at
+// releases/latest/download/latest.json.
 // Without that key no update can be signed: the apps out there only trust its public half.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { packSetup } from "./pack-setup.mjs";
 
 const REPO = "EnderexDev/Quackify";
 const root = join(import.meta.dirname, "..");
@@ -68,6 +71,9 @@ const bundle = join(root, "src-tauri", "target", "release", "bundle", "nsis");
 const setup = `Quackify_${version}_x64-setup.exe`;
 const exe = join(bundle, setup);
 if (!existsSync(exe) || !existsSync(`${exe}.sig`)) undo(`the build left no ${setup} with its .sig in ${bundle}`);
+// The same name every version: the README links releases/latest/download/Quackify-Setup.exe.
+const friendly = join(bundle, "Quackify-Setup.exe");
+packSetup(join(root, "src-tauri", "target", "release", "quackify.exe"), exe, friendly);
 const latest = join(bundle, "latest.json");
 writeFileSync(
   latest,
@@ -104,5 +110,5 @@ try {
 }
 run("git", ["push", "origin", "HEAD:main"]);
 // Neither draft nor prerelease: releases/latest skips both, and the apps would not see it.
-run("gh", ["release", "create", tag, exe, `${exe}.sig`, latest, "-R", REPO, "--target", read("git", ["rev-parse", "HEAD"]), "--title", `Quackify ${version}`, "--notes", notes || `Quackify ${version}`]);
+run("gh", ["release", "create", tag, friendly, exe, `${exe}.sig`, latest, "-R", REPO, "--target", read("git", ["rev-parse", "HEAD"]), "--title", `Quackify ${version}`, "--notes", notes || `Quackify ${version}`]);
 console.log(`release: ${tag} is out, the installed apps get it within 6 hours or from Settings > About`);

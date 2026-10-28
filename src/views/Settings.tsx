@@ -561,16 +561,16 @@ function UpdateRow() {
         ? t("Up to date. Checked at {time}.", { time: new Date(u.at).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" }) })
         : u.kind === "available"
           ? t("Quackify {version} is out. Updating closes Quackify for a moment and opens it again.", { version: u.version })
-          : u.kind === "downloading"
-            ? t("Downloading Quackify {version}…", { version: u.version })
+          : u.kind === "starting"
+            ? t("Opening the update window…")
             : u.kind === "error"
               ? t("The last check failed: {error}", { error: u.message })
               : t("Quackify looks for a new version when it starts and every 6 hours.");
   return (
     <Row title={t("Updates")} note={note}>
-      {u.kind === "available" || u.kind === "downloading" ? (
-        <button className="pill-button" disabled={u.kind === "downloading"} onClick={installUpdate}>
-          {u.kind === "downloading" ? (u.percent === null ? t("Downloading…") : `${u.percent}%`) : t("Update to {version}", { version: u.version })}
+      {u.kind === "available" || u.kind === "starting" ? (
+        <button className="pill-button" disabled={u.kind === "starting"} onClick={installUpdate}>
+          {t("Update to {version}", { version: u.version })}
         </button>
       ) : (
         <button className="pill-button" disabled={u.kind === "checking"} onClick={() => checkForUpdate()}>

@@ -9,6 +9,8 @@ import { toast } from "./toast";
 
 /** This page is the mini player's window. */
 export const isMini = getCurrentWindow().label === "mini";
+/** This page is the installer or update window (setup.rs), in place of the app. */
+export const isSetup = getCurrentWindow().label === "setup";
 
 export const toggleMini = () => invoke("mini_player_toggle").catch(toast);
 

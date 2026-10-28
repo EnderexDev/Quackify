@@ -8,9 +8,12 @@ A yellow, duck-flavoured Spotify client for Windows, built from scratch to be fa
 
 ## Install
 
-Download `Quackify_x.y.z_x64-setup.exe` from the [latest release](https://github.com/EnderexDev/Quackify/releases/latest)
+Download [Quackify-Setup.exe](https://github.com/EnderexDev/Quackify/releases/latest/download/Quackify-Setup.exe)
 and run it. After that Quackify updates itself: it looks for a new version when it starts and
 every 6 hours, and Settings > About has a button to look now.
+
+Windows may warn that the app is from an unknown publisher (Quackify is not code-signed):
+More info, then Run anyway.
 
 ## Develop
 
@@ -32,6 +35,7 @@ Requires Rust (rustup) and the MSVC Build Tools on Windows.
 npm run release -- 0.2.0 "What changed"
 ```
 
-Sets the version, builds the installer signed with `~/.tauri/quackify.key`, pushes the version to
-`main` and publishes the GitHub release with `latest.json`, which the installed apps read. The
+Sets the version, builds the installer signed with `~/.tauri/quackify.key`, packs
+`Quackify-Setup.exe` (Quackify's own installer window, `src-tauri/src/setup.rs`), pushes the
+version to `main` and publishes the GitHub release with `latest.json`, which the installed apps read. The
 key never goes in the repo; losing it means the apps out there can no longer be updated.
