@@ -208,4 +208,16 @@ export default {
   "Update": "Atualizar",
   "Could not check for updates: {error}": "Não deu pra procurar atualizações: {error}",
   "Could not update: {error}": "Não deu pra atualizar: {error}",
+  // Problems: Settings > About, the crash screen, the GitHub issue, the login port
+  "Something wrong?": "Algo deu errado?",
+  "Report a problem opens a GitHub issue with your version filled in. Attach the newest file from the log folder to it.": "Relatar um problema abre uma issue no GitHub com a tua versão já preenchida. Anexa nela o arquivo mais novo da pasta de logs.",
+  "Open log folder": "Abrir pasta de logs",
+  "Report a problem": "Relatar um problema",
+  "Something broke in Quackify": "Algo quebrou no Quackify",
+  "The music keeps going. Reloading the window usually brings it back.": "A música continua tocando. Recarregar a janela costuma resolver.",
+  "Reload": "Recarregar",
+  "What happened?": "O que aconteceu?",
+  "What did you do right before?": "O que tu fez logo antes?",
+  "Logs: Settings > About > Open log folder, then drag the newest file here.": "Logs: Configurações > Sobre > Abrir pasta de logs, depois arrasta o arquivo mais novo pra cá.",
+  "Another program is using port 8898, which the login needs. Close other Spotify apps like spotifyd or ncspot and try again.": "Outro programa está usando a porta 8898, que o login precisa. Fecha outros apps do Spotify, como spotifyd ou ncspot, e tenta de novo.",
 };

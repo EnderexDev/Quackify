@@ -400,6 +400,9 @@ function useOpenLinks(nav: Nav) {
 // Spotify turns a Free account away at librespot's login, with "Travel restriction" (measured
 // 21/10/26 on an account that plays in the browser) or "Premium account required".
 const notPremium = (e: string) => /travel restriction|premium/i.test(e);
+// The login waits for Spotify's redirect on 127.0.0.1:8898 (spotify.rs), librespot's own port:
+// another librespot app (spotifyd, ncspot) may be holding it.
+const portBusy = (e: string) => /failed to bind server/i.test(e);
 
 /** Spotify's web player inside the window, below a bar of ours; for Free accounts. */
 function WebPlayer({ onLeave }: { onLeave: () => void }) {
@@ -444,7 +447,9 @@ function Login({ onLoggedIn, onWebPlayer }: { onLoggedIn: (s: Status) => void; o
       setError(
         notPremium(message)
           ? t("Spotify didn't let this account in: Quackify's player needs Spotify Premium. With a Free account, use the web player below.")
-          : message.replace(/^Error: /, ""),
+          : portBusy(message)
+            ? t("Another program is using port 8898, which the login needs. Close other Spotify apps like spotifyd or ncspot and try again.")
+            : message.replace(/^Error: /, ""),
       );
     } finally {
       setWaiting(false);

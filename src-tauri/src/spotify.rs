@@ -91,7 +91,7 @@ async fn revive_inner(app: AppHandle, generation: u64) {
             return;
         }
         let wait = REVIVE_WAITS[attempt.min(REVIVE_WAITS.len() - 1)];
-        eprintln!("[spotify] connection lost, reconnecting in {}s (try {})", wait.as_secs(), attempt + 1);
+        log::warn!("[spotify] connection lost, reconnecting in {}s (try {})", wait.as_secs(), attempt + 1);
         tokio::time::sleep(wait).await;
         // Checked after the wait: a logout or a new login during it means nothing to revive.
         if !still_mine(&*state.0.lock().await) {
@@ -108,10 +108,10 @@ async fn revive_inner(app: AppHandle, generation: u64) {
                 if let Some(old) = slot.replace(engine) {
                     old.shutdown().await;
                 }
-                eprintln!("[spotify] reconnected");
+                log::info!("[spotify] reconnected");
                 return;
             }
-            Err(e) => eprintln!("[spotify] reconnect failed: {e}"),
+            Err(e) => log::warn!("[spotify] reconnect failed: {e}"),
         }
     }
 }
@@ -214,7 +214,7 @@ async fn connect(app: &AppHandle, credentials: Credentials) -> Result<Engine, St
         if let Some((app, volume)) = meter {
             match crate::meter::OutputSink::open(app, volume) {
                 Ok(sink) => return Box::new(sink),
-                Err(e) => eprintln!("[output] falling back to rodio: {e}"),
+                Err(e) => log::warn!("[output] falling back to rodio: {e}"),
             }
         }
         backend(None, AudioFormat::default())
@@ -372,7 +372,7 @@ pub async fn reconnect(app: &AppHandle) -> Result<(), String> {
         };
         let (from, to) = (old.session.device_id().to_string(), engine.session.device_id().to_string());
         if let Err(e) = engine.session.spclient().transfer(&from, &to, Some(&request)).await {
-            eprintln!("settings: playback not handed over: {e}");
+            log::warn!("settings: playback not handed over: {e}");
         }
     }
     old.shutdown().await;
@@ -420,7 +420,7 @@ pub fn restore_early(app: &AppHandle) {
         match connect(&app, credentials).await {
             Ok(engine) => *slot = Some(engine),
             // spotify_restore tries again and reports it.
-            Err(e) => eprintln!("spotify: early login failed: {e}"),
+            Err(e) => log::warn!("spotify: early login failed: {e}"),
         }
     });
 }
@@ -484,7 +484,8 @@ pub async fn spotify_login(app: AppHandle, state: State<'_, SpotifyState>) -> Re
             } else {
                 e
             }
-        })?;
+        })
+        .inspect_err(|e| log::warn!("spotify: login failed: {e}"))?;
 
     let engine = connect(&app, Credentials::with_access_token(token.access_token)).await?;
     let mut slot = state.0.lock().await;

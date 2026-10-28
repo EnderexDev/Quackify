@@ -206,7 +206,7 @@ impl Hub {
                     }
                 });
             }
-            Err(e) => eprintln!("connect: cluster subscription failed: {e}"),
+            Err(e) => log::warn!("connect: cluster subscription failed: {e}"),
         }
         hub.schedule_refresh();
         let later = hub.clone();
@@ -252,7 +252,7 @@ impl Hub {
             let _turn = hub.refreshing.lock().await;
             hub.refresh_pending.store(false, Ordering::SeqCst);
             if let Err(e) = hub.refresh().await {
-                eprintln!("connect: cluster read failed: {e}");
+                log::warn!("connect: cluster read failed: {e}");
             }
         });
     }

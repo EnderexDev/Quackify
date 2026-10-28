@@ -125,7 +125,7 @@ pub fn toggle(app: &AppHandle) {
     if is_open(app) {
         close(app);
     } else if let Err(e) = open(app) {
-        eprintln!("mini: {e}");
+        log::warn!("mini: {e}");
     }
 }
 

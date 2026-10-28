@@ -15,6 +15,7 @@ import { setTheme, useTheme } from "../state/theme";
 import { setMotion, useMotion } from "../state/motion";
 import { notify, toast  } from "../state/toast";
 import { checkForUpdate, installUpdate, updatesOn, useUpdate } from "../state/update";
+import { openLogFolder, reportProblem } from "../state/problems";
 import { locale, setLang, t, useLangChoice } from "../i18n";
 import { Loading } from "./common";
 
@@ -460,6 +461,16 @@ export function SettingsView({ account }: { account: Account }) {
               </div>
             </div>
             <UpdateRow />
+            <Row title={t("Something wrong?")} note={t("Report a problem opens a GitHub issue with your version filled in. Attach the newest file from the log folder to it.")}>
+              <div className="settings-buttons">
+                <button className="pill-button" onClick={() => openLogFolder().catch(toast)}>
+                  {t("Open log folder")}
+                </button>
+                <button className="pill-button" onClick={() => reportProblem().catch(toast)}>
+                  {t("Report a problem")}
+                </button>
+              </div>
+            </Row>
             <p className="muted small settings-note">
               {t("Not in Quackify yet: crossfade, the equalizer and mono audio (its player has none of them). Lossless audio and downloads for offline listening are only allowed in Spotify's own apps.")}
             </p>

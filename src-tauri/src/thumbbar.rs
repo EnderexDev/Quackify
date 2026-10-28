@@ -67,7 +67,7 @@ pub fn setup(app: &AppHandle) {
             *b.borrow_mut() = Some(Bar { app, hwnd, taskbar_created, list: None, icons, playing: false, has_song: false })
         });
         if !SetWindowSubclass(hwnd, Some(proc), SUBCLASS_ID, 0).as_bool() {
-            eprintln!("thumbbar: the window could not be listened to");
+            log::warn!("thumbbar: the window could not be listened to");
         }
     }
 }
@@ -89,7 +89,7 @@ pub fn update(app: &AppHandle, playing: bool, has_song: bool) {
             return;
         };
         if let Err(e) = unsafe { list.ThumbBarUpdateButtons(hwnd, &buttons) } {
-            eprintln!("thumbbar: {e}");
+            log::warn!("thumbbar: {e}");
         }
     });
 }
@@ -148,7 +148,7 @@ fn add(hwnd: HWND, buttons: &[THUMBBUTTON; 3]) -> Option<ITaskbarList3> {
         let list: ITaskbarList3 = match CoCreateInstance(&TaskbarList, None, CLSCTX_INPROC_SERVER) {
             Ok(l) => l,
             Err(e) => {
-                eprintln!("thumbbar: {e}");
+                log::warn!("thumbbar: {e}");
                 return None;
             }
         };
@@ -157,7 +157,7 @@ fn add(hwnd: HWND, buttons: &[THUMBBUTTON; 3]) -> Option<ITaskbarList3> {
     match result {
         Ok(list) => Some(list),
         Err(e) => {
-            eprintln!("thumbbar: {e}");
+            log::warn!("thumbbar: {e}");
             None
         }
     }

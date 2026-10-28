@@ -159,14 +159,14 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
                 let on = app.state::<Desktop>().close_item.is_checked().unwrap_or(true);
                 let store = app.state::<Store>();
                 if let Err(e) = store.set(settings::Settings { close_to_tray: on, ..store.get() }) {
-                    eprintln!("desktop: settings not saved: {e}");
+                    log::warn!("desktop: settings not saved: {e}");
                 }
                 let _ = app.emit("settings-changed", ());
             }
             "autostart" => {
                 let want = app.state::<Desktop>().autostart_item.is_checked().unwrap_or(false);
                 if let Err(e) = set_start_with_windows(app, want) {
-                    eprintln!("desktop: start with Windows: {e}");
+                    log::warn!("desktop: start with Windows: {e}");
                 }
                 let _ = app.emit("settings-changed", ());
             }

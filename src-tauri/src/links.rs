@@ -112,7 +112,7 @@ pub fn setup(app: &tauri::App) {
     if !crate::variant::is_dev(app.handle())
         && let Err(e) = registry::register()
     {
-        eprintln!("links: not offered to Windows: {e}");
+        log::warn!("links: not offered to Windows: {e}");
     }
     handle_args(app.handle(), &std::env::args().collect::<Vec<_>>());
 }

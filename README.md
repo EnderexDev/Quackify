@@ -13,7 +13,16 @@ and run it. After that Quackify updates itself: it looks for a new version when 
 every 6 hours, and Settings > About has a button to look now.
 
 Windows may warn that the app is from an unknown publisher (Quackify is not code-signed):
-More info, then Run anyway.
+More info, then Run anyway. Windows Defender sometimes holds a new unsigned download for a
+scan or puts it in quarantine; if the file disappears or will not open, restore it from
+Windows Security > Protection history.
+
+Quackify's own player needs Spotify Premium. With a Free account, Spotify does not let apps
+like Quackify in, so it opens Spotify's web player inside its window instead.
+
+Quackify is an unofficial app, not made by or affiliated with Spotify.
+
+Something wrong? Settings > About has Report a problem and Open log folder.
 
 ## Develop
 

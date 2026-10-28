@@ -81,7 +81,8 @@ pub struct Settings {
     /// The language the app shows, "en" or "pt", as the page resolved it (System included): the
     /// tray menu and the browser page after login follow it. The choice itself lives in the page.
     pub language: String,
-    /// What plays shows on the user's Discord profile (discord.rs).
+    /// What plays shows on the user's Discord profile (discord.rs). Off until they turn it on:
+    /// everyone on their Discord sees it.
     pub discord_presence: bool,
     /// Songs played here go to the account's listening history, as Spotify's own apps report
     /// them (listening.rs). Off unless switched on: Spotify does not say whether unofficial apps may.
@@ -111,7 +112,7 @@ impl Default for Settings {
             cache_parent: None,
             progress_mode: ProgressMode::default(),
             language: "en".to_string(),
-            discord_presence: true,
+            discord_presence: false,
             report_listening: false,
         }
     }

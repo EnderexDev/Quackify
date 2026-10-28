@@ -65,7 +65,7 @@ impl Media {
                 match show(&mut controls, shown.as_ref(), next.as_ref()) {
                     Ok(()) => shown = next,
                     Err(e) => {
-                        eprintln!("media: {e}");
+                        log::warn!("media: {e}");
                         shown = None;
                     }
                 }
@@ -142,7 +142,7 @@ pub fn run(app: &AppHandle, action: Action) {
             Action::SeekTo(ms) => hub.seek(ms as u32).await,
         };
         if let Err(e) = result {
-            eprintln!("media: {e}");
+            log::warn!("media: {e}");
         }
     });
 }

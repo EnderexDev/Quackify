@@ -211,7 +211,7 @@ impl OutputSink {
                     fill(&mut s, out, channels, step);
                 },
                 move |e| {
-                    eprintln!("[output] stream error: {e}");
+                    log::warn!("[output] stream error: {e}");
                     if let Ok(mut s) = errors.lock() {
                         s.failed = Some(e.to_string());
                     }
@@ -220,7 +220,7 @@ impl OutputSink {
             )
             .map_err(|e| e.to_string())?;
         stream.pause().map_err(|e| e.to_string())?;
-        eprintln!("[output] {} Hz, {} channels", config.sample_rate.0, channels);
+        log::info!("[output] {} Hz, {} channels", config.sample_rate.0, channels);
 
         let alive = Arc::new(AtomicBool::new(true));
         spawn_reader(app, shared.clone(), alive.clone(), volume);
@@ -293,7 +293,7 @@ fn spawn_reader(app: AppHandle, shared: Arc<Mutex<Shared>>, alive: Arc<AtomicBoo
             };
             if underruns > 0 && logged.elapsed() >= Duration::from_secs(1) {
                 // Frames the device asked for while the queue was empty: a gap you can hear.
-                eprintln!("[output] underrun: {underruns} frames of silence");
+                log::warn!("[output] underrun: {underruns} frames of silence");
                 logged = Instant::now();
             }
             match snapshot {
@@ -325,7 +325,7 @@ impl Sink for OutputSink {
         if let Ok(mut s) = self.shared.lock() {
             s.running = true;
             if let Err(e) = &played {
-                eprintln!("[output] could not start: {e}");
+                log::warn!("[output] could not start: {e}");
                 s.failed = Some(e.to_string());
             }
         }
@@ -344,7 +344,7 @@ impl Sink for OutputSink {
             s.frac = 0.0;
         }
         if let Err(e) = self.stream.pause() {
-            eprintln!("[output] could not pause: {e}");
+            log::warn!("[output] could not pause: {e}");
         }
         Ok(())
     }

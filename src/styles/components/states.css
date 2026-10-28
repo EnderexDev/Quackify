@@ -210,3 +210,25 @@
 .state-actions .pill-btn.white:not(:disabled):hover {
   background: color-mix(in srgb, var(--text) 85%, var(--bg));
 }
+
+/* The crash screen (Crash.tsx): the whole window, since what broke may be the shell itself. */
+.crash {
+  position: fixed;
+  inset: 0;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.crash-detail {
+  max-width: min(560px, 90vw);
+  max-height: 120px;
+  overflow: auto;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 12px;
+  text-align: left;
+  white-space: pre-wrap;
+  user-select: text;
+}

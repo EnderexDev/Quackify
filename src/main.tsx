@@ -4,10 +4,13 @@ import ReactDOM from "react-dom/client";
 import "./state/theme";
 import "./state/motion";
 import "./util/noBrowserMenu";
+// Early, so an error while the rest loads already reaches the log file.
+import "./state/problems";
 import { useLang } from "./i18n";
 import App from "./App";
 import { MiniPlayer } from "./components/MiniPlayer";
 import { Setup } from "./components/Setup";
+import { Crash } from "./components/Crash";
 import { PlayerProvider } from "./state/player";
 import { isMini, isSetup } from "./state/windows";
 import { startUpdateChecks } from "./state/update";
@@ -30,6 +33,6 @@ function Mini() {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    {isSetup ? <Setup /> : isMini ? <Mini /> : <App />}
+    <Crash>{isSetup ? <Setup /> : isMini ? <Mini /> : <App />}</Crash>
   </React.StrictMode>,
 );

@@ -4,6 +4,7 @@ mod discord;
 mod jam;
 mod links;
 mod listening;
+mod logs;
 mod media;
 mod meter;
 mod mini;
@@ -27,6 +28,7 @@ pub fn run() {
         return setup::run(context, mode);
     }
     setup::clean_up();
+    logs::catch_panics();
     tauri::Builder::default()
         // First, so a second launch only brings this window back instead of starting a second device.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -34,6 +36,8 @@ pub fn run() {
             // A spotify: link clicked while Quackify runs.
             links::handle_args(app, &args);
         }))
+        // Second, so the rest of the start already writes to the log file.
+        .plugin(logs::plugin())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -62,7 +66,7 @@ pub fn run() {
                 Ok(media) => {
                     app.manage(media);
                 }
-                Err(e) => eprintln!("media: Windows media controls unavailable: {e}"),
+                Err(e) => log::warn!("media: Windows media controls unavailable: {e}"),
             }
             Ok(())
         })
@@ -128,6 +132,7 @@ pub fn run() {
             mini::mini_player_set_lyrics,
             mini::mini_player_show_main,
             setup::update_in_window,
+            logs::logs_open_folder,
         ])
         .run(context)
         .expect("error while running tauri application");

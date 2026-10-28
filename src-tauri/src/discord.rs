@@ -148,7 +148,7 @@ impl Pipe {
             let msg = self.recv()?;
             if msg["nonce"] == "presence" {
                 if msg["evt"] == "ERROR" {
-                    eprintln!("discord: presence refused: {}", msg["data"]);
+                    log::warn!("discord: presence refused: {}", msg["data"]);
                 }
                 return Ok(());
             }
@@ -194,7 +194,7 @@ fn run(rx: Receiver<Option<Presence>>) {
             Ok(()) => shown = Some(want.clone()),
             // Discord quit or restarted: open it again on the next round.
             Err(e) => {
-                eprintln!("discord: {e}");
+                log::warn!("discord: {e}");
                 pipe = None;
                 shown = None;
             }

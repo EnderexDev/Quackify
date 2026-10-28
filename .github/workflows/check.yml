@@ -1,0 +1,28 @@
+# Every push and pull request: the UI type-checks and builds, every text has its Portuguese, and
+# the Rust tests pass. Releases still come from scripts/release.mjs on Ender's machine.
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Also makes dist/, which the Rust build embeds.
+      - run: npm run build
+      - run: npm run i18n:check
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: cargo test --locked
+        working-directory: src-tauri

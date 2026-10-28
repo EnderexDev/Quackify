@@ -478,7 +478,7 @@ impl Listening {
             if let Some(report) = done {
                 // A full queue means Spotify has not answered for a long while: that listen is dropped.
                 if self.queue.try_send(Job::Report(report)).is_err() {
-                    eprintln!("[listening] queue full, a listen was dropped");
+                    log::warn!("[listening] queue full, a listen was dropped");
                 }
             }
         }
@@ -521,7 +521,7 @@ impl Listening {
             told.await.ok()
         };
         if tokio::time::timeout(FLUSH_WAIT, drained).await.is_err() {
-            eprintln!("[listening] the last listens were not reported in time");
+            log::warn!("[listening] the last listens were not reported in time");
         }
     }
 }
@@ -539,7 +539,7 @@ impl Publisher {
             match job {
                 Job::Report(report) => {
                     if let Err(e) = self.publish(&report).await {
-                        eprintln!("[listening] {} not reported: {e}", report.uri);
+                        log::warn!("[listening] {} not reported: {e}", report.uri);
                     }
                 }
                 Job::Drained(tell) => {
