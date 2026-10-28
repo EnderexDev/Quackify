@@ -27,6 +27,8 @@ export const openLogFolder = () => invoke("logs_open_folder");
 /** A new GitHub issue with the version and Windows filled in; `detail` goes in too (the crash). */
 export async function reportProblem(detail?: string) {
   const version = await getVersion().catch(() => "?");
+  // The detail's first 3000 code points, read once: 6000 code units always hold them.
+  const chars = Array.from((detail ?? "").slice(0, 6000)).slice(0, 3000);
   const body = (cut: number) =>
     [
       `**${t("What happened?")}**`,
@@ -37,7 +39,7 @@ export async function reportProblem(detail?: string) {
       "",
       `Quackify ${version} · ${navigator.userAgent.match(/Windows NT [\d.]+/)?.[0] ?? navigator.platform}`,
       t("Logs: Settings > About > Open log folder, then drag the newest file here."),
-      ...(detail && cut > 0 ? ["", "```", Array.from(detail).slice(0, cut).join(""), "```"] : []),
+      ...(chars.length && cut > 0 ? ["", "```", chars.slice(0, cut).join(""), "```"] : []),
     ].join("\n");
   // GitHub turns away a URL past about 8 KB, and encoding can make each character 9 bytes:
   // the detail is cut until the encoded body fits. It is cut by code points: half an emoji makes
