@@ -139,7 +139,8 @@ export function Setup() {
           </div>
         )}
 
-        {!updating && stage.kind === "ready" && (
+        {/* Also after a failed install: a folder it could not write to can be changed before trying again. */}
+        {!updating && (stage.kind === "ready" || stage.kind === "error") && (
           <div className="setup-options">
             <div className="setup-option">
               <FolderIcon size={16} />
