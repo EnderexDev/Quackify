@@ -49,14 +49,25 @@ edit("package.json", (s) => s.replace(/"version": "[^"]+"/, `"version": "${versi
 edit("src-tauri/tauri.conf.json", (s) => s.replace(/"version": "[^"]+"/, `"version": "${version}"`));
 edit("src-tauri/Cargo.toml", (s) => s.replace(/^version = "[^"]+"/m, `version = "${version}"`));
 
-run("npm", ["run", "app:build"], {
-  env: { ...process.env, TAURI_SIGNING_PRIVATE_KEY: key, TAURI_SIGNING_PRIVATE_KEY_PASSWORD: process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? "" },
-});
+const VERSION_FILES = ["package.json", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock"];
+/** Puts the old version back, so the next try does not stop at "the tree has changes". */
+const undo = (why) => {
+  run("git", ["checkout", "--", ...VERSION_FILES]);
+  fail(`${why}; the version files are back as they were`);
+};
+
+try {
+  run("npm", ["run", "app:build"], {
+    env: { ...process.env, TAURI_SIGNING_PRIVATE_KEY: key, TAURI_SIGNING_PRIVATE_KEY_PASSWORD: process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? "" },
+  });
+} catch {
+  undo("the build failed");
+}
 
 const bundle = join(root, "src-tauri", "target", "release", "bundle", "nsis");
 const setup = `Quackify_${version}_x64-setup.exe`;
 const exe = join(bundle, setup);
-if (!existsSync(exe) || !existsSync(`${exe}.sig`)) fail(`the build left no ${setup} with its .sig in ${bundle}`);
+if (!existsSync(exe) || !existsSync(`${exe}.sig`)) undo(`the build left no ${setup} with its .sig in ${bundle}`);
 const latest = join(bundle, "latest.json");
 writeFileSync(
   latest,
@@ -78,8 +89,19 @@ writeFileSync(
 );
 
 // Cargo.lock carries the version too: the build has just written it.
-run("git", ["add", "package.json", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock"]);
-run("git", ["commit", "-m", `Quackify ${version}`]);
+run("git", ["add", ...VERSION_FILES]);
+// A second try after a failed push or release finds the version already committed.
+try {
+  read("git", ["diff", "--cached", "--quiet"]);
+} catch {
+  try {
+    run("git", ["commit", "-m", `Quackify ${version}`]);
+  } catch {
+    // A missing Git identity or a hook: unstaged too, so the next try starts from a clean tree.
+    run("git", ["reset", "-q", "--", ...VERSION_FILES]);
+    undo("the commit failed");
+  }
+}
 run("git", ["push", "origin", "HEAD:main"]);
 // Neither draft nor prerelease: releases/latest skips both, and the apps would not see it.
 run("gh", ["release", "create", tag, exe, `${exe}.sig`, latest, "-R", REPO, "--target", read("git", ["rev-parse", "HEAD"]), "--title", `Quackify ${version}`, "--notes", notes || `Quackify ${version}`]);

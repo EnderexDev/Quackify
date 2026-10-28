@@ -53,6 +53,8 @@ export async function checkForUpdate(quiet = false) {
   set({ kind: "checking" });
   try {
     const update = await check();
+    // Each check hands back a new Update held on the Rust side: the old one is let go.
+    if (found && found !== update) found.close().catch(() => {});
     found = update;
     if (!update) {
       set({ kind: "latest", at: Date.now() });
@@ -68,7 +70,8 @@ export async function checkForUpdate(quiet = false) {
       });
     }
   } catch (e) {
-    set({ kind: "error", message: String(e) });
+    // A version found before is still there to install: its notice's Update button keeps working.
+    set(found ? { kind: "available", version: found.version } : { kind: "error", message: String(e) });
     if (!quiet) toast(t("Could not check for updates: {error}", { error: String(e) }));
   }
 }
@@ -76,7 +79,8 @@ export async function checkForUpdate(quiet = false) {
 /** Downloads and installs the version found. On Windows the installer closes Quackify itself. */
 export async function installUpdate() {
   const update = found;
-  if (!update || state.kind === "downloading") return;
+  // Only from "available": a check still on its way would close this Update when it lands.
+  if (!update || state.kind !== "available") return;
   let total = 0;
   let got = 0;
   set({ kind: "downloading", version: update.version, percent: null });
@@ -85,7 +89,9 @@ export async function installUpdate() {
       if (event.event === "Started") total = event.data.contentLength ?? 0;
       else if (event.event === "Progress") {
         got += event.data.chunkLength;
-        if (total) set({ kind: "downloading", version: update.version, percent: Math.min(100, Math.round((got / total) * 100)) });
+        // Thousands of chunks: Settings re-renders only when the shown number moves.
+        const percent = total ? Math.min(100, Math.round((got / total) * 100)) : null;
+        if (state.kind === "downloading" && percent !== state.percent) set({ kind: "downloading", version: update.version, percent });
       }
     });
     // Only reached where the installer does not close the app.
