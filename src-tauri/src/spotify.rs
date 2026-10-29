@@ -429,6 +429,23 @@ pub fn restore_early(app: &AppHandle) {
 #[tauri::command]
 pub async fn spotify_restore(app: AppHandle, state: State<'_, SpotifyState>) -> Result<Status, String> {
     let mut slot = state.0.lock().await;
+    // A session that died (the connection to Spotify dropped) is not a logout: the saved
+    // credentials still hold, so it reconnects with them instead of showing the login. The dead
+    // engine leaves only once the new one is in: while connecting fails (no network yet), it
+    // stays, and revive keeps trying.
+    if slot.as_ref().is_some_and(|e| e.session.is_invalid()) {
+        let old = match open_cache(&app, None)?.credentials() {
+            Some(credentials) => {
+                let engine = connect(&app, credentials).await?;
+                slot.replace(engine)
+            }
+            None => slot.take(),
+        };
+        if let Some(old) = old {
+            // Off the splash: a dead session can take FLUSH_WAIT to give up on the history.
+            tauri::async_runtime::spawn(async move { old.shutdown().await });
+        }
+    }
     if slot.is_none() {
         if let Some(credentials) = open_cache(&app, None)?.credentials() {
             *slot = Some(connect(&app, credentials).await?);
