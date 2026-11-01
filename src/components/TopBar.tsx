@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { t } from "../i18n";
 import { useNav } from "../state/nav";
 import { toggleCinema, toggleMini } from "../state/windows";
-import { BackIcon, DuckIcon, ExpandIcon, ForwardIcon, KeyboardIcon, MiniPlayerIcon, SearchIcon, SettingsIcon } from "./icons";
+import { BackIcon, ExpandIcon, ForwardIcon, KeyboardIcon, MiniPlayerIcon, SearchIcon, SettingsIcon } from "./icons";
 import { Segmented } from "./Segmented";
 
 // Labels read at render, so they follow the language.
@@ -11,7 +11,7 @@ const tabs = () => [
   { id: "explore" as const, label: t("Explore") },
 ];
 
-/** The duck, back and forward, the Home and Explore tabs, the magnifier that opens the palette, and the avatar menu. */
+/** The logo, back and forward, the Home and Explore tabs, the magnifier that opens the palette, and the avatar menu. */
 export function TopBar({
   name,
   image,
@@ -32,7 +32,7 @@ export function TopBar({
   return (
     <header className="topbar">
       <div className="brand">
-        <DuckIcon size={30} />
+        <span className="brand-mark" aria-hidden />
         <span className="brand-name">Quackify</span>
       </div>
       <div className="nav-arrows">

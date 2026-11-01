@@ -21,6 +21,18 @@
   flex: none;
 }
 
+/* The app's icon, gold; green in Quackify Dev (class from state/flavor.ts). */
+.brand-mark {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  background: url("../../assets/logo.png") center / contain no-repeat;
+}
+
+:root.dev .brand-mark {
+  background-image: url("../../assets/logo-dev.png");
+}
+
 .side-collapsed .brand {
   --brand-w: 72px;
 }
