@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 // First, so the theme is on <html> before anything paints.
 import "./state/theme";
+import "./state/flavor";
 import "./state/motion";
 import "./util/noBrowserMenu";
 // Early, so an error while the rest loads already reaches the log file.

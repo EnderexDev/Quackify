@@ -73,3 +73,16 @@
   --aura-opacity: 0.35;
   --shadow-popup: 0 20px 50px rgba(0, 0, 0, 0.18);
 }
+
+/* Quackify Dev (class from state/flavor.ts): the green of its icon and of Quack Dev where the
+   official app is gold. */
+:root.dev {
+  --accent: #5ee36a;
+  --accent-2: #2fbf4a;
+  --on-accent: #0f3d16;
+}
+
+:root.dev[data-theme="light"] {
+  --accent: #2fbf4a;
+  --accent-2: #1f8a3a;
+}
