@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { clearCache } from "./api/spotify";
 import { Aura } from "./components/Aura";
 import { Cinema, useCinemaAuto } from "./components/Cinema";
-import { DuckIcon } from "./components/icons";
+import { DuckIcon, LogoIcon } from "./components/icons";
 import { FloatingScrollbar } from "./components/FloatingScrollbar";
 import { ContextMenuProvider } from "./components/ContextMenu";
 import { CreditsHost } from "./components/Credits";
@@ -418,7 +418,7 @@ function WebPlayer({ onLeave }: { onLeave: () => void }) {
 
   return (
     <div className="web-player-bar">
-      <DuckIcon size={26} />
+      <LogoIcon size={26} />
       <strong>Quackify</strong>
       <span className="web-player-pill">{t("Spotify Free · Spotify's web player")}</span>
       <span className="muted small web-player-note">{t("Quackify's player needs Premium.")}</span>

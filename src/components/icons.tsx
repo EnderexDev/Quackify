@@ -181,7 +181,12 @@ export const MusicIcon = (p: P) => (
   </Icon>
 );
 
-/** The duck: Quackify's mark. */
+/** The app icon, the gold equalizer: Quackify's name goes next to it. */
+export const LogoIcon = ({ size = 20 }: { size?: number }) => (
+  <img src="/logo.png" width={size} height={size} alt="" aria-hidden draggable={false} />
+);
+
+/** The duck: Quackify's mascot. */
 export const DuckIcon = ({ size = 20, ...p }: SVGProps<SVGSVGElement> & { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden {...p}>
     <path
