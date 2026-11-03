@@ -85,11 +85,15 @@ fn revive(app: AppHandle, generation: u64) -> std::pin::Pin<Box<dyn std::future:
 async fn revive_inner(app: AppHandle, generation: u64) {
     let state = app.state::<SpotifyState>();
     let still_mine = |slot: &Option<Engine>| slot.as_ref().is_some_and(|e| e.generation == generation);
-    for attempt in 0.. {
+    // What played when the connection dropped, read now: the old view keeps moving the position
+    // of a song that was playing, which the wait for the network would carry too far.
+    let (resume, was_playing_here) = {
+        let slot = state.0.lock().await;
         // A deliberate shutdown (quit, logout, a settings reconnect) already took this engine out.
-        if attempt == 0 && !still_mine(&*state.0.lock().await) {
-            return;
-        }
+        let Some(old) = slot.as_ref().filter(|e| e.generation == generation) else { return };
+        (old.hub.resume_point(), old.hub.active_here() == Some(true))
+    };
+    for attempt in 0.. {
         let wait = REVIVE_WAITS[attempt.min(REVIVE_WAITS.len() - 1)];
         log::warn!("[spotify] connection lost, reconnecting in {}s (try {})", wait.as_secs(), attempt + 1);
         tokio::time::sleep(wait).await;
@@ -105,10 +109,13 @@ async fn revive_inner(app: AppHandle, generation: u64) {
                     engine.shutdown().await;
                     return;
                 }
+                let hub = engine.hub.clone();
                 if let Some(old) = slot.replace(engine) {
                     old.shutdown().await;
                 }
                 log::info!("[spotify] reconnected");
+                // The new device comes up with nothing active: it picks the music back up.
+                hub.take_over(resume, was_playing_here);
                 return;
             }
             Err(e) => log::warn!("[spotify] reconnect failed: {e}"),

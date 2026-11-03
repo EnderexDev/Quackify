@@ -110,6 +110,8 @@ pub struct QueuedTrack {
     provider: String,
 }
 
+const NOTHING_TO_RESUME: &str = "Nothing to pick up here: choose a song to play";
+
 /// How many upcoming tracks the queue view gets.
 const QUEUE_LIMIT: usize = 50;
 
@@ -164,7 +166,14 @@ pub struct Hub {
     editing_queue: tokio::sync::Mutex<Vec<(String, usize)>>,
     // Track metadata already fetched, for the queue and lists that only carry URIs.
     track_cache: StdMutex<std::collections::HashMap<String, NowPlaying>>,
+    // The last playback the cluster showed, and when. While no device is active (the connection
+    // dropped and came back, or Spotify let a paused device go), librespot ignores every command
+    // but a load: play, skip and seek start this again on this device instead.
+    last_playback: StdMutex<Option<(Playback, Instant)>>,
 }
+
+/// Before this far into a song, previous goes to the song before; after it, to the start.
+const PREVIOUS_RESTARTS_AFTER_MS: u64 = 3000;
 
 enum Target {
     Local,
@@ -191,6 +200,7 @@ impl Hub {
             refreshing: tokio::sync::Mutex::new(()),
             editing_queue: tokio::sync::Mutex::new(Vec::new()),
             track_cache: StdMutex::new(Default::default()),
+            last_playback: StdMutex::new(None),
         });
         match hub
             .session
@@ -298,6 +308,9 @@ impl Hub {
             });
         }
 
+        if let Some(p) = &view.playback {
+            *self.last_playback.lock().unwrap() = Some((p.clone(), Instant::now()));
+        }
         let track = view.playback.as_ref().map(|p| p.track_uri.clone());
         let changed = {
             let mut current = self.view.lock().unwrap();
@@ -452,8 +465,91 @@ impl Hub {
         r.map_err(|e| e.to_string())
     }
 
+    /// No device holds the account's playback: librespot drops commands while not active, and
+    /// still answers that they were sent.
+    fn inactive(&self) -> bool {
+        self.view.lock().unwrap().active_device_id.is_none()
+    }
+
+    /// The last playback seen, its position moved forward while it was playing.
+    pub fn resume_point(&self) -> Option<Playback> {
+        let (mut p, at) = self.last_playback.lock().unwrap().clone()?;
+        if p.is_playing {
+            p.position_ms += at.elapsed().as_millis() as u64;
+            if p.duration_ms > 0 {
+                p.position_ms = p.position_ms.min(p.duration_ms);
+            }
+        }
+        Some(p)
+    }
+
+    /// Changes the last playback in place, for a command given while nothing is active.
+    fn edit_resume_point(&self, edit: impl FnOnce(&mut Playback)) {
+        if let Some(p) = self.resume_point() {
+            let mut p = p;
+            edit(&mut p);
+            *self.last_playback.lock().unwrap() = Some((p, Instant::now()));
+        }
+    }
+
+    /// A new connection after the old one dropped: it starts with what the old one last showed,
+    /// and takes the music back if it was playing here and no other device took it meanwhile.
+    pub fn take_over(self: &Arc<Self>, resume: Option<Playback>, was_playing_here: bool) {
+        let Some(p) = resume else { return };
+        *self.last_playback.lock().unwrap() = Some((p, Instant::now()));
+        if !was_playing_here {
+            return;
+        }
+        let hub = self.clone();
+        tauri::async_runtime::spawn(async move {
+            {
+                let _turn = hub.refreshing.lock().await;
+                if let Err(e) = hub.refresh().await {
+                    log::warn!("connect: cluster read after reconnecting failed: {e}");
+                }
+            }
+            if !hub.inactive() {
+                return;
+            }
+            match hub.resume().await {
+                Ok(()) => log::info!("connect: took the music back after reconnecting"),
+                Err(e) => log::warn!("connect: music not taken back after reconnecting: {e}"),
+            }
+        });
+    }
+
+    /// Loads `track_uri` of the last playback on this device, from `position_ms`, playing. A
+    /// song from the playback's album or playlist loads in it; one queued by hand loads alone.
+    fn restore(self: &Arc<Self>, from: &Playback, track_uri: String, position_ms: u64, in_context: bool) -> Result<(), String> {
+        let options = LoadRequestOptions {
+            start_playing: true,
+            seek_to: position_ms.min(u64::from(u32::MAX)) as u32,
+            context_options: Some(Modes { shuffle: from.shuffle, repeat: from.repeat }.load_options()),
+            playing_track: None,
+        };
+        let context = from
+            .context_uri
+            .as_deref()
+            .filter(|c| in_context && c.starts_with("spotify:") && !c.starts_with("spotify:web-api"));
+        let request = match context {
+            Some(context) => LoadRequest::from_context_uri(
+                self.resolvable(context),
+                LoadRequestOptions { playing_track: Some(PlayingTrack::Uri(track_uri)), ..options },
+            ),
+            None => LoadRequest::from_tracks(
+                vec![track_uri],
+                LoadRequestOptions { playing_track: Some(PlayingTrack::Index(0)), ..options },
+            ),
+        };
+        log::info!("connect: no device active, loading the last playback here");
+        self.local(self.spirc.activate())?;
+        self.local(self.spirc.load(request))
+    }
+
     pub async fn pause(self: &Arc<Self>) -> Result<(), String> {
         match self.target() {
+            // Nothing plays: there is nothing to pause.
+            Target::Local if self.inactive() => Ok(()),
             Target::Local => self.local(self.spirc.pause()),
             Target::Remote(to) => self.remote_command(&to, json!({ "endpoint": "pause" })).await,
         }
@@ -488,15 +584,11 @@ impl Hub {
 
     pub async fn resume(self: &Arc<Self>) -> Result<(), String> {
         match self.target() {
-            Target::Local if self.local_stopped.load(Ordering::SeqCst) => {
-                // The song ended with nothing after it: play it again, in its album or playlist
-                // when it had one.
-                let Some(p) = self.view().playback else { return Ok(()) };
-                let modes = Modes { shuffle: p.shuffle, repeat: p.repeat };
-                match p.context_uri.filter(|c| c.starts_with("spotify:") && !c.starts_with("spotify:web-api")) {
-                    Some(context) => self.play_context(context, Some(p.track_uri), None, modes).await,
-                    None => self.play_tracks(vec![p.track_uri], 0, modes).await,
-                }
+            // The song ended with nothing after it (it plays again from the start, the view says
+            // 0:00), or nothing is active: play it again, in its album or playlist when it had one.
+            Target::Local if self.inactive() || self.local_stopped.load(Ordering::SeqCst) => {
+                let p = self.resume_point().ok_or(NOTHING_TO_RESUME)?;
+                self.restore(&p, p.track_uri.clone(), p.position_ms, true)
             }
             Target::Local => self.local(self.spirc.play()),
             Target::Remote(to) => self.remote_command(&to, json!({ "endpoint": "resume" })).await,
@@ -505,6 +597,11 @@ impl Hub {
 
     pub async fn next(self: &Arc<Self>) -> Result<(), String> {
         match self.target() {
+            Target::Local if self.inactive() => {
+                let p = self.resume_point().ok_or(NOTHING_TO_RESUME)?;
+                let next = p.next_tracks.first().ok_or(NOTHING_TO_RESUME)?;
+                self.restore(&p, next.uri.clone(), 0, next.provider == "context")
+            }
             Target::Local => self.local(self.spirc.next()),
             Target::Remote(to) => self.remote_command(&to, json!({ "endpoint": "skip_next" })).await,
         }
@@ -512,6 +609,13 @@ impl Hub {
 
     pub async fn previous(self: &Arc<Self>) -> Result<(), String> {
         match self.target() {
+            Target::Local if self.inactive() => {
+                let p = self.resume_point().ok_or(NOTHING_TO_RESUME)?;
+                match p.prev_tracks.first().filter(|_| p.position_ms < PREVIOUS_RESTARTS_AFTER_MS) {
+                    Some(prev) => self.restore(&p, prev.uri.clone(), 0, prev.provider == "context"),
+                    None => self.restore(&p, p.track_uri.clone(), 0, true),
+                }
+            }
             Target::Local => self.local(self.spirc.prev()),
             Target::Remote(to) => self.remote_command(&to, json!({ "endpoint": "skip_prev" })).await,
         }
@@ -519,6 +623,11 @@ impl Hub {
 
     pub async fn seek(self: &Arc<Self>, position_ms: u32) -> Result<(), String> {
         match self.target() {
+            // Play starts it from there.
+            Target::Local if self.inactive() => {
+                self.edit_resume_point(|p| p.position_ms = u64::from(position_ms));
+                Ok(())
+            }
             Target::Local => self.local(self.spirc.set_position_ms(position_ms)),
             Target::Remote(to) => {
                 self.remote_command(&to, json!({ "endpoint": "seek_to", "value": position_ms, "position": position_ms }))
@@ -529,6 +638,10 @@ impl Hub {
 
     pub async fn shuffle(self: &Arc<Self>, on: bool) -> Result<(), String> {
         match self.target() {
+            Target::Local if self.inactive() => {
+                self.edit_resume_point(|p| p.shuffle = on);
+                Ok(())
+            }
             Target::Local => self.local(self.spirc.shuffle(on)),
             Target::Remote(to) => {
                 self.remote_command(&to, json!({ "endpoint": "set_shuffling_context", "value": on }))
@@ -544,6 +657,10 @@ impl Hub {
             Repeat::One => (true, true),
         };
         match self.target() {
+            Target::Local if self.inactive() => {
+                self.edit_resume_point(|p| p.repeat = repeat);
+                Ok(())
+            }
             Target::Local => {
                 self.local(self.spirc.repeat(context))?;
                 self.local(self.spirc.repeat_track(track))
