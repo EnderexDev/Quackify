@@ -1,0 +1,22 @@
+mode=off
+visible total=409 MB n=6 browser=37 crashpad-handler=2 gpu-process=242 host:quackify.exe=19 renderer=87 utility:network=13 utility:storage=8
+cycle1 hidden+10s visible=False total=394 MB n=6 browser=37 crashpad-handler=3 gpu-process=242 host:quackify.exe=19 renderer=71 utility:network=13 utility:storage=8
+cycle1 hidden+30s visible=False total=363 MB n=6 browser=37 crashpad-handler=3 gpu-process=216 host:quackify.exe=18 renderer=68 utility:network=13 utility:storage=8
+cycle1 hidden+60s visible=False total=359 MB n=6 browser=35 crashpad-handler=3 gpu-process=214 host:quackify.exe=18 renderer=69 utility:network=12 utility:storage=8
+cycle1 shown+8s total=395 MB n=6 browser=35 crashpad-handler=3 gpu-process=248 host:quackify.exe=19 renderer=71 utility:network=12 utility:storage=8
+cycle2 hidden+10s visible=False total=361 MB n=6 browser=35 crashpad-handler=3 gpu-process=219 host:quackify.exe=19 renderer=65 utility:network=12 utility:storage=8
+cycle2 hidden+30s visible=False total=356 MB n=6 browser=35 crashpad-handler=3 gpu-process=214 host:quackify.exe=18 renderer=65 utility:network=12 utility:storage=8
+cycle2 hidden+60s visible=False total=355 MB n=6 browser=35 crashpad-handler=3 gpu-process=214 host:quackify.exe=18 renderer=65 utility:network=12 utility:storage=8
+cycle2 shown+8s total=365 MB n=6 browser=35 crashpad-handler=3 gpu-process=221 host:quackify.exe=18 renderer=68 utility:network=12 utility:storage=8
+cycle3 hidden+10s visible=False total=365 MB n=6 browser=35 crashpad-handler=3 gpu-process=221 host:quackify.exe=19 renderer=68 utility:network=12 utility:storage=8
+cycle3 hidden+30s visible=False total=357 MB n=6 browser=35 crashpad-handler=3 gpu-process=216 host:quackify.exe=16 renderer=68 utility:network=12 utility:storage=8
+cycle3 hidden+60s visible=False total=356 MB n=6 browser=35 crashpad-handler=3 gpu-process=214 host:quackify.exe=16 renderer=68 utility:network=12 utility:storage=8
+cycle3 shown+8s total=358 MB n=6 browser=35 crashpad-handler=3 gpu-process=214 host:quackify.exe=16 renderer=70 utility:network=12 utility:storage=8
+cycle4 hidden+10s visible=False total=358 MB n=6 browser=35 crashpad-handler=3 gpu-process=214 host:quackify.exe=16 renderer=70 utility:network=12 utility:storage=8
+cycle4 hidden+30s visible=False total=357 MB n=6 browser=35 crashpad-handler=3 gpu-process=214 host:quackify.exe=16 renderer=70 utility:network=12 utility:storage=8
+cycle4 hidden+60s visible=False total=357 MB n=6 browser=35 crashpad-handler=3 gpu-process=214 host:quackify.exe=16 renderer=70 utility:network=12 utility:storage=8
+cycle4 shown+8s total=363 MB n=6 browser=35 crashpad-handler=3 gpu-process=219 host:quackify.exe=16 renderer=71 utility:network=12 utility:storage=8
+cycle5 hidden+10s visible=False total=365 MB n=6 browser=36 crashpad-handler=3 gpu-process=219 host:quackify.exe=16 renderer=71 utility:network=12 utility:storage=8
+cycle5 hidden+30s visible=False total=361 MB n=6 browser=35 crashpad-handler=3 gpu-process=215 host:quackify.exe=16 renderer=71 utility:network=12 utility:storage=8
+cycle5 hidden+60s visible=False total=359 MB n=6 browser=35 crashpad-handler=3 gpu-process=214 host:quackify.exe=16 renderer=71 utility:network=12 utility:storage=8
+cycle5 shown+8s total=360 MB n=6 browser=35 crashpad-handler=3 gpu-process=215 host:quackify.exe=16 renderer=71 utility:network=12 utility:storage=8

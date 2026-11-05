@@ -191,9 +191,13 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
 /// the webview window: with the web player inside it, it holds two webviews.
 pub fn show_window(app: &AppHandle) {
     if let Some(w) = app.get_window("main") {
+        crate::rest::mark_shown();
+        // Before show, so the first frame is drawn by a running page (rest.rs).
+        crate::rest::wake(&w);
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
+        let _ = app.emit_to("main", "rest-shown", ());
     }
 }
 
@@ -207,6 +211,16 @@ pub fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
         if settings::current(window.app_handle()).close_to_tray && !quitting {
             api.prevent_close();
             let _ = window.hide();
+            crate::rest::rest(window);
+            let window = window.clone();
+            std::thread::spawn(move || {
+                // For measuring: whether the page stayed suspended (a call into it wakes it).
+                for (wait, when) in [(5, "5 s after hide"), (25, "30 s after hide")] {
+                    std::thread::sleep(std::time::Duration::from_secs(wait));
+                    let w = window.clone();
+                    let _ = window.run_on_main_thread(move || crate::rest::log_suspended(&w, when));
+                }
+            });
         }
     }
 }

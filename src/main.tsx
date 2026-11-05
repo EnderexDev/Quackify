@@ -16,10 +16,16 @@ import { PlayerProvider } from "./state/player";
 import { isMini, isSetup } from "./state/windows";
 import { startUpdateChecks } from "./state/update";
 import "./styles/index.css";
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 
 if (isMini) document.documentElement.classList.add("mini-window");
 // The main window asks for updates; the mini player and the installer leave it to it.
-else if (!isSetup) startUpdateChecks();
+else if (!isSetup) {
+  startUpdateChecks();
+  // For measuring (rest.rs): two frames after the window comes back from the tray, it has painted.
+  listen("rest-shown", () => requestAnimationFrame(() => requestAnimationFrame(() => invoke("rest_painted").catch(() => {}))));
+}
 
 /** The mini player's window: the same player, which leaves the history to the main window; it
  * starts over when the language changes, like the main window's shell. */

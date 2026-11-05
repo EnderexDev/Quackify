@@ -1,0 +1,72 @@
+[05:00:27][INFO][quackify_lib::rest] rest: painted 28.9 ms after show (mode Off)
+[05:06:18][INFO][quackify_lib::rest] rest: painted 29.1 ms after show (mode Suspend)
+[05:08:37][INFO][quackify_lib::rest] rest: painted 23.4 ms after show (mode Suspend)
+[05:09:41][INFO][quackify_lib::rest] rest: main: TrySuspend Ok(()) suspended=true in 1.9159ms
+[05:09:46][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=true
+[05:10:11][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=true
+[05:10:17][INFO][quackify_lib::rest] rest: painted 91.8 ms after show (mode Suspend)
+[05:11:07][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=true suspended=false
+[05:11:32][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=true suspended=false
+[05:12:03][INFO][quackify_lib::rest] rest: painted 99.4 ms after show (mode Off)
+[05:12:16][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=true suspended=false
+[05:12:41][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=true suspended=false
+[05:13:12][INFO][quackify_lib::rest] rest: painted 77.3 ms after show (mode Off)
+[05:13:26][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=true suspended=false
+[05:13:51][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=true suspended=false
+[05:14:21][INFO][quackify_lib::rest] rest: painted 85.5 ms after show (mode Off)
+[05:14:35][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=true suspended=false
+[05:15:00][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=true suspended=false
+[05:15:31][INFO][quackify_lib::rest] rest: painted 106.5 ms after show (mode Off)
+[05:15:44][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=true suspended=false
+[05:16:09][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=true suspended=false
+[05:16:40][INFO][quackify_lib::rest] rest: painted 47.7 ms after show (mode Off)
+[05:17:17][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=false
+[05:17:42][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=false
+[05:18:13][INFO][quackify_lib::rest] rest: painted 73.8 ms after show (mode Hidden)
+[05:18:26][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=false
+[05:18:51][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=false
+[05:19:22][INFO][quackify_lib::rest] rest: painted 84.6 ms after show (mode Hidden)
+[05:19:36][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=false
+[05:20:01][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=false
+[05:20:31][INFO][quackify_lib::rest] rest: painted 82.0 ms after show (mode Hidden)
+[05:20:45][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=false
+[05:21:10][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=false
+[05:21:41][INFO][quackify_lib::rest] rest: painted 76.4 ms after show (mode Hidden)
+[05:21:54][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=false
+[05:22:19][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=false
+[05:22:50][INFO][quackify_lib::rest] rest: painted 66.1 ms after show (mode Hidden)
+[05:23:26][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=false
+[05:23:51][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=false
+[05:24:22][INFO][quackify_lib::rest] rest: painted 62.1 ms after show (mode Low)
+[05:24:36][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=false
+[05:25:01][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=false
+[05:25:31][INFO][quackify_lib::rest] rest: painted 67.0 ms after show (mode Low)
+[05:25:45][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=false
+[05:26:10][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=false
+[05:26:41][INFO][quackify_lib::rest] rest: painted 74.7 ms after show (mode Low)
+[05:26:54][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=false
+[05:27:19][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=false
+[05:27:50][INFO][quackify_lib::rest] rest: painted 86.1 ms after show (mode Low)
+[05:28:04][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=false
+[05:28:29][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=false
+[05:29:00][INFO][quackify_lib::rest] rest: painted 86.1 ms after show (mode Low)
+[05:29:32][INFO][quackify_lib::rest] rest: main: TrySuspend Ok(()) suspended=true in 3.504ms
+[05:29:37][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=true
+[05:30:02][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=true
+[05:30:32][INFO][quackify_lib::rest] rest: painted 86.9 ms after show (mode Suspend)
+[05:30:41][INFO][quackify_lib::rest] rest: main: TrySuspend Ok(()) suspended=true in 10.5224ms
+[05:30:46][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=true
+[05:31:11][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=true
+[05:31:42][INFO][quackify_lib::rest] rest: painted 83.5 ms after show (mode Suspend)
+[05:31:51][INFO][quackify_lib::rest] rest: main: TrySuspend Ok(()) suspended=true in 2.9453ms
+[05:31:56][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=true
+[05:32:21][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=true
+[05:32:52][INFO][quackify_lib::rest] rest: painted 81.3 ms after show (mode Suspend)
+[05:33:01][INFO][quackify_lib::rest] rest: main: TrySuspend Ok(()) suspended=true in 3.3309ms
+[05:33:06][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=true
+[05:33:31][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=true
+[05:34:02][INFO][quackify_lib::rest] rest: painted 77.0 ms after show (mode Suspend)
+[05:34:10][INFO][quackify_lib::rest] rest: main: TrySuspend Ok(()) suspended=true in 5.97ms
+[05:34:15][INFO][quackify_lib::rest] rest: main 5 s after hide: visible=false suspended=true
+[05:34:40][INFO][quackify_lib::rest] rest: main 30 s after hide: visible=false suspended=true
+[05:35:11][INFO][quackify_lib::rest] rest: painted 56.0 ms after show (mode Suspend)

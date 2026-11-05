@@ -9,6 +9,7 @@ mod media;
 mod meter;
 mod mini;
 mod pathfinder;
+mod rest;
 mod settings;
 mod setup;
 mod spotify;
@@ -133,6 +134,7 @@ pub fn run() {
             mini::mini_player_show_main,
             setup::update_in_window,
             logs::logs_open_folder,
+            rest::rest_painted,
         ])
         .run(context)
         .expect("error while running tauri application");

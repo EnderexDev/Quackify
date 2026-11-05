@@ -57,6 +57,9 @@ log = "0.4"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"
+# The versions Tauri already pulls in: the WebView2 controller, rested in the tray (rest.rs).
+webview2-com = "0.39"
+windows-core = "0.62"
 # The version Tauri already pulls in: the taskbar thumbnail's buttons (thumbbar.rs) and the
 # mouse button the mini player's snap waits for (mini.rs).
 windows = { version = "0.61", features = [

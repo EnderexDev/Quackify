@@ -5,7 +5,7 @@
 // page gets no access to the app: the capabilities only cover the main webview.
 use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, Runtime, WebviewBuilder, WebviewUrl, Window};
 
-const LABEL: &str = "web-player";
+pub const LABEL: &str = "web-player";
 const URL: &str = "https://open.spotify.com";
 /// Quackify's bar above the web player, in logical pixels.
 const BAR_HEIGHT: f64 = 56.0;

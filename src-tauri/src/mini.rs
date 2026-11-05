@@ -66,6 +66,7 @@ pub fn is_open(app: &AppHandle) -> bool {
 /// Opens the mini player, or brings it forward; says the main window so (its button lights up).
 pub fn open(app: &AppHandle) -> Result<(), String> {
     if let Some(w) = app.get_webview_window(LABEL) {
+        crate::rest::wake(&w.as_ref().window());
         w.show().map_err(|e| e.to_string())?;
         let _ = w.set_focus();
         let _ = app.emit("mini-player", true);
@@ -117,6 +118,7 @@ fn place(app: &AppHandle, window: &WebviewWindow, lyrics: bool) {
 pub fn close(app: &AppHandle) {
     if let Some(w) = app.get_webview_window(LABEL) {
         let _ = w.hide();
+        crate::rest::rest(&w.as_ref().window());
     }
     let _ = app.emit("mini-player", false);
 }
