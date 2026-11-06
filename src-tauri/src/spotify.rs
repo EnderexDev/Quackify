@@ -545,9 +545,11 @@ pub async fn spotify_logout(app: AppHandle, state: State<'_, SpotifyState>) -> R
 
 /// Runs one of Spotify's internal GraphQL operations (see pathfinder.rs) and returns its data.
 #[tauri::command]
+/// `locale` is the app's language ("pt-BR", "en-US"): Spotify writes the titles it makes in it.
 pub async fn spotify_query(
     op: String,
     variables: Value,
+    locale: Option<String>,
     state: State<'_, SpotifyState>,
     pathfinder: State<'_, Pathfinder>,
 ) -> Result<Value, String> {
@@ -555,7 +557,7 @@ pub async fn spotify_query(
         let slot = state.0.lock().await;
         slot.as_ref().ok_or("not logged in")?.session.clone()
     };
-    pathfinder.query(&session, &op, variables).await
+    pathfinder.query(&session, &op, variables, locale.as_deref()).await
 }
 
 #[derive(Serialize)]

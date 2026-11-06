@@ -2,6 +2,7 @@
 // is instant; a failed read is dropped from the cache so the next visit retries.
 import { invoke } from "@tauri-apps/api/core";
 import * as n from "./normalize";
+import { locale } from "../i18n";
 import type {
   Artist,
   BrowsePage,
@@ -119,8 +120,11 @@ export function clearCache(prefix?: string) {
   }
 }
 
+// The language goes with every read: Spotify writes the Home section titles ("Jump back in"),
+// genre names and the like in it. Sent from here, not from the Rust settings, so a read made
+// right after a language switch is already in the new one.
 function query(op: string, variables: Record<string, unknown>): Promise<unknown> {
-  return invoke("spotify_query", { op, variables });
+  return invoke("spotify_query", { op, variables, locale: locale() });
 }
 
 export const PAGE_SIZE = 100;

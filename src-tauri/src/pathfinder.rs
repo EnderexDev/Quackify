@@ -98,7 +98,9 @@ impl Pathfinder {
         }
     }
 
-    pub async fn query(&self, session: &Session, op: &str, variables: Value) -> Result<Value, String> {
+    /// `locale` ("pt-BR") goes in Accept-Language, as the web player sends it: the Home section
+    /// titles and other text Spotify writes come back in that language.
+    pub async fn query(&self, session: &Session, op: &str, variables: Value, locale: Option<&str>) -> Result<Value, String> {
         // An operation this build does not know yet may exist in the live web player.
         let hash = match self.hash(op).await {
             Ok(h) => h,
@@ -107,12 +109,12 @@ impl Pathfinder {
                 self.hash(op).await?
             }
         };
-        match self.send(session, op, &hash, &variables).await? {
+        match self.send(session, op, &hash, &variables, locale).await? {
             Sent::Ok(v) => Ok(v),
             Sent::StaleHash => {
                 self.refresh(&hash, op).await?;
                 let hash = self.hash(op).await?;
-                match self.send(session, op, &hash, &variables).await? {
+                match self.send(session, op, &hash, &variables, locale).await? {
                     Sent::Ok(v) => Ok(v),
                     Sent::StaleHash => Err(format!("{op}: Spotify rejected the current hash too")),
                 }
@@ -129,17 +131,28 @@ impl Pathfinder {
             .ok_or_else(|| format!("unknown operation {op}"))
     }
 
-    async fn send(&self, session: &Session, op: &str, hash: &str, variables: &Value) -> Result<Sent, String> {
+    async fn send(
+        &self,
+        session: &Session,
+        op: &str,
+        hash: &str,
+        variables: &Value,
+        locale: Option<&str>,
+    ) -> Result<Sent, String> {
         let token = session
             .login5()
             .auth_token()
             .await
             .map_err(|e| format!("token: {e}"))?;
-        let res = self
+        let mut req = self
             .http
             .post(ENDPOINT)
             .bearer_auth(token.access_token)
-            .header("app-platform", "WebPlayer")
+            .header("app-platform", "WebPlayer");
+        if let Some(locale) = locale.filter(|l| !l.is_empty()) {
+            req = req.header("accept-language", locale);
+        }
+        let res = req
             .json(&json!({
                 "variables": variables,
                 "operationName": op,

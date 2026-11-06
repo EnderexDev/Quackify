@@ -1,7 +1,8 @@
 // The app's language: System (follows Windows), English or Português. English is written in the
 // code itself, as the key: t("Added to queue") shows it as is in English and looks it up in the
 // Portuguese dictionary (src/i18n/pt/*.ts, one file per group of screens, merged here).
-// Names that come from Spotify (home sections, genres) already arrive in the account's language.
+// Names that come from Spotify (home sections, genres) arrive in the language each read asks for
+// (spotify.ts sends locale() with every query).
 import { useSyncExternalStore } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
