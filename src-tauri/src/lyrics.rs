@@ -21,20 +21,24 @@ pub(crate) struct Song {
     pub duration_ms: u64,
 }
 
-fn http() -> &'static reqwest::Client {
-    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
-    CLIENT.get_or_init(|| {
-        reqwest::Client::builder()
-            .user_agent(concat!(
-                "Quackify/",
-                env!("CARGO_PKG_VERSION"),
-                " (https://github.com/EnderexDev/Quackify)"
-            ))
-            .timeout(TIMEOUT)
-            .build()
-            // Without the user agent, but never without the timeout.
-            .unwrap_or_else(|_| reqwest::Client::builder().timeout(TIMEOUT).build().unwrap_or_default())
-    })
+/// The client, or None when it cannot be built (then the other sources are just skipped:
+/// `Client::default` would panic, and the release build aborts on a panic).
+fn http() -> Option<&'static reqwest::Client> {
+    static CLIENT: OnceLock<Option<reqwest::Client>> = OnceLock::new();
+    CLIENT
+        .get_or_init(|| {
+            reqwest::Client::builder()
+                .user_agent(concat!(
+                    "Quackify/",
+                    env!("CARGO_PKG_VERSION"),
+                    " (https://github.com/EnderexDev/Quackify)"
+                ))
+                .timeout(TIMEOUT)
+                .build()
+                .map_err(|e| log::warn!("[lyrics] no HTTP client: {e}"))
+                .ok()
+        })
+        .as_ref()
 }
 
 /// The most a source's answer may weigh: a song's lyrics are a few KB.
@@ -101,7 +105,7 @@ pub(crate) async fn find(song: &Song) -> Option<Lyrics> {
 }
 
 async fn from_lrclib(song: &Song) -> Option<Lyrics> {
-    let req = http().get("https://lrclib.net/api/search").query(&[
+    let req = http()?.get("https://lrclib.net/api/search").query(&[
         ("track_name", clean_title(&song.title).as_str()),
         ("artist_name", song.artists.first().map(String::as_str).unwrap_or("")),
     ]);
@@ -127,21 +131,25 @@ fn pick_lrclib(song: &Song, hits: &Value) -> Option<Lyrics> {
 
 async fn from_netease(song: &Song) -> Option<Lyrics> {
     let query = format!("{} {}", clean_title(&song.title), song.artists.first().map(String::as_str).unwrap_or(""));
-    let req = http()
+    let req = http()?
         .get("https://music.163.com/api/search/get")
         .query(&[("s", query.as_str()), ("type", "1"), ("limit", "10")]);
     let found = get_json(req, NETEASE).await?;
-    // The first two matching songs: NetEase often has the same song twice, one without lyrics.
+    // The first two matching songs: NetEase often has the same song twice, one without lyrics
+    // or without times. Synced wins; the first plain one waits as the second choice.
+    let mut plain = None;
     for id in netease_ids(song, &found).into_iter().take(2) {
-        let req = http()
+        let req = http()?
             .get("https://music.163.com/api/song/lyric")
             .query(&[("id", id.to_string().as_str()), ("lv", "1"), ("kv", "1"), ("tv", "-1")]);
         let Some(v) = get_json(req, NETEASE).await else { continue };
-        if let Some(l) = v["lrc"]["lyric"].as_str().and_then(|t| from_text(t, NETEASE)) {
-            return Some(l);
+        match v["lrc"]["lyric"].as_str().and_then(|t| from_text(t, NETEASE)) {
+            Some(l) if l.synced => return Some(l),
+            Some(l) => plain = plain.or(Some(l)),
+            None => {}
         }
     }
-    None
+    plain
 }
 
 /// The ids of the NetEase search results that are `song`.
@@ -230,6 +238,7 @@ fn norm(s: &str) -> String {
 fn from_text(text: &str, provider: &str) -> Option<Lyrics> {
     let mut timed: Vec<(u64, String)> = Vec::new();
     let mut plain: Vec<String> = Vec::new();
+    let mut bytes = 0usize;
     for raw in text.lines() {
         let raw = raw.trim().replace('\u{200b}', "");
         let mut rest = raw.as_str();
@@ -250,6 +259,12 @@ fn from_text(text: &str, provider: &str) -> Option<Lyrics> {
         let words = rest.trim().to_string();
         if is_credit(&words) {
             continue;
+        }
+        // Text budget after the repeats are spread out, so one long line with many times
+        // cannot be copied into gigabytes.
+        bytes = bytes.saturating_add(words.len().saturating_mul(times.len().max(1)));
+        if bytes > MAX_BODY {
+            return None;
         }
         if times.is_empty() {
             plain.push(words);
@@ -297,7 +312,8 @@ fn lrc_time(tag: &str) -> Option<u64> {
         2 => frac.parse::<u64>().ok()? * 10,
         _ => frac.get(..3)?.parse::<u64>().ok()?,
     };
-    Some(m * 60_000 + s * 1000 + frac_ms)
+    // Huge numbers from the source give None instead of overflowing.
+    m.checked_mul(60_000)?.checked_add(s.checked_mul(1000)?)?.checked_add(frac_ms)
 }
 
 /// NetEase's credit lines ("作词 : X", "作曲 : Y").
@@ -402,6 +418,11 @@ mod tests {
         assert_eq!(lrc_time("00:01.a中"), None);
         assert_eq!(lrc_time("00:01.中"), None);
         assert_eq!(lrc_time("01:02.345"), Some(62_345));
+        assert_eq!(lrc_time("18446744073709551615:00.00"), None);
+        assert_eq!(lrc_time("00:18446744073709551615.00"), None);
+        // Few times, one long line: refused by the text budget, not the line count.
+        let long = format!("{}{}", "[00:01.00]".repeat(2_000), "x".repeat(10_000));
+        assert_eq!(from_text(&long, LRCLIB), None);
         let tags = "[00:01.00]".repeat(MAX_LINES + 1);
         assert_eq!(from_text(&format!("{tags}la"), LRCLIB), None);
         let many: String = (0..MAX_LINES + 1).map(|i| format!("[00:{:02}.00]la\n", i % 60)).collect();
