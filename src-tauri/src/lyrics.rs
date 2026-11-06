@@ -32,8 +32,30 @@ fn http() -> &'static reqwest::Client {
             ))
             .timeout(TIMEOUT)
             .build()
-            .unwrap_or_default()
+            // Without the user agent, but never without the timeout.
+            .unwrap_or_else(|_| reqwest::Client::builder().timeout(TIMEOUT).build().unwrap_or_default())
     })
+}
+
+/// The most a source's answer may weigh: a song's lyrics are a few KB.
+const MAX_BODY: usize = 2 * 1024 * 1024;
+/// The most lines a song's lyrics may have once repeated times are spread out.
+const MAX_LINES: usize = 5_000;
+
+/// The JSON a request answers, read up to `MAX_BODY`; None on any failure.
+async fn get_json(req: reqwest::RequestBuilder, source: &str) -> Option<Value> {
+    let mut res = req.send().await.map_err(|e| log::warn!("[lyrics] {source}: {e}")).ok()?;
+    if res.content_length().is_some_and(|n| n as usize > MAX_BODY) {
+        return None;
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = res.chunk().await.ok()? {
+        body.extend_from_slice(&chunk);
+        if body.len() > MAX_BODY {
+            return None;
+        }
+    }
+    serde_json::from_slice(&body).ok()
 }
 
 /// The lyrics of `song` from the other sources, synced ones first: LRCLIB synced, NetEase
@@ -42,8 +64,28 @@ pub(crate) async fn find(song: &Song) -> Option<Lyrics> {
     if song.duration_ms == 0 || song.title.trim().is_empty() {
         return None;
     }
-    let (lrclib, netease) = tokio::join!(from_lrclib(song), from_netease(song));
-    let both = [lrclib, netease];
+    // Both at once; synced LRCLIB lyrics answer without waiting for NetEase.
+    let lrclib = from_lrclib(song);
+    let netease = from_netease(song);
+    tokio::pin!(lrclib, netease);
+    let (mut a, mut b) = (None, None);
+    let (mut a_done, mut b_done) = (false, false);
+    while !(a_done && b_done) {
+        tokio::select! {
+            l = &mut lrclib, if !a_done => {
+                a_done = true;
+                a = l;
+                if a.as_ref().is_some_and(|l| l.synced) {
+                    break;
+                }
+            }
+            l = &mut netease, if !b_done => {
+                b_done = true;
+                b = l;
+            }
+        }
+    }
+    let both = [a, b];
     let found = match both.iter().position(|l| l.as_ref().is_some_and(|l| l.synced)) {
         Some(i) => both.into_iter().nth(i).flatten(),
         None => both.into_iter().flatten().next(),
@@ -59,22 +101,15 @@ pub(crate) async fn find(song: &Song) -> Option<Lyrics> {
 }
 
 async fn from_lrclib(song: &Song) -> Option<Lyrics> {
-    let res = http()
-        .get("https://lrclib.net/api/search")
-        .query(&[
-            ("track_name", clean_title(&song.title).as_str()),
-            ("artist_name", song.artists.first().map(String::as_str).unwrap_or("")),
-        ])
-        .send()
-        .await
-        .map_err(|e| log::warn!("[lyrics] LRCLIB: {e}"))
-        .ok()?;
-    let hits: Value = res.json().await.ok()?;
-    pick_lrclib(song, &hits)
+    let req = http().get("https://lrclib.net/api/search").query(&[
+        ("track_name", clean_title(&song.title).as_str()),
+        ("artist_name", song.artists.first().map(String::as_str).unwrap_or("")),
+    ]);
+    pick_lrclib(song, &get_json(req, LRCLIB).await?)
 }
 
 /// The best LRCLIB hit for `song`: a matching one with synced lyrics, else one with plain ones.
-/// An instrumental match means the song has none.
+/// Instrumental hits carry no lyrics, so they never win.
 fn pick_lrclib(song: &Song, hits: &Value) -> Option<Lyrics> {
     let matching: Vec<&Value> = hits
         .as_array()?
@@ -84,9 +119,6 @@ fn pick_lrclib(song: &Song, hits: &Value) -> Option<Lyrics> {
             matches(song, h["trackName"].as_str().unwrap_or(""), &[h["artistName"].as_str().unwrap_or("")], ms)
         })
         .collect();
-    if matching.first().is_some_and(|h| h["instrumental"].as_bool() == Some(true)) {
-        return None;
-    }
     let synced = matching
         .iter()
         .find_map(|h| h["syncedLyrics"].as_str().and_then(|t| from_text(t, LRCLIB)).filter(|l| l.synced));
@@ -95,23 +127,16 @@ fn pick_lrclib(song: &Song, hits: &Value) -> Option<Lyrics> {
 
 async fn from_netease(song: &Song) -> Option<Lyrics> {
     let query = format!("{} {}", clean_title(&song.title), song.artists.first().map(String::as_str).unwrap_or(""));
-    let res = http()
+    let req = http()
         .get("https://music.163.com/api/search/get")
-        .query(&[("s", query.as_str()), ("type", "1"), ("limit", "10")])
-        .send()
-        .await
-        .map_err(|e| log::warn!("[lyrics] NetEase: {e}"))
-        .ok()?;
-    let found: Value = res.json().await.ok()?;
+        .query(&[("s", query.as_str()), ("type", "1"), ("limit", "10")]);
+    let found = get_json(req, NETEASE).await?;
     // The first two matching songs: NetEase often has the same song twice, one without lyrics.
     for id in netease_ids(song, &found).into_iter().take(2) {
-        let res = http()
+        let req = http()
             .get("https://music.163.com/api/song/lyric")
-            .query(&[("id", id.to_string().as_str()), ("lv", "1"), ("kv", "1"), ("tv", "-1")])
-            .send()
-            .await
-            .ok()?;
-        let v: Value = res.json().await.ok()?;
+            .query(&[("id", id.to_string().as_str()), ("lv", "1"), ("kv", "1"), ("tv", "-1")]);
+        let Some(v) = get_json(req, NETEASE).await else { continue };
         if let Some(l) = v["lrc"]["lyric"].as_str().and_then(|t| from_text(t, NETEASE)) {
             return Some(l);
         }
@@ -211,6 +236,8 @@ fn from_text(text: &str, provider: &str) -> Option<Lyrics> {
         let mut times = Vec::new();
         while let Some(tag) = rest.strip_prefix('[').and_then(|r| r.split_once(']')) {
             match lrc_time(tag.0) {
+                // Checked per tag, so a line of thousands of times never gets copied out.
+                Some(_) if timed.len() + times.len() >= MAX_LINES => return None,
                 Some(ms) => times.push(ms),
                 // [ar:...], [ti:...] and the like: not a line of the song.
                 None => break,
@@ -229,6 +256,9 @@ fn from_text(text: &str, provider: &str) -> Option<Lyrics> {
         } else {
             // A chorus written once with several times goes in at each.
             timed.extend(times.into_iter().map(|t| (t, words.clone())));
+        }
+        if timed.len() + plain.len() > MAX_LINES {
+            return None;
         }
     }
     let synced = timed.iter().any(|(t, _)| *t > 0);
@@ -265,7 +295,7 @@ fn lrc_time(tag: &str) -> Option<u64> {
         0 => 0,
         1 => frac.parse::<u64>().ok()? * 100,
         2 => frac.parse::<u64>().ok()? * 10,
-        _ => frac[..3].parse::<u64>().ok()?,
+        _ => frac.get(..3)?.parse::<u64>().ok()?,
     };
     Some(m * 60_000 + s * 1000 + frac_ms)
 }
@@ -359,6 +389,23 @@ mod tests {
         assert_eq!(l.provider, "LRCLIB");
         let instrumental = serde_json::json!([{ "trackName": "Azul da Cor do Mar", "artistName": "Tim Maia", "duration": 200.0, "instrumental": true, "plainLyrics": null }]);
         assert_eq!(pick_lrclib(&song(), &instrumental), None);
+        // An instrumental hit first does not hide a later one with lyrics.
+        let mixed = serde_json::json!([
+            { "trackName": "Azul da Cor do Mar", "artistName": "Tim Maia", "duration": 200.0, "instrumental": true },
+            { "trackName": "Azul da Cor do Mar", "artistName": "Tim Maia", "duration": 200.0, "syncedLyrics": "[00:02.00]Certa" }
+        ]);
+        assert_eq!(pick_lrclib(&song(), &mixed).unwrap().lines[0].words, "Certa");
+    }
+
+    #[test]
+    fn odd_or_huge_lrc_does_not_panic_or_blow_up() {
+        assert_eq!(lrc_time("00:01.a中"), None);
+        assert_eq!(lrc_time("00:01.中"), None);
+        assert_eq!(lrc_time("01:02.345"), Some(62_345));
+        let tags = "[00:01.00]".repeat(MAX_LINES + 1);
+        assert_eq!(from_text(&format!("{tags}la"), LRCLIB), None);
+        let many: String = (0..MAX_LINES + 1).map(|i| format!("[00:{:02}.00]la\n", i % 60)).collect();
+        assert_eq!(from_text(&many, LRCLIB), None);
     }
 
     #[test]
