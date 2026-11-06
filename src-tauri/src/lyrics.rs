@@ -178,32 +178,64 @@ fn matches(song: &Song, title: &str, artists: &[&str], duration_ms: u64) -> bool
     if !same_title {
         return false;
     }
-    let theirs: Vec<String> = artists.iter().map(|a| norm(a)).collect();
-    song.artists.iter().map(|a| norm(a)).filter(|a| !a.is_empty()).any(|ours| {
-        theirs.iter().any(|t| t == &ours || t.split(' ').collect::<Vec<_>>().windows(ours.split(' ').count()).any(|w| w.join(" ") == ours))
+    // Whole names only: the hit's credit as it is ("Simon & Garfunkel"), or each name in it
+    // split at the joints ("Tim Maia & Banda"). "Queen" is not "Queen Latifah".
+    let mut theirs: Vec<String> = Vec::new();
+    for a in artists {
+        theirs.push(norm(a));
+        theirs.extend(artist_joints().split(a).map(norm));
+    }
+    song.artists
+        .iter()
+        .map(|a| norm(a))
+        .filter(|a| !a.is_empty())
+        .any(|ours| theirs.iter().any(|t| *t == ours))
+}
+
+/// Where a credit joins several artists: "A & B", "A, B", "A feat. B", "A x B", "A e B".
+fn artist_joints() -> &'static regex::Regex {
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(r"(?i)\s*(?:[,&;/]|\s(?:feat\.?|ft\.?|featuring|with|x|and|e|y)\s)\s*").expect("artist joints")
     })
 }
 
-/// The title without what Spotify adds to it: " - Remastered 2011", " - Live", "(feat. X)",
-/// "[Bonus Track]".
+/// What Spotify and the sources add to a title about the recording, not the song: a
+/// " - Remastered 2011" or " - Ao Vivo" tail, "(feat. X)", "[Bonus Track]". Anything else
+/// ("Part 2", "Reprise", "Acoustic" names a different take but often a different text) stays.
+fn is_tag(s: &str) -> bool {
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(
+            r"(?i)^\s*(?:feat\.?|ft\.?|featuring|with|com|remaster(?:ed)?|\d{4}\s+remaster(?:ed)?|live|ao vivo|en vivo|mono|stereo|radio edit|single version|album version|explicit|clean|bonus track|deluxe|from\b|do filme|versão|version\b)",
+        )
+        .expect("title tags")
+    })
+    .is_match(s)
+}
+
 fn clean_title(title: &str) -> String {
     let mut t = title.to_string();
     if let Some(i) = t.find(" - ") {
-        t.truncate(i);
-    }
-    let mut out = String::new();
-    let mut depth = 0u32;
-    for c in t.chars() {
-        match c {
-            '(' | '[' => depth += 1,
-            ')' | ']' => depth = depth.saturating_sub(1),
-            _ if depth == 0 => out.push(c),
-            _ => {}
+        if is_tag(&t[i + 3..]) {
+            t.truncate(i);
         }
     }
-    let out = out.trim().to_string();
-    // A title that is all parentheses ("(Untitled)") keeps them.
-    if out.is_empty() { t.trim().to_string() } else { out }
+    // Brackets that hold a tag go; the others stay.
+    let mut out = String::new();
+    let mut rest = t.as_str();
+    while let Some(open) = rest.find(['(', '[']) {
+        let close_char = if rest[open..].starts_with('(') { ')' } else { ']' };
+        let Some(len) = rest[open + 1..].find(close_char) else { break };
+        let inner = &rest[open + 1..open + 1 + len];
+        out.push_str(&rest[..open]);
+        if !is_tag(inner) {
+            out.push_str(&rest[open..open + len + 2]);
+        }
+        rest = &rest[open + len + 2..];
+    }
+    out.push_str(rest);
+    out.trim().to_string()
 }
 
 /// Lowercase, without accents and punctuation, single spaces. Letters of other scripts stay.
@@ -239,8 +271,14 @@ fn from_text(text: &str, provider: &str) -> Option<Lyrics> {
     let mut timed: Vec<(u64, String)> = Vec::new();
     let mut plain: Vec<String> = Vec::new();
     let mut bytes = 0usize;
+    // [offset:+500]: the times run 500 ms late, so the lines show that much earlier.
+    let mut offset: i64 = 0;
     for raw in text.lines() {
         let raw = raw.trim().replace('\u{200b}', "");
+        if let Some(v) = raw.strip_prefix("[offset:").and_then(|r| r.strip_suffix(']')) {
+            offset = v.trim().parse().unwrap_or(0);
+            continue;
+        }
         let mut rest = raw.as_str();
         let mut times = Vec::new();
         while let Some(tag) = rest.strip_prefix('[').and_then(|r| r.split_once(']')) {
@@ -278,6 +316,11 @@ fn from_text(text: &str, provider: &str) -> Option<Lyrics> {
     }
     let synced = timed.iter().any(|(t, _)| *t > 0);
     let mut lines: Vec<LyricsLine> = if synced {
+        if offset != 0 {
+            for (t, _) in &mut timed {
+                *t = i64::try_from(*t).unwrap_or(i64::MAX).saturating_sub(offset).max(0) as u64;
+            }
+        }
         timed.sort_by_key(|(t, _)| *t);
         timed.into_iter().map(|(start_ms, words)| LyricsLine { start_ms, words }).collect()
     } else {
@@ -361,6 +404,15 @@ mod tests {
     }
 
     #[test]
+    fn offset_moves_the_times() {
+        let l = from_text("[offset:+500]\n[00:01.00]a\n[00:00.20]b", LRCLIB).unwrap();
+        let got: Vec<(u64, &str)> = l.lines.iter().map(|x| (x.start_ms, x.words.as_str())).collect();
+        assert_eq!(got, vec![(0, "b"), (500, "a")]);
+        let l = from_text("[offset:-250]\n[00:01.00]a", LRCLIB).unwrap();
+        assert_eq!(l.lines[0].start_ms, 1250);
+    }
+
+    #[test]
     fn plain_text_is_unsynced_and_pure_music_is_none() {
         let l = from_text("Linha um\n\nLinha dois\n", LRCLIB).unwrap();
         assert!(!l.synced);
@@ -375,6 +427,12 @@ mod tests {
         assert_eq!(clean_title("Hey Jude - Remastered 2015"), "Hey Jude");
         assert_eq!(clean_title("Stay (feat. Justin Bieber)"), "Stay");
         assert_eq!(clean_title("(Untitled)"), "(Untitled)");
+        assert_eq!(clean_title("Something - 2009 Remaster"), "Something");
+        assert_eq!(clean_title("Azul da Cor do Mar - Ao Vivo"), "Azul da Cor do Mar");
+        assert_eq!(clean_title("Song [Bonus Track] (with Someone)"), "Song");
+        // What tells songs apart stays.
+        assert_eq!(clean_title("Música - Parte 2"), "Música - Parte 2");
+        assert_eq!(clean_title("(I Can't Get No) Satisfaction"), "(I Can't Get No) Satisfaction");
         assert_eq!(norm("Coração  Selvagem!"), "coracao selvagem");
         assert_eq!(norm("Don't Stop Me Now"), "dont stop me now");
     }
@@ -388,8 +446,16 @@ mod tests {
         assert!(!matches(&s, "Azul Da Cor Do Mar", &["Tim Maia"], 204_100));
         assert!(!matches(&s, "Azul Da Cor Do Mar", &["Marisa Monte"], 200_000));
         assert!(!matches(&s, "Gostava Tanto de Você", &["Tim Maia"], 200_000));
-        // A name inside a longer one only counts as whole words.
+        // Whole names only.
         assert!(!matches(&Song { artists: vec!["Tim".into()], ..song() }, "Azul da Cor do Mar", &["Timbaland"], 200_000));
+        let queen = Song { title: "Song".into(), artists: vec!["Queen".into()], duration_ms: 200_000 };
+        assert!(!matches(&queen, "Song", &["Queen Latifah"], 200_000));
+        assert!(matches(&queen, "Song", &["Queen feat. David Bowie"], 200_000));
+        let duo = Song { title: "Song".into(), artists: vec!["Simon & Garfunkel".into()], duration_ms: 200_000 };
+        assert!(matches(&duo, "Song", &["Simon & Garfunkel"], 200_000));
+        // Part 1 is not Part 2.
+        let part = Song { title: "Música - Parte 1".into(), artists: vec!["Tim Maia".into()], duration_ms: 200_000 };
+        assert!(!matches(&part, "Música - Parte 2", &["Tim Maia"], 200_000));
     }
 
     #[test]
