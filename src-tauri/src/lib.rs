@@ -5,6 +5,7 @@ mod jam;
 mod links;
 mod listening;
 mod logs;
+mod lyrics;
 mod media;
 mod meter;
 mod mini;

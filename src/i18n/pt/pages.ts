@@ -74,7 +74,7 @@ export default {
   "Lyrics size": "Tamanho da letra",
   "Couldn't load the lyrics": "Não deu pra carregar a letra",
   "Try again in a moment.": "Tenta de novo daqui a pouco.",
-  "This song has no lyrics on Spotify": "Essa música não tem letra no Spotify",
+  "This song has no lyrics": "Essa música não tem letra",
   "Episodes have no lyrics": "Episódios não têm letra",
   "Instrumentals, episodes and local files don't have them.": "Instrumentais, episódios e arquivos locais não têm.",
   "These lyrics don't follow the song yet": "Essa letra ainda não acompanha a música",

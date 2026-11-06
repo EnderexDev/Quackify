@@ -343,7 +343,7 @@ function LyricsPopup({ track, onClose, onOpenPage }: { track: NowPlaying; onClos
         </p>
       )}
       {state.status === "ready" && !l && (
-        <p className="lyrics-pop-msg">{track.uri.startsWith("spotify:track:") ? t("This song has no lyrics on Spotify.") : t("Episodes have no lyrics.")}</p>
+        <p className="lyrics-pop-msg">{track.uri.startsWith("spotify:track:") ? t("This song has no lyrics.") : t("Episodes have no lyrics.")}</p>
       )}
       {shown.map((line, k) => (
         <div

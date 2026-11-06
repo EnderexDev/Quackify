@@ -25,7 +25,7 @@ export default {
   "Lyrics · synced": "Letra · sincronizada",
   "Open page": "Abrir página",
   "Couldn't load the lyrics.": "Não deu pra carregar a letra.",
-  "This song has no lyrics on Spotify.": "Essa música não tem letra no Spotify.",
+  "This song has no lyrics.": "Essa música não tem letra.",
   "Episodes have no lyrics.": "Episódios não têm letra.",
   "Nothing there to add to the queue": "Não tem nada aí pra adicionar à fila",
   "1 song will play next": "1 música vai tocar a seguir",

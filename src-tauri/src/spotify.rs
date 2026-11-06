@@ -793,23 +793,32 @@ pub async fn spotify_rootlist_change(uri: String, add: bool, state: State<'_, Sp
     Ok(())
 }
 
-/// A song's lyrics, as the web player's lyrics view gets them.
+/// A song's lyrics, as the web player's lyrics view gets them, or from another source
+/// (lyrics.rs) when Spotify has none.
 #[derive(Serialize, Debug, PartialEq)]
 pub struct Lyrics {
     /// Each line has its start time; otherwise the times are all zero.
-    synced: bool,
-    lines: Vec<LyricsLine>,
-    provider: String,
+    pub(crate) synced: bool,
+    pub(crate) lines: Vec<LyricsLine>,
+    pub(crate) provider: String,
     /// The song's colors (`#rrggbb`), for the background, the lines, and the line being sung.
+    /// Only Spotify sends them.
     background: Option<String>,
     text: Option<String>,
     highlight: Option<String>,
 }
 
+impl Lyrics {
+    /// Lyrics from another source: no colors, so the UI uses its own.
+    pub(crate) fn from_source(synced: bool, lines: Vec<LyricsLine>, provider: &str) -> Self {
+        Lyrics { synced, lines, provider: provider.to_string(), background: None, text: None, highlight: None }
+    }
+}
+
 #[derive(Serialize, Debug, PartialEq)]
 pub struct LyricsLine {
-    start_ms: u64,
-    words: String,
+    pub(crate) start_ms: u64,
+    pub(crate) words: String,
 }
 
 fn parse_lyrics(v: &Value) -> Option<Lyrics> {
@@ -850,6 +859,7 @@ pub async fn spotify_waveform(uri: String, state: State<'_, SpotifyState>) -> Re
 pub async fn spotify_lyrics(uri: String, state: State<'_, SpotifyState>) -> Result<Option<Lyrics>, String> {
     use http::{header, HeaderMap, HeaderValue, Method};
     use librespot_core::{error::ErrorKind, SpotifyId};
+    use librespot_metadata::Metadata as _;
     let id = uri.strip_prefix("spotify:track:").ok_or("not a track")?;
     let id = SpotifyId::from_base62(id).map_err(|e| e.to_string())?;
     let session = session(&state).await?;
@@ -860,10 +870,34 @@ pub async fn spotify_lyrics(uri: String, state: State<'_, SpotifyState>) -> Resu
         "/color-lyrics/v2/track/{}?format=json&vocalRemoval=false&market=from_token",
         id.to_base62().map_err(|e| e.to_string())?
     );
-    match session.spclient().request(&Method::GET, &path, Some(headers), None).await {
+    let spotify = match session.spclient().request(&Method::GET, &path, Some(headers), None).await {
         Ok(bytes) => Ok(serde_json::from_slice(&bytes).ok().as_ref().and_then(parse_lyrics)),
         Err(e) if e.kind == ErrorKind::NotFound => Ok(None),
         Err(e) => Err(e.to_string()),
+    };
+    if matches!(spotify, Ok(Some(_))) {
+        return spotify;
+    }
+    // None on Spotify, or Spotify failed: the other sources (lyrics.rs). When they have none
+    // either, Spotify's answer stands, so a failure still offers the retry.
+    let track = librespot_core::spotify_uri::SpotifyUri::from_uri(&uri).map_err(|e| e.to_string())?;
+    let found = match librespot_metadata::Track::get(&session, &track).await {
+        Ok(t) => {
+            let song = crate::lyrics::Song {
+                title: t.name.clone(),
+                artists: t.artists.iter().map(|a| a.name.clone()).collect(),
+                duration_ms: t.duration.max(0) as u64,
+            };
+            crate::lyrics::find(&song).await
+        }
+        Err(e) => {
+            log::warn!("[lyrics] no metadata for {uri}: {e}");
+            None
+        }
+    };
+    match found {
+        Some(l) => Ok(Some(l)),
+        None => spotify,
     }
 }
 

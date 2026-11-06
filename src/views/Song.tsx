@@ -260,7 +260,7 @@ function SongLyrics({ uri }: { uri: string }) {
           <Empty
             className="song-lyrics-state"
             icon={<MicIcon size={20} />}
-            title={uri.startsWith("spotify:track:") ? t("This song has no lyrics on Spotify") : t("Episodes have no lyrics")}
+            title={uri.startsWith("spotify:track:") ? t("This song has no lyrics") : t("Episodes have no lyrics")}
             text={t("Instrumentals, episodes and local files don't have them.")}
           />
         )}
