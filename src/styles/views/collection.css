@@ -96,7 +96,7 @@
   padding: 4px 10px;
 }
 
-/* An empty playlist: the duck, a line and the way to find songs. */
+/* An empty playlist: the logo, a line and the way to find songs. */
 .empty-list {
   display: flex;
   flex-direction: column;

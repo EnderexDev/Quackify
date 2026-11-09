@@ -16,7 +16,7 @@ import { usePlayer } from "../state/player";
 import { toast } from "../state/toast";
 import { coverColors, type CoverColors } from "../util/coverColors";
 import { Cover } from "./Cover";
-import { CloseIcon, DuckIcon, MicIcon, NextIcon, PauseIcon, PinIcon, PlayIcon, PrevIcon } from "./icons";
+import { AppLogo, CloseIcon, MicIcon, NextIcon, PauseIcon, PinIcon, PlayIcon, PrevIcon } from "./icons";
 import { LikeButton } from "./LikeButton";
 import { LyricLine } from "./PlayerBar";
 import { ProgressBar } from "./ProgressBar";
@@ -133,7 +133,7 @@ export function MiniPlayer() {
             <Cover src={song.image} className="mini-cover" />
           </button>
         ) : (
-          <DuckIcon size={44} className="mini-cover mini-duck" />
+          <AppLogo className="mini-cover mini-logo" />
         )}
         <div className="mini-text">
           <div className="mini-title" title={song?.name}>

@@ -1,8 +1,8 @@
 // The states every page shares: loading (a skeleton the size of a page, so nothing jumps when
 // it arrives), failed (after the automatic tries, with Try again and Copy details) and empty
-// (the duck, a line and up to two ways out).
+// (the logo, a line and up to two ways out).
 import type { ReactNode } from "react";
-import { DuckIcon } from "../components/icons";
+import { AppLogo } from "../components/icons";
 import { notify, toast } from "../state/toast";
 import { t } from "../i18n";
 import { AUTO_RETRIES } from "../util/useAsync";
@@ -60,7 +60,7 @@ export function Failed({ error, onRetry, retried = AUTO_RETRIES }: { error: stri
   );
 }
 
-/** Nothing here: the duck on a stack of cards (or `icon`), a title, a line and up to two actions. */
+/** Nothing here: the logo on a stack of cards (or `icon`), a title, a line and up to two actions. */
 export function Empty({
   title,
   text,
@@ -81,10 +81,10 @@ export function Empty({
           {icon}
         </span>
       ) : (
-        <span className="state-duck" aria-hidden>
+        <span className="state-logo" aria-hidden>
           <span />
           <span>
-            <DuckIcon size={34} />
+            <AppLogo size={34} />
           </span>
         </span>
       )}

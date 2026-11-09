@@ -130,15 +130,15 @@
   color: var(--muted);
 }
 
-/* The duck on a stack of two tilted cards. */
-.state-duck {
+/* The logo on a stack of two tilted cards. */
+.state-logo {
   position: relative;
   width: 76px;
   height: 66px;
   margin-bottom: 4px;
 }
 
-.state-duck > span {
+.state-logo > span {
   position: absolute;
   width: 54px;
   height: 54px;
@@ -148,14 +148,14 @@
   place-items: center;
 }
 
-.state-duck > span:first-child {
+.state-logo > span:first-child {
   right: 0;
   top: 0;
   transform: rotate(8deg);
   background: var(--surface-2);
 }
 
-.state-duck > span:last-child {
+.state-logo > span:last-child {
   left: 0;
   bottom: 0;
   transform: rotate(-6deg);
