@@ -89,6 +89,17 @@
   text-overflow: ellipsis;
 }
 
+/* With the lyrics on and none to show: the compact card, saying why. */
+.mini-note {
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .mini-window-buttons {
   align-self: flex-start;
   display: flex;

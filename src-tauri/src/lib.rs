@@ -131,6 +131,7 @@ pub fn run() {
             mini::mini_player_on_top,
             mini::mini_player_lyrics,
             mini::mini_player_set_lyrics,
+            mini::mini_player_fit,
             mini::mini_player_show_main,
             setup::update_in_window,
             logs::logs_open_folder,

@@ -239,12 +239,35 @@ pub fn mini_player_lyrics(app: AppHandle) -> bool {
     shows_lyrics(&app)
 }
 
-/// Switches the mini player between the compact card and the lyrics: the window grows or
-/// shrinks keeping the edge nearest the screen's middle where it was (a window on the bottom
-/// half grows up), then snaps back inside the work area. The choice is saved.
+/// Switches the mini player between the compact card and the lyrics, and saves the choice.
+/// `tall` is false when the song has no lyrics to show: the mode is saved as on, but the window
+/// keeps the compact size and the card says so.
 #[tauri::command]
-pub fn mini_player_set_lyrics(app: AppHandle, on: bool) -> Result<(), String> {
+pub fn mini_player_set_lyrics(app: AppHandle, on: bool, tall: bool) -> Result<(), String> {
     let w = app.get_window(LABEL).ok_or("The mini player is not open")?;
+    let pos = w.outer_position().map_err(|e| e.to_string())?;
+    // Saved first: the snap that follows the resize keeps it.
+    let place = saved_place(&app).unwrap_or(Place { x: pos.x, y: pos.y, lyrics: false });
+    save_place(&app, Place { lyrics: on, ..place });
+    if let Err(e) = resize(&w, on && tall) {
+        // Still the old size: so is the saved mode.
+        save_place(&app, place);
+        return Err(e);
+    }
+    Ok(())
+}
+
+/// With the lyrics on, the window is tall while the song has lyrics and compact while it has
+/// none (an instrumental, an episode). The saved mode stays as it is.
+#[tauri::command]
+pub fn mini_player_fit(app: AppHandle, tall: bool) -> Result<(), String> {
+    let w = app.get_window(LABEL).ok_or("The mini player is not open")?;
+    resize(&w, tall)
+}
+
+/// The window grows or shrinks keeping the edge nearest the screen's middle where it was (a
+/// window on the bottom half grows up), then snaps back inside the work area.
+fn resize(w: &tauri::Window, tall: bool) -> Result<(), String> {
     let scale = w.scale_factor().map_err(|e| e.to_string())?;
     let pos = w.outer_position().map_err(|e| e.to_string())?;
     let before = w.outer_size().map_err(|e| e.to_string())?;
@@ -255,22 +278,15 @@ pub fn mini_player_set_lyrics(app: AppHandle, on: bool) -> Result<(), String> {
         .flatten()
         .map(|m| center > m.work_area().position.y as f64 + m.work_area().size.height as f64 / 2.0)
         .unwrap_or(true);
-    // Saved first: the snap that follows the resize keeps it.
-    let place = saved_place(&app).unwrap_or(Place { x: pos.x, y: pos.y, lyrics: false });
-    save_place(&app, Place { lyrics: on, ..place });
-    if let Err(e) = w.set_size(LogicalSize::new(WIDTH, height(on))) {
-        // Still the old size: so is the saved mode.
-        save_place(&app, place);
-        return Err(e.to_string());
-    }
+    w.set_size(LogicalSize::new(WIDTH, height(tall))).map_err(|e| e.to_string())?;
     if low {
         // The size it really took: at 125% a computed one is a pixel off, and the bottom
         // edge crept a pixel down at every switch.
-        let after = w.outer_size().map(|s| s.height).unwrap_or((height(on) * scale) as u32);
+        let after = w.outer_size().map(|s| s.height).unwrap_or((height(tall) * scale) as u32);
         let grown = after as i32 - before.height as i32;
         let _ = w.set_position(PhysicalPosition::new(pos.x, pos.y - grown));
     }
-    snap(&w);
+    snap(w);
     Ok(())
 }
 
