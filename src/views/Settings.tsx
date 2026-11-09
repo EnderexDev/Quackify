@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
-import { CheckIcon, DuckIcon } from "../components/icons";
+import { AppLogo, CheckIcon } from "../components/icons";
 import { Segmented } from "../components/Segmented";
 import { Toggle } from "../components/Toggle";
 import type { ProgressMode } from "../state/meter";
@@ -454,7 +454,7 @@ export function SettingsView({ account }: { account: Account }) {
 
           <Group id="about" title={t("About")}>
             <div className="settings-about">
-              <DuckIcon size={40} />
+              <AppLogo size={40} />
               <div>
                 <div className="settings-title">Quackify {appVersion}</div>
                 <div className="muted small">{t("A Spotify player, yellow, with a duck's taste.")}</div>

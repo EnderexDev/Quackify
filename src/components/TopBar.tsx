@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { t } from "../i18n";
 import { useNav } from "../state/nav";
 import { toggleCinema, toggleMini } from "../state/windows";
-import { BackIcon, ExpandIcon, ForwardIcon, KeyboardIcon, MiniPlayerIcon, SearchIcon, SettingsIcon } from "./icons";
+import { AppLogo, BackIcon, ExpandIcon, ForwardIcon, KeyboardIcon, MiniPlayerIcon, SearchIcon, SettingsIcon } from "./icons";
 import { Segmented } from "./Segmented";
 
 // Labels read at render, so they follow the language.
@@ -32,7 +32,7 @@ export function TopBar({
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="brand-mark" aria-hidden />
+        <AppLogo size={30} />
         <span className="brand-name">Quackify</span>
       </div>
       <div className="nav-arrows">

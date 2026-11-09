@@ -90,3 +90,14 @@ h2 {
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--scrollbar-hover);
 }
+
+/* The logo (AppLogo): the app icon, gold; green in Quackify Dev (class from state/flavor.ts). */
+.app-logo {
+  display: inline-block;
+  flex: none;
+  background: url("../assets/logo.png") center / contain no-repeat;
+}
+
+:root.dev .app-logo {
+  background-image: url("../assets/logo-dev.png");
+}

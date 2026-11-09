@@ -15,7 +15,7 @@
     var(--bg);
 }
 
-/* The duck inside a yellow ring that turns. */
+/* The logo inside a yellow ring that turns. */
 .splash-ring {
   position: relative;
   display: grid;
@@ -43,7 +43,7 @@
   margin: 0;
 }
 
-.login-duck {
+.login-logo {
   filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.35));
 }
 

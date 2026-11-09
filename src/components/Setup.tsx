@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { t } from "../i18n";
-import { CloseIcon, DuckIcon, FolderIcon } from "./icons";
+import { AppLogo, CloseIcon, FolderIcon } from "./icons";
 import { Toggle } from "./Toggle";
 
 type Info = { mode: "install" | "update"; version: string; dir: string; installed: boolean };
@@ -127,8 +127,8 @@ export function Setup() {
       </header>
 
       <main className="setup-body">
-        <div className={`setup-duck ${busy ? "busy" : ""} ${stage.kind === "done" ? "done" : ""}`}>
-          <DuckIcon size={busy ? 52 : 76} />
+        <div className={`setup-logo ${busy ? "busy" : ""} ${stage.kind === "done" ? "done" : ""}`}>
+          <AppLogo size={busy ? 52 : 76} />
         </div>
         <h1>{title}</h1>
         <p className={`setup-line ${stage.kind === "error" ? "error" : "muted"}`}>{line}</p>

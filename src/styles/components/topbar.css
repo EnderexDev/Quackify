@@ -1,4 +1,4 @@
-/* Top bar: the duck, back and forward, the Home and Explore tabs, the magnifier and the avatar menu */
+/* Top bar: the logo, back and forward, the Home and Explore tabs, the magnifier and the avatar menu */
 
 .topbar {
   grid-area: top;
@@ -19,18 +19,6 @@
   /* The arrows line up with the page, past Your Library. */
   width: calc(var(--brand-w, 268px) - 2px);
   flex: none;
-}
-
-/* The app's icon, gold; green in Quackify Dev (class from state/flavor.ts). */
-.brand-mark {
-  width: 30px;
-  height: 30px;
-  flex: none;
-  background: url("../../assets/logo.png") center / contain no-repeat;
-}
-
-:root.dev .brand-mark {
-  background-image: url("../../assets/logo-dev.png");
 }
 
 .side-collapsed .brand {

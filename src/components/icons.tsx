@@ -181,7 +181,12 @@ export const MusicIcon = (p: P) => (
   </Icon>
 );
 
-/** The duck: Quackify's mark. */
+/** Quackify's logo, the app icon: gold, green in Quackify Dev (the "dev" class on <html>, base.css). */
+export const AppLogo = ({ size = 20, className = "" }: { size?: number; className?: string }) => (
+  <span className={`app-logo ${className}`} style={{ width: size, height: size }} aria-hidden />
+);
+
+/** The duck: Quackify's mascot (empty states, the mini player without a cover). */
 export const DuckIcon = ({ size = 20, ...p }: SVGProps<SVGSVGElement> & { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden {...p}>
     <path
