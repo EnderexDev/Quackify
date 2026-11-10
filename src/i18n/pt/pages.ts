@@ -12,6 +12,7 @@ export default {
   "Continue": "Continuar",
   "Your shortcuts": "Teus atalhos",
   "picked by Spotify": "escolhidos pelo Spotify",
+  "More for you": "Mais pra ti",
   "You usually play these on weekday mornings": "Tu costuma ouvir isso de manhã, em dia de semana",
   "You usually play these on weekday afternoons": "Tu costuma ouvir isso à tarde, em dia de semana",
   "You usually play these on weekday evenings": "Tu costuma ouvir isso no fim da tarde, em dia de semana",

@@ -37,6 +37,7 @@ import { usePlayerNow, usePlayerSelect } from "../state/player";
 import { toast } from "../state/toast";
 import { formatCount } from "../util/format";
 import { kindLabel } from "../util/kinds";
+import { tidySections } from "../util/homeSections";
 import { useAsync } from "../util/useAsync";
 import { Failed, Loading } from "./common";
 
@@ -46,6 +47,7 @@ type Row =
   | { id: string; title: string; type: "forNow" }
   | { id: string; title: string; type: "shortcuts" }
   | { id: string; title: string; type: "spotify"; section: Section }
+  | { id: string; title: string; type: "picks"; cards: CardData[] }
   | { id: string; title: string; type: "continue" }
   | { id: string; title: string; type: "library"; filter: (typeof LIBRARY_ROWS)[number]["filter"] };
 
@@ -80,6 +82,14 @@ const forNowWhy = (weekend: boolean, part: DayPart) =>
 const FOR_NOW_ID = "forNow";
 const SHORTCUTS_ID = "shortcuts";
 const CONTINUE_ID = "continue";
+/** The row of Spotify's one-card sections (util/homeSections.ts): one id, so its place holds. */
+const PICKS_ID = "picks";
+/** The row id of a Spotify section: by title when Spotify sends no id, since titles are one per
+ * row after tidySections and the place in the list is not. */
+const sectionRowId = (s: Section) => s.uri ?? `title:${s.title}`;
+/** A newer Home from Spotify replaces the one shown only this soon after it shows; later, it
+ * waits for the next visit, so the rows do not move under the user. */
+const HOME_SWAP_MS = 2000;
 /** Continue shows at most two rows of four. */
 const CONTINUE_MAX = 8;
 /** The podcasts read for Continue: the most recent ones in Your Library. */
@@ -94,7 +104,7 @@ const CONTINUE_SHOWS = 12;
 export function Home({ name }: { name: string }) {
   const nav = useNav();
   const layout = useHomeLayout();
-  const { data, error, loading, retry } = useAsync(getHome, "home");
+  const { data, error, loading, retry } = useAsync(getHome, "home", { refreshWithin: HOME_SWAP_MS });
   const log = useListening();
   const slot = useHour();
   // Read once an hour, not on each song: the panel does not reshuffle under the mouse.
@@ -108,7 +118,7 @@ export function Home({ name }: { name: string }) {
   // The untitled first section is the grid of shortcuts Spotify puts at the top.
   const [first, ...rest] = data.sections;
   const shortcuts = first && !first.title ? first.cards.slice(0, 8) : [];
-  const sections = shortcuts.length ? rest : data.sections;
+  const { rows: sections, picks } = tidySections(shortcuts.length ? rest : data.sections, (s) => layout.hidden.includes(sectionRowId(s)));
   // Counted on the cards that can still show: one that failed to load does not keep it up.
   const hasForNow = forNowUris.filter((u) => forNowCards.get(u) !== null).length >= FOR_NOW_MIN;
 
@@ -117,7 +127,8 @@ export function Home({ name }: { name: string }) {
     // A hidden Continue reads nothing, but stays listed so Customize can bring it back.
     ...(continuing.length || layout.hidden.includes(CONTINUE_ID) ? [{ id: CONTINUE_ID, title: t("Continue"), type: "continue" as const }] : []),
     ...(hasForNow && shortcuts.length ? [{ id: SHORTCUTS_ID, title: t("Your shortcuts"), type: "shortcuts" as const }] : []),
-    ...sections.map((s, i) => ({ id: s.uri ?? `${s.title}:${i}`, title: s.title, type: "spotify" as const, section: s })),
+    ...sections.map((s) => ({ id: sectionRowId(s), title: s.title, type: "spotify" as const, section: s })),
+    ...(picks.length ? [{ id: PICKS_ID, title: t("More for you"), type: "picks" as const, cards: picks }] : []),
     ...layout.added.map((f) => ({
       id: libraryRowId(f),
       title: LIBRARY_ROWS.find((r) => r.filter === f)!.title,
@@ -160,6 +171,12 @@ export function Home({ name }: { name: string }) {
             </ShelfRow>
           ) : r.type === "continue" ? (
             <ContinueGrid key={r.id} items={continuing} />
+          ) : r.type === "picks" ? (
+            <ShelfRow key={r.id} title={r.title} note={t("picked by Spotify")}>
+              {r.cards.map((c) => (
+                <Card key={c.uri} card={c} />
+              ))}
+            </ShelfRow>
           ) : r.type === "library" ? (
             <LibraryShelf key={r.id} title={r.title} filter={r.filter} />
           ) : (
