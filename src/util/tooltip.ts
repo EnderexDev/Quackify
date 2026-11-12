@@ -25,16 +25,36 @@ function bubble() {
   return tip;
 }
 
-/** Moves an element's `title` to `data-tip`, keeping it as the accessible name of a button with
- * no text of its own. */
+/** Moves an element's `title` to `data-tip`, keeping what the title told a screen reader: the
+ * name of a button with no text of its own, or else a description when it says more than the
+ * name ("Shuffle on" on a button named "Shuffle"). */
 function convert(el: Element) {
   const title = el.getAttribute("title");
   if (title === null) return;
   el.removeAttribute("title");
-  if (title) el.setAttribute("data-tip", title);
-  else el.removeAttribute("data-tip");
-  if (title && !el.hasAttribute("aria-label") && !el.textContent?.trim()) el.setAttribute("aria-label", title);
+  if (!title) return clear(el);
+  el.setAttribute("data-tip", title);
+  const name = el.getAttribute("aria-label") ?? el.textContent?.trim();
+  if (!name) el.setAttribute("aria-label", title);
+  else if (name !== title) el.setAttribute("aria-description", title);
+  else el.removeAttribute("aria-description");
 }
+
+/** The element no longer has a title: its tip and description go too, and its bubble closes. */
+function clear(el: Element) {
+  el.removeAttribute("data-tip");
+  el.removeAttribute("aria-description");
+  if (el === target) hide();
+}
+
+// React removes a `title` it no longer renders with removeAttribute; once converted the attribute
+// is gone, so that call changes nothing and the observer never hears of it. Caught here instead,
+// or the old tip (the last song's name) would stay on the element.
+const removeAttribute = Element.prototype.removeAttribute;
+Element.prototype.removeAttribute = function (this: Element, name: string) {
+  if (name === "title" && !this.hasAttribute("title") && this.hasAttribute("data-tip")) clear(this);
+  return removeAttribute.call(this, name);
+};
 
 function place() {
   if (!tip || !target) return;
