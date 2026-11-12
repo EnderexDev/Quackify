@@ -386,7 +386,7 @@ function useOpenLinks(nav: Nav) {
         if (openLink(uri, navRef.current)) return;
         // Like Spotify, a song opens on its album.
         const [track] = await invoke<NowPlaying[]>("spotify_tracks", { uris: [uri] });
-        if (!track?.album.uri) throw t("That song could not be found");
+        if (!track?.album?.uri) throw t("That song could not be found");
         navRef.current.open(track.album.uri);
       }).catch(toast);
     const off = listen("open-link", take);
