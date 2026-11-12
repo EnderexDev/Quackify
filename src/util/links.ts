@@ -38,7 +38,8 @@ export function linkToUri(text: string): string | null {
   const tab = /^(?:user\/[^/]+\/)?collection\/([a-z]+)$/.exec(joined)?.[1];
   if (tab && tabs.includes(tab)) return `spotify:collection:${tab}`;
   if (a === "user" && parts.length === 2 && userOk(b)) return `spotify:user:${b}`;
-  if (a === "search" && userOk(b)) return `spotify:search:${b}`;
+  // Search words: anything a URL keeps unescaped in a path segment (Don't%20Stop, (Live)).
+  if (a === "search" && b && /^[A-Za-z0-9._%+~!*'(),;-]+$/.test(b)) return `spotify:search:${b}`;
   if (a === "album" && idOk(b)) {
     const song = param("highlight")?.replace(/%3a/gi, ":");
     const id = song?.startsWith("spotify:track:") ? song.slice("spotify:track:".length) : "";

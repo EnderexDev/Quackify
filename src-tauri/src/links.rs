@@ -69,7 +69,10 @@ pub fn to_uri(arg: &str) -> Option<String> {
         | ["collection", tab @ ("albums" | "artists" | "podcasts" | "playlists")] => Some(format!("spotify:collection:{tab}")),
         ["user", name] if user_ok(name) => Some(format!("spotify:user:{name}")),
         // Spotify's search: the words stay escaped as they came (+ or %20 for a space).
-        ["search", term, ..] if user_ok(term) => Some(format!("spotify:search:{term}")),
+        // Anything a URL keeps unescaped in a path segment (Don't%20Stop, (Live)).
+        ["search", term, ..] if term.chars().all(|c| c.is_ascii_alphanumeric() || "._%+~!*'(),;-".contains(c)) => {
+            Some(format!("spotify:search:{term}"))
+        }
         ["album", id, ..] if id_ok(id) => {
             let song = param("highlight").and_then(|h| {
                 let h = h.replace("%3A", ":").replace("%3a", ":");
@@ -295,6 +298,8 @@ mod tests {
         let song = "7xtG2Kac0KPcd1ThPEGbZw";
         assert_eq!(to_uri("spotify:search:daft+punk"), Some("spotify:search:daft+punk".into()));
         assert_eq!(to_uri("https://open.spotify.com/search/daft%20punk"), Some("spotify:search:daft%20punk".into()));
+        assert_eq!(to_uri("https://open.spotify.com/search/Don't%20Stop%20(Live)"), Some("spotify:search:Don't%20Stop%20(Live)".into()));
+        assert_eq!(to_uri("https://open.spotify.com/search/a b"), None);
         assert_eq!(to_uri(&format!("https://open.spotify.com/album/{id}?highlight=spotify:track:{song}")), Some(format!("spotify:track:{song}")));
         assert_eq!(to_uri(&format!("https://open.spotify.com/album/{id}?si=x&highlight=spotify%3Atrack%3A{song}")), Some(format!("spotify:track:{song}")));
         assert_eq!(to_uri(&format!("https://open.spotify.com/album/{id}?si=x")), Some(format!("spotify:album:{id}")));

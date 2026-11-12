@@ -146,8 +146,8 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
       }
       if (libraryTabOf(target)) return { cards: [], tracks: [], target };
       const found = await cardOf(readLink(target).uri);
-      // A genre link has no card: the results are a search, and Ctrl Enter opens its page.
-      return found ? { cards: [found.card], tracks: found.track ? [found.track] : [], target } : words();
+      // A genre has no card: one line opens its page.
+      return { cards: found ? [found.card] : [], tracks: found?.track ? [found.track] : [], target };
     };
     find().then(
       (r) => alive && r && setResults({ term: settled, ...r }),
@@ -171,6 +171,14 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
     } else nav.open(card.uri);
   };
   const playCard = (card: Card, tracks?: Track[]) => {
+    // An episode linked from a point in it plays from there, as its line does.
+    const link = results?.target ? readLink(results.target) : null;
+    if (link?.atMs !== undefined && link.uri === card.uri && results?.target) {
+      remember(card.uri);
+      close();
+      openLink(results.target, nav);
+      return;
+    }
     if (card.kind === "track" || card.kind === "episode") return open(card, tracks);
     remember(card.uri);
     close();
@@ -220,6 +228,9 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
     if (target && tab) {
       const label = tab === "Podcasts & Shows" ? t("Podcasts") : t(tab);
       return [{ key: target, title: t("Your Library"), sub: label, run: () => (close(), openLink(target, nav)) }];
+    }
+    if (target && results.cards.length === 0) {
+      return [{ key: target, title: t("Open"), sub: term.trim(), run: () => (close(), openLink(target, nav)) }];
     }
     // A discography or an episode from a point in it opens as the link says, not as its card.
     const link = target ? readLink(target) : null;
