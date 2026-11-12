@@ -30,7 +30,10 @@ pub fn to_uri(arg: &str) -> Option<String> {
     } else {
         let web = ["https://", "http://", ""]
             .iter()
-            .find_map(|scheme| lower.strip_prefix(scheme)?.strip_prefix("open.spotify.com/").map(|r| r.len()))?;
+            .find_map(|scheme| {
+                let host = lower.strip_prefix(scheme)?;
+                host.strip_prefix("www.").unwrap_or(host).strip_prefix("open.spotify.com/").map(|r| r.len())
+            })?;
         &arg[arg.len() - web..]
     };
     // No query (?si=… share codes) or fragment.
@@ -193,6 +196,8 @@ mod tests {
         assert_eq!(to_uri(&format!("--protocol-uri=spotify:track:{id}")), track);
         assert_eq!(to_uri(&format!("https://open.spotify.com/track/{id}?si=x")), track);
         assert_eq!(to_uri(&format!("https://open.spotify.com/intl-pt/track/{id}")), track);
+        assert_eq!(to_uri(&format!("https://www.open.spotify.com/track/{id}")), track);
+        assert_eq!(to_uri(&format!("www.open.spotify.com/track/{id}")), track);
         assert_eq!(to_uri(&format!("open.spotify.com/embed/track/{id}")), track);
         assert_eq!(to_uri(&format!("spotify:user:someone:playlist:{id}")), Some(format!("spotify:playlist:{id}")));
         assert_eq!(to_uri("spotify:user:someone:collection"), Some("spotify:collection:tracks".into()));
