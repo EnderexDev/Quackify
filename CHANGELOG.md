@@ -10,6 +10,9 @@ line under [Unreleased], and `npm run release` turns that section into the versi
 ### Added
 - **queue history:** each song in the History tab has the Liked Songs heart before its length, always shown once the song is liked and on hover otherwise. A click likes or unlikes it, and the player bar and mini player follow. A quick second click on a row's heart or X no longer plays the song.
 
+### Changed
+- **tray menu:** right-clicking the tray icon opens Quackify's own menu instead of Windows' grey one: the same glass card as the app's menus, in the app's theme and accent, with the song playing on top (a click brings the window back), previous, play/pause and next buttons, then Show, Mini player, Close to tray, Start with Windows and Quit. The arrow keys, Enter and Escape work in it, and a right click on the icon while it is open closes it.
+
 ## [1.0.6] - 2026-11-12
 
 ### Changed

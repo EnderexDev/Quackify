@@ -14,4 +14,8 @@ export default {
   "Cinema mode": "Modo cinema",
   "Keyboard shortcuts": "Atalhos de teclado",
   "Log out": "Sair",
+  // Tray icon menu
+  "Show {name}": "Mostrar o {name}",
+  "Close to tray": "Fechar pra bandeja",
+  "Quit {name}": "Sair do {name}",
 };
