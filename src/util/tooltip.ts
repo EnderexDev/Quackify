@@ -14,6 +14,8 @@ let target: HTMLElement | null = null;
 let timer = 0;
 let hiddenAt = 0;
 let visible = false;
+/** The delay for the current target is over: show() ran, whether it showed or held back a repeat. */
+let settled = false;
 
 function bubble() {
   if (!tip) {
@@ -96,7 +98,8 @@ function repeatsVisibleText(el: HTMLElement, text: string) {
   let shown: Element | null = null;
   if (el.textContent?.trim() === text) shown = el;
   for (const child of el.querySelectorAll("*")) if (child.textContent?.trim() === text) shown = child;
-  if (!shown) return false;
+  // Text hidden from sight (display none, visibility hidden, opacity 0) is not shown on screen.
+  if (!shown || !shown.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
   // The text's own box and every box around it up to the element: none cut it.
   for (let box: Element | null = shown; box; box = box === el ? null : box.parentElement) {
     if (box.clientWidth > 0 && box.scrollWidth > box.clientWidth + 1) return false;
@@ -109,7 +112,9 @@ function show() {
   if (!target?.isConnected) return hide();
   const text = target.getAttribute("data-tip");
   if (!text) return hide();
+  settled = true;
   if (repeatsVisibleText(target, text)) {
+    if (visible) hiddenAt = performance.now();
     tip?.classList.remove("on");
     visible = false;
     return;
@@ -125,6 +130,7 @@ function hide() {
   clearTimeout(timer);
   if (visible) hiddenAt = performance.now();
   visible = false;
+  settled = false;
   target = null;
   tip?.classList.remove("on");
 }
@@ -168,7 +174,8 @@ new MutationObserver((records) => {
     const el = r.target as HTMLElement;
     if (!el.hasAttribute("title")) continue;
     convert(el);
-    if (el === target && visible) show();
+    // Past the delay (shown, or held back as a repeat): the new text is weighed again at once.
+    if (el === target && settled) show();
   }
 }).observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ["title"] });
 
