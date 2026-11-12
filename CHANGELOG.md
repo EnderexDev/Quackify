@@ -17,6 +17,7 @@ line under [Unreleased], and `npm run release` turns that section into the versi
 - **menus:** a ••• menu opened in the search or in a dialog closes on a click outside it and on Esc. Esc closes only the menu, the search stays open.
 
 ### Changed
+- **tooltips:** the hover text on buttons, cards and rows is Quackify's own, in the same glass as the menus and in the app's theme, instead of Windows' grey box. On cards, rows and shortcuts it opens just under the mouse, on a button it sits centred above it, and it does not show when the name is already on screen in full (a name cut with "…" still gets it). Moving from one button to the next shows the next one at once.
 - **tray menu:** right-clicking the tray icon opens Quackify's own menu instead of Windows' grey one: the same glass card as the app's menus, in the app's theme and accent, with the song playing on top (a click brings the window back), previous, play/pause and next buttons, then Show, Mini player, Close to tray, Start with Windows and Quit. The arrow keys, Enter and Escape work in it, and a right click on the icon while it is open closes it.
 
 ## [1.0.6] - 2026-11-12
