@@ -7,6 +7,8 @@ line under [Unreleased], and `npm run release` turns that section into the versi
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-11-12
+
 ### Added
 - **queue history:** each song in the History tab has the Liked Songs heart before its length, always shown once the song is liked and on hover otherwise. A click likes or unlikes it, and the player bar and mini player follow. A quick second click on a row's heart or X no longer plays the song.
 - **links:** more Spotify links open in Quackify, from Windows and pasted in the search: the phone app's short links (`spotify.link`, and the older `spoti.fi`), search links (opening the search with their words), an album link that marks a song (that song), an artist's discography, an episode shared from a point in it (it plays from there), and Your Library's Albums, Artists, Podcasts and Playlists tabs. `play.spotify.com` links work like `open.spotify.com` ones.
@@ -238,7 +240,8 @@ First tagged release: a Tauri 2 desktop client for Spotify (librespot playback, 
 - **release:** `npm run release` builds, signs and publishes a version (`scripts/release.mjs`). `npm run app:build` makes the official installer (NSIS only).
 - **tests:** `bench/` runs the app in a browser with Tauri mocked for React profiling. Rust tests cover the cluster parser, the meter, the waveform decoder, the Jam and Discord limits and the listening reports.
 
-[Unreleased]: https://github.com/EnderexDev/Quackify/compare/v1.0.6...HEAD
+[Unreleased]: https://github.com/EnderexDev/Quackify/compare/v1.0.7...HEAD
+[1.0.7]: https://github.com/EnderexDev/Quackify/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/EnderexDev/Quackify/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/EnderexDev/Quackify/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/EnderexDev/Quackify/compare/v1.0.3...v1.0.4
