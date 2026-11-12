@@ -2,12 +2,13 @@
 // list, the best result first, and app commands after a ">".
 import { useEffect, useMemo, useRef, useState } from "react";
 import { areSaved } from "../api/library";
-import { play, recentSearches, removeRecentSearches, saveRecentSearch, search } from "../api/spotify";
+import { cardOf, play, recentSearches, removeRecentSearches, saveRecentSearch, search } from "../api/spotify";
 import type { Card, SearchResults, Track } from "../api/types";
 import { useNav } from "../state/nav";
 import { notify, toast  } from "../state/toast";
 import { t } from "../i18n";
 import { formatDuration } from "../util/format";
+import { linkToUri } from "../util/links";
 import { kindLabel } from "../util/kinds";
 import { useContextMenu } from "./ContextMenu";
 import { Cover } from "./Cover";
@@ -83,7 +84,7 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
   const openMenu = useContextMenu();
   const [term, setTerm] = useState(initialTerm);
   const [settled, setSettled] = useState(initialTerm.trim());
-  const [results, setResults] = useState<{ term: string; cards: Card[]; tracks: Track[] } | null>(null);
+  const [results, setResults] = useState<{ term: string; cards: Card[]; tracks: Track[]; linked: boolean } | null>(null);
   const [recent, setRecent] = useState<Card[] | null>(null);
   const [error, setError] = useState("");
   const [at, setAt] = useState(0);
@@ -123,9 +124,18 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
     if (!settled) return;
     let alive = true;
     setError("");
-    search(settled).then(
-      (r) => alive && setResults({ term: settled, ...flatten(r) }),
-      (e) => alive && setError(String(e)),
+    // A Spotify link finds what it points to: Spotify's search reads it as words.
+    const uri = linkToUri(settled);
+    const find = uri
+      ? cardOf(uri).then(async (found) =>
+          found
+            ? { cards: [found.card], tracks: found.track ? [found.track] : [], linked: true }
+            : { ...flatten(await search(settled)), linked: false },
+        )
+      : search(settled).then((r) => ({ ...flatten(r), linked: false }));
+    find.then(
+      (r) => alive && setResults({ term: settled, ...r }),
+      (e) => alive && setError(e instanceof Error ? e.message : String(e)),
     );
     return () => {
       alive = false;
@@ -211,6 +221,16 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
   const seeAll = () => {
     const t = term.trim();
     if (!t || isCommand) return;
+    // A link has no list of results: it opens what it points to.
+    const uri = linkToUri(t);
+    if (uri) {
+      // A genre link has no card: the results under it are a search, and its page opens below.
+      if (results?.term === t && results.linked && results.cards[0]) return open(results.cards[0]);
+      // Not found yet: a page opens by its URI alone; a song waits for its card to play.
+      if (uri.startsWith("spotify:track:") || uri.startsWith("spotify:episode:")) return;
+      close();
+      return nav.open(uri);
+    }
     close();
     nav.go({ page: "search", term: t });
   };
@@ -389,7 +409,7 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
             <div className="palette-empty muted small">{t("Search for songs, artists, albums, podcasts and more. Type > for commands.")}</div>
           )}
         </div>
-        {searching && items.length > 0 && (
+        {searching && items.length > 0 && !linkToUri(term) && (
           <button className="palette-all" onClick={seeAll}>
             {t("See all results for “{term}”", { term: term.trim() })} <kbd>Ctrl ↵</kbd>
           </button>

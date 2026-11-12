@@ -7,6 +7,10 @@ line under [Unreleased], and `npm run release` turns that section into the versi
 
 ## [Unreleased]
 
+### Fixed
+- **search:** a Spotify link pasted in the search (`open.spotify.com/...`, `spotify:track:...`, with or without `?si=`) shows what it points to as the one result, instead of Spotify's search for the link's words. Enter plays a song or opens the page, Ctrl Enter opens it too.
+- **menus:** a ••• menu opened in the search or in a dialog closes on a click outside it and on Esc. Esc closes only the menu, the search stays open.
+
 ## [1.0.6] - 2026-11-12
 
 ### Changed
