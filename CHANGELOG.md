@@ -7,6 +7,8 @@ line under [Unreleased], and `npm run release` turns that section into the versi
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-11-12
+
 ### Changed
 - Home: Spotify's one-card sections ("Made For You" four times, "Fans of X", "Similar to Y") are merged by title, and cards still short of three go into one "More for you" row that says why Spotify picked each card (31 rows to 12 on a real Home). Rows keep their place: a newer Home from Spotify replaces the one on screen only within 2 s of it showing, otherwise on the next visit.
 
@@ -223,7 +225,8 @@ First tagged release: a Tauri 2 desktop client for Spotify (librespot playback, 
 - **release:** `npm run release` builds, signs and publishes a version (`scripts/release.mjs`). `npm run app:build` makes the official installer (NSIS only).
 - **tests:** `bench/` runs the app in a browser with Tauri mocked for React profiling. Rust tests cover the cluster parser, the meter, the waveform decoder, the Jam and Discord limits and the listening reports.
 
-[Unreleased]: https://github.com/EnderexDev/Quackify/compare/v1.0.5...HEAD
+[Unreleased]: https://github.com/EnderexDev/Quackify/compare/v1.0.6...HEAD
+[1.0.6]: https://github.com/EnderexDev/Quackify/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/EnderexDev/Quackify/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/EnderexDev/Quackify/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/EnderexDev/Quackify/compare/v1.0.2...v1.0.3
