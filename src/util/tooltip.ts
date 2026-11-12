@@ -90,10 +90,30 @@ function place() {
   tip.classList.toggle("below", below);
 }
 
+/** Whether the tip only repeats a text already shown whole inside the element (a card's name
+ * written under its cover): then no bubble. A name cut with "…" still gets one. */
+function repeatsVisibleText(el: HTMLElement, text: string) {
+  let shown: Element | null = null;
+  if (el.textContent?.trim() === text) shown = el;
+  for (const child of el.querySelectorAll("*")) if (child.textContent?.trim() === text) shown = child;
+  if (!shown) return false;
+  // The text's own box and every box around it up to the element: none cut it.
+  for (let box: Element | null = shown; box; box = box === el ? null : box.parentElement) {
+    if (box.clientWidth > 0 && box.scrollWidth > box.clientWidth + 1) return false;
+    if (box.clientHeight > 0 && box.scrollHeight > box.clientHeight + 1) return false;
+  }
+  return true;
+}
+
 function show() {
   if (!target?.isConnected) return hide();
   const text = target.getAttribute("data-tip");
   if (!text) return hide();
+  if (repeatsVisibleText(target, text)) {
+    tip?.classList.remove("on");
+    visible = false;
+    return;
+  }
   const t = bubble();
   t.textContent = text;
   place();
@@ -148,13 +168,7 @@ new MutationObserver((records) => {
     const el = r.target as HTMLElement;
     if (!el.hasAttribute("title")) continue;
     convert(el);
-    if (el === target && visible) {
-      const text = el.getAttribute("data-tip");
-      if (text && tip) {
-        tip.textContent = text;
-        place();
-      } else hide();
-    }
+    if (el === target && visible) show();
   }
 }).observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ["title"] });
 
