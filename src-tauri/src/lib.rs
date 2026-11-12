@@ -15,6 +15,7 @@ mod setup;
 mod spotify;
 #[cfg(windows)]
 mod thumbbar;
+mod tray_menu;
 mod variant;
 mod waveform;
 mod webplayer;
@@ -73,6 +74,7 @@ pub fn run() {
         })
         .on_window_event(|window, event| match window.label() {
             mini::LABEL => mini::on_window_event(window, event),
+            tray_menu::LABEL => tray_menu::on_window_event(window, event),
             _ => desktop::on_window_event(window, event),
         })
         .invoke_handler(tauri::generate_handler![
@@ -120,6 +122,7 @@ pub fn run() {
             settings::settings_pick_folder,
             settings::settings_set_cache_folder,
             links::links_take,
+            links::links_resolve,
             links::links_status,
             links::links_choose,
             webplayer::web_player_open,
@@ -133,6 +136,10 @@ pub fn run() {
             mini::mini_player_set_lyrics,
             mini::mini_player_fit,
             mini::mini_player_show_main,
+            tray_menu::tray_menu_state,
+            tray_menu::tray_menu_resize,
+            tray_menu::tray_menu_hide,
+            tray_menu::tray_menu_action,
             setup::update_in_window,
             logs::logs_open_folder,
         ])

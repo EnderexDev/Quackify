@@ -13,13 +13,15 @@ import App from "./App";
 import { MiniPlayer } from "./components/MiniPlayer";
 import { Setup } from "./components/Setup";
 import { Crash } from "./components/Crash";
+import { TrayMenu } from "./components/TrayMenu";
 import { PlayerProvider } from "./state/player";
-import { isMini, isSetup } from "./state/windows";
+import { isMini, isSetup, isTray } from "./state/windows";
 import { startUpdateChecks } from "./state/update";
 import "./styles/index.css";
 
 if (isMini) document.documentElement.classList.add("mini-window");
-// The main window asks for updates; the mini player and the installer leave it to it.
+else if (isTray) document.documentElement.classList.add("tray-window");
+// The main window asks for updates; the other windows leave it to it.
 else if (!isSetup) startUpdateChecks();
 
 /** The mini player's window: the same player, which leaves the history to the main window; it
@@ -35,6 +37,6 @@ function Mini() {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <Crash>{isSetup ? <Setup /> : isMini ? <Mini /> : <App />}</Crash>
+    <Crash>{isSetup ? <Setup /> : isTray ? <TrayMenu /> : isMini ? <Mini /> : <App />}</Crash>
   </React.StrictMode>,
 );

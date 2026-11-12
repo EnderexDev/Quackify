@@ -8,7 +8,8 @@ import { useNav } from "../state/nav";
 import { notify, toast  } from "../state/toast";
 import { t } from "../i18n";
 import { formatDuration } from "../util/format";
-import { linkToUri } from "../util/links";
+import { openLink, resolveLink } from "../state/openLink";
+import { isShortLink, libraryTabOf, linkToUri, readLink, searchTermOf } from "../util/links";
 import { kindLabel } from "../util/kinds";
 import { useContextMenu } from "./ContextMenu";
 import { Cover } from "./Cover";
@@ -33,6 +34,12 @@ type Item = {
   tracks?: Track[];
   run: () => void;
 };
+
+/** What the box found; `target` is what a link in it points to (src/util/links.ts). */
+type Results = { term: string; cards: Card[]; tracks: Track[]; target: string | null };
+
+/** A Spotify link, short links included: it is opened, not searched for. */
+const isLink = (text: string) => !!linkToUri(text) || isShortLink(text);
 
 export type PaletteCommand = { label: string; keys?: string; run: () => void };
 
@@ -84,7 +91,7 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
   const openMenu = useContextMenu();
   const [term, setTerm] = useState(initialTerm);
   const [settled, setSettled] = useState(initialTerm.trim());
-  const [results, setResults] = useState<{ term: string; cards: Card[]; tracks: Track[]; linked: boolean } | null>(null);
+  const [results, setResults] = useState<Results | null>(null);
   const [recent, setRecent] = useState<Card[] | null>(null);
   const [error, setError] = useState("");
   const [at, setAt] = useState(0);
@@ -125,16 +132,25 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
     let alive = true;
     setError("");
     // A Spotify link finds what it points to: Spotify's search reads it as words.
-    const uri = linkToUri(settled);
-    const find = uri
-      ? cardOf(uri).then(async (found) =>
-          found
-            ? { cards: [found.card], tracks: found.track ? [found.track] : [], linked: true }
-            : { ...flatten(await search(settled)), linked: false },
-        )
-      : search(settled).then((r) => ({ ...flatten(r), linked: false }));
-    find.then(
-      (r) => alive && setResults({ term: settled, ...r }),
+    const words = async () => ({ ...flatten(await search(settled)), target: null });
+    const find = async (): Promise<Omit<Results, "term"> | null> => {
+      if (!isLink(settled)) return words();
+      const target = await resolveLink(settled);
+      // A short link to nowhere Quackify knows: nothing, rather than a search for its letters.
+      if (!target) return linkToUri(settled) ? words() : { cards: [], tracks: [], target: null };
+      // A search link puts its words in the box, and they are searched like typed ones.
+      const asked = searchTermOf(target);
+      if (asked) {
+        if (alive) setTerm(asked);
+        return null;
+      }
+      if (libraryTabOf(target)) return { cards: [], tracks: [], target };
+      const found = await cardOf(readLink(target).uri);
+      // A genre has no card: one line opens its page.
+      return { cards: found ? [found.card] : [], tracks: found?.track ? [found.track] : [], target };
+    };
+    find().then(
+      (r) => alive && r && setResults({ term: settled, ...r }),
       (e) => alive && setError(e instanceof Error ? e.message : String(e)),
     );
     return () => {
@@ -155,6 +171,14 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
     } else nav.open(card.uri);
   };
   const playCard = (card: Card, tracks?: Track[]) => {
+    // An episode linked from a point in it plays from there, as its line does.
+    const link = results?.target ? readLink(results.target) : null;
+    if (link?.atMs !== undefined && link.uri === card.uri && results?.target) {
+      remember(card.uri);
+      close();
+      openLink(results.target, nav);
+      return;
+    }
     if (card.kind === "track" || card.kind === "episode") return open(card, tracks);
     remember(card.uri);
     close();
@@ -199,6 +223,18 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
       }));
     }
     if (!results || results.term !== settled) return [];
+    const target = results.target;
+    const tab = target && target.startsWith("spotify:collection:") ? libraryTabOf(target) : null;
+    if (target && tab) {
+      const label = tab === "Podcasts & Shows" ? t("Podcasts") : t(tab);
+      return [{ key: target, title: t("Your Library"), sub: label, run: () => (close(), openLink(target, nav)) }];
+    }
+    if (target && results.cards.length === 0) {
+      return [{ key: target, title: t("Open"), sub: term.trim(), run: () => (close(), openLink(target, nav)) }];
+    }
+    // A discography or an episode from a point in it opens as the link says, not as its card.
+    const link = target ? readLink(target) : null;
+    const asLink = !!link && (link.discography || link.atMs !== undefined);
     return results.cards.map((c) => ({
       key: c.uri,
       title: c.title,
@@ -207,7 +243,8 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
       round: c.kind === "artist" || c.kind === "user",
       card: c,
       tracks: c.kind === "track" ? results.tracks : undefined,
-      run: () => open(c, c.kind === "track" ? results.tracks : undefined),
+      run: () =>
+        asLink && target ? (remember(c.uri), close(), openLink(target, nav)) : open(c, c.kind === "track" ? results.tracks : undefined),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCommand, term, recent, results, settled, commands]);
@@ -222,14 +259,15 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
     const t = term.trim();
     if (!t || isCommand) return;
     // A link has no list of results: it opens what it points to.
-    const uri = linkToUri(t);
-    if (uri) {
-      // A genre link has no card: the results under it are a search, and its page opens below.
-      if (results?.term === t && results.linked && results.cards[0]) return open(results.cards[0]);
-      // Not found yet: a page opens by its URI alone; a song waits for its card to play.
-      if (uri.startsWith("spotify:track:") || uri.startsWith("spotify:episode:")) return;
+    if (isLink(t)) {
+      if (results?.term === t && results.target) return items[0]?.run();
+      // Not found yet, or a genre: a page opens by its URI alone; a song waits for its card to
+      // play, and a short link for its fetch.
+      const uri = linkToUri(t);
+      if (!uri || /^spotify:(track|episode):/.test(uri)) return;
       close();
-      return nav.open(uri);
+      openLink(uri, nav);
+      return;
     }
     close();
     nav.go({ page: "search", term: t });
@@ -409,7 +447,7 @@ export function Palette({ initialTerm = "", onClose, commands }: { initialTerm?:
             <div className="palette-empty muted small">{t("Search for songs, artists, albums, podcasts and more. Type > for commands.")}</div>
           )}
         </div>
-        {searching && items.length > 0 && !linkToUri(term) && (
+        {searching && items.length > 0 && !isLink(term) && (
           <button className="palette-all" onClick={seeAll}>
             {t("See all results for “{term}”", { term: term.trim() })} <kbd>Ctrl ↵</kbd>
           </button>
