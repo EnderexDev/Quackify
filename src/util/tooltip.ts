@@ -1,6 +1,6 @@
 // The app's own tooltip in place of the browser's grey box: every `title` in the page becomes a
 // `data-tip` the moment the mouse reaches it (before the browser's ~500 ms), and one glass bubble
-// shows it above the element. A `title` React writes again later (Shuffle on/off after a click)
+// shows it above the element (under the mouse for a large one). A `title` React writes again later (Shuffle on/off after a click)
 // is converted by the observer, so the native box never shows. Imported once, for its effect.
 
 const SHOW_DELAY = 450;
@@ -74,18 +74,41 @@ Element.prototype.removeAttribute = function (this: Element, name: string) {
   return removeAttribute.call(this, name);
 };
 
+/** Where the mouse is, for the bubble of a large element. */
+let mouseX = 0;
+let mouseY = 0;
+document.addEventListener(
+  "pointermove",
+  (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  },
+  { capture: true, passive: true },
+);
+
+/** A button gets its bubble centred above it; a large element (a card, a row, a shortcut) gets it
+ * just under the mouse, where the eye already is, instead of above the whole element. */
+const LARGE_W = 160;
+const LARGE_H = 64;
+/** Room under the mouse for the cursor's own arrow. */
+const CURSOR_H = 20;
+
 function place() {
   if (!tip || !target) return;
   const r = target.getBoundingClientRect();
   const w = tip.offsetWidth;
   const h = tip.offsetHeight;
-  let left = r.left + r.width / 2 - w / 2;
+  const atMouse = r.width > LARGE_W || r.height > LARGE_H;
+  let left = atMouse ? mouseX - w / 2 : r.left + r.width / 2 - w / 2;
   left = Math.max(GUTTER, Math.min(left, window.innerWidth - w - GUTTER));
-  let top = r.top - h - GAP;
-  let below = false;
-  if (top < GUTTER) {
-    top = r.bottom + GAP;
-    below = true;
+  let top: number;
+  let below: boolean;
+  if (atMouse) {
+    below = mouseY + CURSOR_H + h + GUTTER <= window.innerHeight;
+    top = below ? mouseY + CURSOR_H : mouseY - h - GAP;
+  } else {
+    below = r.top - h - GAP < GUTTER;
+    top = below ? r.bottom + GAP : r.top - h - GAP;
   }
   tip.style.left = `${Math.round(left)}px`;
   tip.style.top = `${Math.round(top)}px`;
@@ -148,6 +171,9 @@ document.addEventListener(
   "pointerover",
   (e) => {
     if (e.pointerType === "touch") return;
+    // pointerover comes before the pointermove to the same point, and a warm bubble shows now.
+    mouseX = e.clientX;
+    mouseY = e.clientY;
     const from = e.target instanceof Element ? e.target : null;
     convertUp(from);
     const el = from?.closest("[data-tip]") as HTMLElement | null;
