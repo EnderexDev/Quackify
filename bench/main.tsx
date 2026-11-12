@@ -2,6 +2,7 @@ import { Profiler } from "react";
 import ReactDOM from "react-dom/client";
 import App from "../src/App";
 import "../src/util/noBrowserMenu";
+import "../src/util/tooltip";
 
 // Time React spent rendering, summed over commits since the last reset.
 const timing = { ms: 0 };

@@ -138,6 +138,10 @@ export async function getVersion() {
   return "bench";
 }
 
+export async function getIdentifier() {
+  return "dev.enderex.quackify.bench";
+}
+
 Object.assign(window, {
   __emit: (event: string, payload: unknown) => handlers.get(event)?.forEach((h) => h({ payload })),
   __bench: { view, nowPlaying, calls },
@@ -146,6 +150,15 @@ Object.assign(window, {
 export function getCurrentWindow() {
   const ok = async () => {};
   return { label: "main", startDragging: ok, setFullscreen: ok, isFullscreen: async () => false, listen: async () => () => {} };
+}
+
+/** What the updater plugin imports; the bench never checks for updates. */
+export class Resource {
+  constructor(readonly rid = 0) {}
+  async close() {}
+}
+export class Channel<T = unknown> {
+  onmessage: (m: T) => void = () => {};
 }
 
 /** Tauri's emit reaches every window's listeners, this one included. */
