@@ -21,7 +21,9 @@
 }
 
 .track-row:hover .row-like,
-.track-row.liked .row-like {
+.track-row.liked .row-like,
+.queue-row:hover .row-like,
+.queue-row.liked .row-like {
   visibility: visible;
 }
 

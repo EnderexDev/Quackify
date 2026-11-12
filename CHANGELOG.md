@@ -7,6 +7,9 @@ line under [Unreleased], and `npm run release` turns that section into the versi
 
 ## [Unreleased]
 
+### Added
+- **queue history:** each song in the History tab has the Liked Songs heart before its length, always shown once the song is liked and on hover otherwise. A click likes or unlikes it, and the player bar and mini player follow. A quick second click on a row's heart or X no longer plays the song.
+
 ## [1.0.6] - 2026-11-12
 
 ### Changed

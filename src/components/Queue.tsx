@@ -14,6 +14,7 @@ import { Empty } from "../views/common";
 import { trackMenu } from "./menus";
 import { Segmented } from "./Segmented";
 import { Eq } from "./Eq";
+import { LikeButton } from "./LikeButton";
 
 /** How many tracks each group shows, with names and covers. */
 const SHOWN = 30;
@@ -295,7 +296,7 @@ export function QueuePanel({ onClose }: { onClose: () => void }) {
         {tab === "history" && history.length === 0 && <Empty title={t("Nothing here yet")} text={t("Songs you play show up here.")} icon={<ClockIcon size={20} />} />}
         {tab === "history" &&
           history.map((q, i) => (
-            <QueueRow key={rowKey(q, i)} track={info.get(q.uri)} onPlay={() => play.tracks([q.uri], 0).catch(toast)} />
+            <QueueRow key={rowKey(q, i)} track={info.get(q.uri)} like onPlay={() => play.tracks([q.uri], 0).catch(toast)} />
           ))}
       </div>
     </aside>
@@ -308,6 +309,7 @@ export function QueueRow({
   current,
   onRemove,
   onPlay,
+  like,
   drag,
 }: {
   track: NowPlaying | undefined;
@@ -315,6 +317,8 @@ export function QueueRow({
   current?: boolean;
   onRemove?: () => void;
   onPlay?: () => void;
+  /** A heart before the time: on hover, and always once the song is liked. Songs only. */
+  like?: boolean;
   drag?: { start: () => void; over: () => void; drop: () => void; end: () => void; marker: boolean; dragging: boolean };
 }) {
   const nav = useNav();
@@ -322,11 +326,13 @@ export function QueueRow({
   const openMenu = useContextMenu();
   const [saved] = useSaved(track?.uri);
   const playIt = onPlay ?? (() => item && play.skipTo(item.uri, item.uid).catch(toast));
+  const heart = like && track?.uri.startsWith("spotify:track:");
   return (
     <div
-      className={`queue-row ${current ? "current" : ""} ${drag?.marker ? "drop-before" : ""} ${drag?.dragging ? "dragging" : ""}`}
+      className={`queue-row ${current ? "current" : ""} ${heart && saved ? "liked" : ""} ${drag?.marker ? "drop-before" : ""} ${drag?.dragging ? "dragging" : ""}`}
       title={current ? undefined : t("Double-click to play")}
-      onDoubleClick={() => !current && playIt()}
+      // A quick second click on the heart or the X is not a double-click on the song.
+      onDoubleClick={(e) => !current && !(e.target as HTMLElement).closest("button") && playIt()}
       draggable={!!drag}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "move";
@@ -356,6 +362,7 @@ export function QueueRow({
         <div className="queue-name">{track?.name ?? "…"}</div>
         <div className="queue-artists">{track?.artists.map((a) => a.name).join(", ")}</div>
       </div>
+      {heart && <LikeButton uri={track!.uri} size={16} className="row-like" />}
       {current ? (
         <Eq paused={!player.playing} />
       ) : (
