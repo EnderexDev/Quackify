@@ -9,6 +9,8 @@ import { toast } from "./toast";
 
 /** This page is the mini player's window. */
 export const isMini = getCurrentWindow().label === "mini";
+/** This page is the tray icon's menu (tray_menu.rs). */
+export const isTray = getCurrentWindow().label === "tray";
 /** This page is the installer or update window (setup.rs), in place of the app. */
 export const isSetup = getCurrentWindow().label === "setup";
 

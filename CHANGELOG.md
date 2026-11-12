@@ -16,6 +16,9 @@ line under [Unreleased], and `npm run release` turns that section into the versi
 - **links:** a `www.open.spotify.com` link opens in Quackify too, from Windows and from the search.
 - **menus:** a ••• menu opened in the search or in a dialog closes on a click outside it and on Esc. Esc closes only the menu, the search stays open.
 
+### Changed
+- **tray menu:** right-clicking the tray icon opens Quackify's own menu instead of Windows' grey one: the same glass card as the app's menus, in the app's theme and accent, with the song playing on top (a click brings the window back), previous, play/pause and next buttons, then Show, Mini player, Close to tray, Start with Windows and Quit. The arrow keys, Enter and Escape work in it, and a right click on the icon while it is open closes it.
+
 ## [1.0.6] - 2026-11-12
 
 ### Changed
