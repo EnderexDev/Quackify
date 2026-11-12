@@ -120,6 +120,7 @@ pub fn run() {
             settings::settings_pick_folder,
             settings::settings_set_cache_folder,
             links::links_take,
+            links::links_resolve,
             links::links_status,
             links::links_choose,
             webplayer::web_player_open,

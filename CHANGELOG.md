@@ -9,6 +9,7 @@ line under [Unreleased], and `npm run release` turns that section into the versi
 
 ### Added
 - **queue history:** each song in the History tab has the Liked Songs heart before its length, always shown once the song is liked and on hover otherwise. A click likes or unlikes it, and the player bar and mini player follow. A quick second click on a row's heart or X no longer plays the song.
+- **links:** more Spotify links open in Quackify, from Windows and pasted in the search: the phone app's short links (`spotify.link`, and the older `spoti.fi`), search links (opening the search with their words), an album link that marks a song (that song), an artist's discography, an episode shared from a point in it (it plays from there), and Your Library's Albums, Artists, Podcasts and Playlists tabs. `play.spotify.com` links work like `open.spotify.com` ones.
 
 ### Fixed
 - **search:** a Spotify link pasted in the search (`open.spotify.com/...`, `spotify:track:...`, with or without `?si=`) shows what it points to as the one result, instead of Spotify's search for the link's words. Enter plays a song or opens the page, Ctrl Enter opens it too.
