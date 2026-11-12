@@ -34,17 +34,33 @@ function convert(el: Element) {
   el.removeAttribute("title");
   if (!title) return clear(el);
   el.setAttribute("data-tip", title);
-  const name = el.getAttribute("aria-label") ?? el.textContent?.trim();
-  if (!name) el.setAttribute("aria-label", title);
-  else if (name !== title) el.setAttribute("aria-description", title);
+  // An aria-label written here (marked by data-tip-label) follows the title; one from the app stays.
+  const ownLabel = el.hasAttribute("data-tip-label");
+  const name = ownLabel ? "" : (el.getAttribute("aria-label") ?? el.textContent?.trim());
+  if (!name) {
+    el.setAttribute("aria-label", title);
+    el.setAttribute("data-tip-label", "");
+    el.removeAttribute("aria-description");
+  } else if (name !== title) el.setAttribute("aria-description", title);
   else el.removeAttribute("aria-description");
 }
 
-/** The element no longer has a title: its tip and description go too, and its bubble closes. */
+/** The element no longer has a title: its tip, description and the label written here go too,
+ * and its bubble closes. */
 function clear(el: Element) {
   el.removeAttribute("data-tip");
   el.removeAttribute("aria-description");
+  if (el.hasAttribute("data-tip-label")) {
+    el.removeAttribute("aria-label");
+    el.removeAttribute("data-tip-label");
+  }
   if (el === target) hide();
+}
+
+/** Converts every title from the element up: an ancestor's title is what the browser would show
+ * natively over a child that has none (the card's name over its Remove button). */
+function convertUp(from: Element | null) {
+  for (let el = from; el; el = el.parentElement) if (el.hasAttribute("title")) convert(el);
 }
 
 // React removes a `title` it no longer renders with removeAttribute; once converted the attribute
@@ -97,8 +113,9 @@ document.addEventListener(
   "pointerover",
   (e) => {
     if (e.pointerType === "touch") return;
-    const el = (e.target as Element | null)?.closest?.("[title], [data-tip]") as HTMLElement | null;
-    if (el) convert(el);
+    const from = e.target instanceof Element ? e.target : null;
+    convertUp(from);
+    const el = from?.closest("[data-tip]") as HTMLElement | null;
     if (el === target) return;
     const warm = visible || performance.now() - hiddenAt < WARM_MS;
     hide();
