@@ -1,0 +1,36 @@
+/* The app's tooltip (util/tooltip.ts): the menus' glass, smaller, above everything. */
+
+.tooltip {
+  position: fixed;
+  z-index: 100;
+  left: 0;
+  top: 0;
+  max-width: 280px;
+  padding: 5px 10px;
+  background: var(--popup);
+  -webkit-backdrop-filter: var(--blur-popup);
+  backdrop-filter: var(--blur-popup);
+  border: 1px solid var(--surface-3);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-popup);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px) scale(0.96);
+  transition:
+    opacity var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
+}
+
+.tooltip.below {
+  transform: translateY(-4px) scale(0.96);
+}
+
+.tooltip.on {
+  opacity: 1;
+  transform: none;
+}

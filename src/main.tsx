@@ -5,6 +5,7 @@ import "./state/theme";
 import "./state/flavor";
 import "./state/motion";
 import "./util/noBrowserMenu";
+import "./util/tooltip";
 // Early, so an error while the rest loads already reaches the log file.
 import "./state/problems";
 import { useLang } from "./i18n";
