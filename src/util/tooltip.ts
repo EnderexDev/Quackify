@@ -100,6 +100,15 @@ function repeatsVisibleText(el: HTMLElement, text: string) {
   for (const child of el.querySelectorAll("*")) if (child.textContent?.trim() === text) shown = child;
   // Text hidden from sight (display none, visibility hidden, opacity 0) is not shown on screen.
   if (!shown || !shown.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
+  // Nor text out of the window, scrolled out of its list or under another layer (the player bar):
+  // both ends of the text must be inside the window and on top there.
+  const r = shown.getBoundingClientRect();
+  if (r.top < 0 || r.left < 0 || r.bottom > window.innerHeight || r.right > window.innerWidth) return false;
+  const y = r.top + r.height / 2;
+  for (const x of [r.left + 2, r.right - 2]) {
+    const top = document.elementFromPoint(x, y);
+    if (!top || !(shown.contains(top) || top.contains(shown))) return false;
+  }
   // The text's own box and every box around it up to the element: none cut it.
   for (let box: Element | null = shown; box; box = box === el ? null : box.parentElement) {
     if (box.clientWidth > 0 && box.scrollWidth > box.clientWidth + 1) return false;
