@@ -18,6 +18,7 @@ import { newPlaylist } from "./state/newPlaylist";
 import { ShortcutsDialog, useShortcuts } from "./components/Shortcuts";
 import { TopBar } from "./components/TopBar";
 import { NavProvider, useNav, type Nav } from "./state/nav";
+import { openLink } from "./state/openLink";
 import { PlayerProvider, usePlayerNow, type NowPlaying } from "./state/player";
 import { setTheme } from "./state/theme";
 import { syncLang, t, useLang } from "./i18n";
@@ -381,13 +382,12 @@ function useOpenLinks(nav: Nav) {
     const take = () =>
       invoke<string | null>("links_take").then(async (uri) => {
         if (!uri) return;
+        // Search, Your Library's tabs, a discography, an episode from a point in it, and pages.
+        if (openLink(uri, navRef.current)) return;
         // Like Spotify, a song opens on its album.
-        if (uri.startsWith("spotify:track:")) {
-          const [track] = await invoke<NowPlaying[]>("spotify_tracks", { uris: [uri] });
-          if (!track?.album.uri) throw t("That song could not be found");
-          uri = track.album.uri;
-        }
-        navRef.current.open(uri);
+        const [track] = await invoke<NowPlaying[]>("spotify_tracks", { uris: [uri] });
+        if (!track?.album?.uri) throw t("That song could not be found");
+        navRef.current.open(track.album.uri);
       }).catch(toast);
     const off = listen("open-link", take);
     take();

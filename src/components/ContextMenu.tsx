@@ -72,15 +72,25 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!menu) return;
     const close = () => setMenu(null);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
-    window.addEventListener("mousedown", close);
+    // Heard on the way down (capture): the search palette and dialogs stop their clicks and keys
+    // from bubbling, and the menu opened over them stayed open (12/11/26).
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target instanceof Element && e.target.closest(".menu"))) close();
+    };
+    // Escape closes the menu only, not the palette or dialog under it too.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      close();
+    };
+    window.addEventListener("mousedown", onDown, true);
     window.addEventListener("blur", close);
-    window.addEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
     window.addEventListener("resize", close);
     return () => {
-      window.removeEventListener("mousedown", close);
+      window.removeEventListener("mousedown", onDown, true);
       window.removeEventListener("blur", close);
-      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("resize", close);
     };
   }, [menu]);

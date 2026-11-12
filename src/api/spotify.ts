@@ -2,7 +2,8 @@
 // is instant; a failed read is dropped from the cache so the next visit retries.
 import { invoke } from "@tauri-apps/api/core";
 import * as n from "./normalize";
-import { locale } from "../i18n";
+import { locale, t } from "../i18n";
+import { formatDuration } from "../util/format";
 import type {
   Artist,
   BrowsePage,
@@ -24,7 +25,9 @@ import type {
   SearchResults,
   Show,
   TopContent,
+  Track,
   TrackDetails,
+  Named,
 } from "./types";
 
 const TTL_MS = 5 * 60 * 1000;
@@ -417,6 +420,64 @@ export async function saveRecentSearch(uri: string): Promise<void> {
 /** Removes these from recent searches. */
 export async function removeRecentSearches(uris: string[]): Promise<void> {
   await query("removeRecentSearches", { uris });
+}
+
+/** The card for one Spotify URI (a link pasted in the search), read from its own page; null for
+ * kinds the search has no card for (a genre page). */
+export async function cardOf(uri: string): Promise<{ card: Card; track?: Track } | null> {
+  const kind = uri.split(":")[1];
+  // Pages come from their own cached reads, which an edit (a renamed playlist) clears; only the
+  // song, which nobody edits, has a cache of its own here.
+  if (kind === "track") return cached(`songCard:${uri}`, () => songCardOf(uri));
+  const card = await pageCardOf(uri, kind);
+  return card ? { card } : null;
+}
+
+async function songCardOf(uri: string): Promise<{ card: Card; track: Track }> {
+  const [s] = await invoke<{ uri: string; name: string; artists: Named[]; album: Named | null; image: string | null; duration_ms: number }[]>(
+    "spotify_tracks",
+    { uris: [uri] },
+  );
+  // A string, like the Rust side's errors: the palette shows it as it is.
+  if (!s) throw t("That song could not be found");
+  const artists = s.artists.map((a) => a.name).join(", ");
+  // The song itself too, so its ••• menu is a song's.
+  const track: Track = {
+    uri,
+    name: s.name,
+    artists: s.artists,
+    album: s.album?.uri ? s.album : null,
+    image: s.image,
+    durationMs: s.duration_ms,
+    playable: true,
+    addedAt: null,
+    uid: null,
+  };
+  return { card: { uri, kind: "track", title: s.name, subtitle: `${artists} · ${formatDuration(s.duration_ms)}`, image: s.image }, track };
+}
+
+async function pageCardOf(uri: string, kind: string): Promise<Card | null> {
+  if (kind === "episode") {
+    const e = await episode(uri);
+    return { uri, kind: "episode", title: e.name, subtitle: e.show.name, image: e.image };
+  }
+  if (kind === "album" || kind === "playlist" || kind === "collection") {
+    const c = await collection(uri);
+    return { uri: c.uri, kind: c.kind, albumType: c.albumType, title: c.title, subtitle: c.owner, image: c.image };
+  }
+  if (kind === "artist") {
+    const a = await artist(uri);
+    return { uri, kind: "artist", title: a.name, subtitle: "", image: a.image };
+  }
+  if (kind === "show") {
+    const s = await show(uri);
+    return { uri, kind: "show", title: s.name, subtitle: s.publisher, image: s.image };
+  }
+  if (kind === "user") {
+    const p = await profile(uri.slice("spotify:user:".length));
+    return { uri: p.uri || uri, kind: "user", title: p.name, subtitle: "", image: p.image };
+  }
+  return null;
 }
 
 /** Everyone credited on a song. */
