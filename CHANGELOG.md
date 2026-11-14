@@ -7,6 +7,8 @@ line under [Unreleased], and `npm run release` turns that section into the versi
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-11-14
+
 ### Added
 - **song page:** every artist of the song gets its own card (photo, name, verified mark, monthly listeners and Follow), not just the first one. A click on a card opens the artist. Credits sit once, under the cards.
 
@@ -243,7 +245,8 @@ First tagged release: a Tauri 2 desktop client for Spotify (librespot playback, 
 - **release:** `npm run release` builds, signs and publishes a version (`scripts/release.mjs`). `npm run app:build` makes the official installer (NSIS only).
 - **tests:** `bench/` runs the app in a browser with Tauri mocked for React profiling. Rust tests cover the cluster parser, the meter, the waveform decoder, the Jam and Discord limits and the listening reports.
 
-[Unreleased]: https://github.com/EnderexDev/Quackify/compare/v1.0.7...HEAD
+[Unreleased]: https://github.com/EnderexDev/Quackify/compare/v1.0.8...HEAD
+[1.0.8]: https://github.com/EnderexDev/Quackify/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/EnderexDev/Quackify/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/EnderexDev/Quackify/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/EnderexDev/Quackify/compare/v1.0.4...v1.0.5
