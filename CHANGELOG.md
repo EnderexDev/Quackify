@@ -7,6 +7,9 @@ line under [Unreleased], and `npm run release` turns that section into the versi
 
 ## [Unreleased]
 
+### Fixed
+- **Discord Listen Along:** following someone with Listen Along should go on to the next song again, instead of stopping at the end of every song and staying silent until they changed songs. When Spotify does not let your account open the list they play from (another person's Liked Songs, for example), Quackify plays the song they sent instead of stopping.
+
 ## [1.0.8] - 2026-11-14
 
 ### Added
