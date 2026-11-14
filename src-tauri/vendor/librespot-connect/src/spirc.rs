@@ -1282,6 +1282,7 @@ impl SpircTask {
 
         self.connect_state.reset_options();
 
+        let mut page = page;
         let autoplay = matches!(cmd.context_options, Some(LoadContextOptions::Autoplay));
         match cmd.context {
             PlayContext::Uri(uri) => {
@@ -1292,7 +1293,11 @@ impl SpircTask {
                 // load failed after clearing the next tracks: playback stopped at the song's end.
                 // Play the tracks the command carries instead.
                 if !autoplay && self.connect_state.get_context(ContextType::Default).is_err() {
-                    self.load_fallback_tracks(&uri, page.as_ref(), &cmd.options.playing_track)?;
+                    if self.load_fallback_tracks(&uri, page.as_ref(), &cmd.options.playing_track)? {
+                        // Merging the page into itself would give a repeated song the uid of
+                        // its last copy.
+                        page = None;
+                    }
                 }
             }
             PlayContext::Tracks(tracks) => self.load_context_from_tracks(tracks)?,
@@ -1429,21 +1434,37 @@ impl SpircTask {
     /// Quackify: the context of a load could not be resolved. The command's own page, when it
     /// lists tracks, becomes the context; otherwise the requested track plays alone. With
     /// neither, nothing changes and the load fails as before.
+    /// Returns true when the page itself became the context (its uids are already in it).
     fn load_fallback_tracks(
         &mut self,
         context_uri: &str,
         page: Option<&ContextPage>,
         playing_track: &Option<PlayingTrack>,
-    ) -> Result<(), Error> {
-        let page_tracks = page.filter(|p| p.tracks.iter().any(|t| t.uri.is_some()));
+    ) -> Result<bool, Error> {
+        // Only tracks the context can hold: an invalid one is dropped there, and a context left
+        // empty panics when a shuffled load picks a random track.
+        let playable = |uri: &str| !uri.contains('?') && SpotifyUri::from_uri(uri).is_ok();
+        let page_tracks = page.map(|p| ContextPage {
+            tracks: p
+                .tracks
+                .iter()
+                .filter(|t| t.uri.as_deref().is_some_and(playable))
+                .cloned()
+                .collect(),
+            ..p.clone()
+        });
+        let page_tracks = page_tracks.filter(|p| !p.tracks.is_empty());
         warn!(
-            "context <{context_uri}> not resolved, playing the command's tracks instead (page tracks: {}, playing track: {playing_track:?})",
+            "context <{context_uri}> not resolved, playing the command's tracks instead (page tracks: {}, playable: {}, playing track: {playing_track:?})",
             page.map(|p| p.tracks.len()).unwrap_or_default(),
+            page_tracks.as_ref().map(|p| p.tracks.len()).unwrap_or_default(),
         );
         match (page_tracks, playing_track) {
-            (Some(page), _) => self.load_context_from_tracks(page.clone()),
-            (None, Some(PlayingTrack::Uri(uri))) => self.load_context_from_tracks(vec![uri.clone()]),
-            _ => Ok(()),
+            (Some(page), _) => self.load_context_from_tracks(page).map(|_| true),
+            (None, Some(PlayingTrack::Uri(uri))) if playable(uri) => {
+                self.load_context_from_tracks(vec![uri.clone()]).map(|_| false)
+            }
+            _ => Ok(false),
         }
     }
 
