@@ -7,6 +7,9 @@ line under [Unreleased], and `npm run release` turns that section into the versi
 
 ## [Unreleased]
 
+### Added
+- **song page:** every artist of the song gets its own card (photo, name, verified mark, monthly listeners and Follow), not just the first one. A click on a card opens the artist. Credits sit once, under the cards.
+
 ## [1.0.7] - 2026-11-12
 
 ### Added
