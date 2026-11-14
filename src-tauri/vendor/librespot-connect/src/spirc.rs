@@ -1295,14 +1295,15 @@ impl SpircTask {
                 if !autoplay && self.connect_state.get_context(ContextType::Default).is_err() {
                     if self.load_fallback_tracks(&uri, page.as_ref(), &cmd.options.playing_track)? {
                         // The context drops a track it cannot play, which moves every index
-                        // after it: the page's index becomes that song's uri.
+                        // after it: the page's index becomes that entry's uid, which the context
+                        // keeps and tells apart a song listed twice, or its uri when it has none.
                         if let (Some(PlayingTrack::Index(i)), Some(p)) = (&cmd.options.playing_track, &page) {
-                            if let Some(track_uri) = p
-                                .tracks
-                                .get(*i as usize)
-                                .and_then(|t| t.uri.clone())
-                                .filter(|u| !u.is_empty())
-                            {
+                            let entry = p.tracks.get(*i as usize);
+                            let uid = entry.and_then(|t| t.uid.clone()).filter(|u| !u.is_empty());
+                            let track_uri = entry.and_then(|t| t.uri.clone()).filter(|u| !u.is_empty());
+                            if let Some(uid) = uid {
+                                cmd.options.playing_track = Some(PlayingTrack::Uid(uid));
+                            } else if let Some(track_uri) = track_uri {
                                 cmd.options.playing_track = Some(PlayingTrack::Uri(track_uri));
                             }
                         }
