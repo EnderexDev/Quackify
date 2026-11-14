@@ -89,3 +89,10 @@ lto = true
 opt-level = 3
 panic = "abort"
 strip = true
+
+# librespot-connect 0.8.0 with two changes, marked "Quackify:" in vendor/librespot-connect/src:
+# a load whose context cannot be resolved plays the command's tracks instead of failing (it
+# stopped the music at the end of every song while following someone on Discord), and a context
+# that failed is tried again after an hour, as upstream does now.
+[patch.crates-io]
+librespot-connect = { path = "vendor/librespot-connect" }
