@@ -1441,31 +1441,32 @@ impl SpircTask {
         page: Option<&ContextPage>,
         playing_track: &Option<PlayingTrack>,
     ) -> Result<bool, Error> {
-        // Only tracks the context can hold: an invalid one is dropped there, and a context left
-        // empty panics when a shuffled load picks a random track.
-        let playable = |uri: &str| !uri.contains('?') && SpotifyUri::from_uri(uri).is_ok();
-        let page_tracks = page.map(|p| ContextPage {
-            tracks: p
-                .tracks
-                .iter()
-                .filter(|t| t.uri.as_deref().is_some_and(playable))
-                .cloned()
-                .collect(),
-            ..p.clone()
-        });
-        let page_tracks = page_tracks.filter(|p| !p.tracks.is_empty());
         warn!(
-            "context <{context_uri}> not resolved, playing the command's tracks instead (page tracks: {}, playable: {}, playing track: {playing_track:?})",
+            "context <{context_uri}> not resolved, playing the command's tracks instead (page tracks: {}, playing track: {playing_track:?})",
             page.map(|p| p.tracks.len()).unwrap_or_default(),
-            page_tracks.as_ref().map(|p| p.tracks.len()).unwrap_or_default(),
         );
-        match (page_tracks, playing_track) {
-            (Some(page), _) => self.load_context_from_tracks(page).map(|_| true),
-            (None, Some(PlayingTrack::Uri(uri))) if playable(uri) => {
-                self.load_context_from_tracks(vec![uri.clone()]).map(|_| false)
+        // The page goes in whole, as a resolved context would: the command's indexes keep
+        // pointing at the same songs, and the context drops a track it cannot play the same way.
+        if let Some(page) = page.filter(|p| !p.tracks.is_empty()) {
+            if self.load_context_from_tracks(page.clone()).is_ok() && self.has_default_tracks() {
+                return Ok(true);
             }
-            _ => Ok(false),
         }
+        if let Some(PlayingTrack::Uri(uri)) = playing_track {
+            if self.load_context_from_tracks(vec![uri.clone()]).is_ok() && self.has_default_tracks() {
+                return Ok(false);
+            }
+        }
+        // A context left empty panics when a shuffled load picks a random track out of none:
+        // no context, and the load fails as it did before.
+        self.connect_state.reset_context(ResetContext::Completely);
+        Ok(false)
+    }
+
+    fn has_default_tracks(&self) -> bool {
+        self.connect_state
+            .get_context(ContextType::Default)
+            .is_ok_and(|c| !c.tracks.is_empty())
     }
 
     fn load_context_from_tracks(&mut self, tracks: impl Into<ContextPage>) -> Result<(), Error> {
