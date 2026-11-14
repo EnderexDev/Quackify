@@ -133,6 +133,19 @@
   border: 1px solid var(--line);
 }
 
+/* One card per artist of the song, then the song's credits. */
+.song-artists {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.song-credits {
+  align-self: flex-start;
+  margin: 4px 0 0 4px;
+  font-size: 12.5px;
+}
+
 .song-artist {
   display: flex;
   align-items: center;
@@ -178,10 +191,6 @@
   align-items: center;
   gap: 10px;
   flex: none;
-}
-
-.song-artist-buttons .link {
-  font-size: 12.5px;
 }
 
 /* ---- Lyrics ---- */
@@ -369,10 +378,13 @@
     margin: 10px 0 0;
   }
 
-  /* The artist beside the song, as tall as the cover. */
-  .song-info .song-artist {
+  /* The artists beside the song, as tall as the cover; more of them scroll. */
+  .song-info .song-artists {
     grid-column: 3;
     grid-row: 1 / span 4;
+    max-height: 136px;
+    overflow-y: auto;
+    scrollbar-width: thin;
   }
 
   .song-info .song-kind {

@@ -1,10 +1,10 @@
 // The song page: what is playing, big, over a strong aura. On the left the cover, the song, its
-// buttons and its main artist; on the right the lyrics, following the song: the line being sung
+// buttons and a card for each of its artists; on the right the lyrics, following the song: the line being sung
 // grows and lights up and stays in view, and clicking a line seeks to it.
 import { useEffect, useRef, useState } from "react";
-import { trackDetails } from "../api/spotify";
+import { artist as fetchArtist } from "../api/spotify";
 import { t } from "../i18n";
-import type { TrackDetails } from "../api/types";
+import type { Artist } from "../api/types";
 import { Cover } from "../components/Cover";
 import { useContextMenu } from "../components/ContextMenu";
 import { openCredits } from "../components/Credits";
@@ -52,25 +52,6 @@ function SongInfo({ track }: { track: NowPlaying }) {
   const episode = track.uri.startsWith("spotify:episode:");
   const isTrack = track.uri.startsWith("spotify:track:");
   const [saved, toggleSaved] = useSaved(isTrack ? track.uri : null);
-  const artistUri = track.artists[0]?.uri ?? "";
-  const [details, setDetails] = useState<{
-    uri: string;
-    value: TrackDetails;
-  } | null>(null);
-
-  useEffect(() => {
-    if (!isTrack || !artistUri) return;
-    let alive = true;
-    trackDetails(track.uri, artistUri).then(
-      (value) => alive && setDetails({ uri: track.uri, value }),
-      () => {},
-    );
-    return () => {
-      alive = false;
-    };
-  }, [track.uri, artistUri]);
-  const artist = details?.uri === track.uri ? details.value.artist : null;
-
   return (
     <section className="song-info">
       <Cover src={track.image} className="song-cover" />
@@ -133,31 +114,61 @@ function SongInfo({ track }: { track: NowPlaying }) {
         )}
       </div>
 
-      {artist && (
-        <div className="song-artist" onClick={() => artist.uri && nav.open(artist.uri)}>
-          <Cover src={artist.image} kind="artist" className="song-artist-image" />
-          <div className="song-artist-text">
-            <div className="song-artist-name">
-              {artist.name}
-              {artist.verified && (
-                <span className="song-verified" title={t("Verified artist")}>
-                  ✓
-                </span>
-              )}
-            </div>
-            {artist.monthlyListeners !== null && (
-              <div className="muted small">{t("{n} monthly listeners", { n: formatCount(artist.monthlyListeners) })}</div>
-            )}
-          </div>
-          <div className="song-artist-buttons" onClick={(e) => e.stopPropagation()}>
-            <button className="link" onClick={() => openCredits(track.uri)}>
-              {t("Credits")}
-            </button>
-            {artist.uri && <SaveButton uri={artist.uri} kind="artist" />}
-          </div>
+      {isTrack && (
+        <div className="song-artists">
+          {track.artists
+            .filter((a) => a.uri.startsWith("spotify:artist:"))
+            .map((a) => (
+              <ArtistCard key={a.uri} uri={a.uri} name={a.name} />
+            ))}
+          <button className="link song-credits" onClick={() => openCredits(track.uri)}>
+            {t("Credits")}
+          </button>
         </div>
       )}
     </section>
+  );
+}
+
+/** One of the song's artists: photo, name and monthly listeners, with a Follow button. Shows the
+ *  name from the song at once and fills in the rest when the artist's page answers (cached, so
+ *  opening the artist afterwards is instant). */
+function ArtistCard({ uri, name }: { uri: string; name: string }) {
+  const nav = useNav();
+  const [info, setInfo] = useState<{ uri: string; value: Artist } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetchArtist(uri).then(
+      (value) => alive && setInfo({ uri, value }),
+      () => {},
+    );
+    return () => {
+      alive = false;
+    };
+  }, [uri]);
+  const artist = info?.uri === uri ? info.value : null;
+
+  return (
+    <div className="song-artist" onClick={() => nav.open(uri)}>
+      <Cover src={artist?.image ?? null} kind="artist" className="song-artist-image" />
+      <div className="song-artist-text">
+        <div className="song-artist-name">
+          {artist?.name || name}
+          {artist?.verified && (
+            <span className="song-verified" title={t("Verified artist")}>
+              ✓
+            </span>
+          )}
+        </div>
+        {artist && artist.monthlyListeners !== null && (
+          <div className="muted small">{t("{n} monthly listeners", { n: formatCount(artist.monthlyListeners) })}</div>
+        )}
+      </div>
+      <div className="song-artist-buttons" onClick={(e) => e.stopPropagation()}>
+        <SaveButton uri={uri} kind="artist" />
+      </div>
+    </div>
   );
 }
 
