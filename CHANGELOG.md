@@ -7,6 +7,8 @@ line under [Unreleased], and `npm run release` turns that section into the versi
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-11-14
+
 ### Fixed
 - **Discord Listen Along:** following someone with Listen Along should go on to the next song again, instead of stopping at the end of every song and staying silent until they changed songs. When Spotify does not let your account open the list they play from (another person's Liked Songs, for example), Quackify plays the song they sent instead of stopping.
 
@@ -248,7 +250,8 @@ First tagged release: a Tauri 2 desktop client for Spotify (librespot playback, 
 - **release:** `npm run release` builds, signs and publishes a version (`scripts/release.mjs`). `npm run app:build` makes the official installer (NSIS only).
 - **tests:** `bench/` runs the app in a browser with Tauri mocked for React profiling. Rust tests cover the cluster parser, the meter, the waveform decoder, the Jam and Discord limits and the listening reports.
 
-[Unreleased]: https://github.com/EnderexDev/Quackify/compare/v1.0.8...HEAD
+[Unreleased]: https://github.com/EnderexDev/Quackify/compare/v1.0.9...HEAD
+[1.0.9]: https://github.com/EnderexDev/Quackify/compare/v1.0.8...v1.0.9
 [1.0.8]: https://github.com/EnderexDev/Quackify/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/EnderexDev/Quackify/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/EnderexDev/Quackify/compare/v1.0.5...v1.0.6
