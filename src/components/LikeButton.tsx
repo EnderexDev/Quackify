@@ -7,8 +7,7 @@ import { HeartIcon, HeartOutlineIcon } from "./icons";
  * Liking makes it pop and throw six sparks (motion.css). */
 export function LikeButton({ uri, size = 18, className = "" }: { uri: string; size?: number; className?: string }) {
   const [saved, toggle] = useSaved(uri);
-  // Bumped on each like: a new key replays the pop and the sparks. The two keys differ: siblings
-  // with the same key leave the old heart in the DOM on each unlike (one more heart every time).
+  // Bumped on each like: a new key replays the pop and the sparks.
   const [burst, setBurst] = useState(0);
   return (
     <button
@@ -22,9 +21,9 @@ export function LikeButton({ uri, size = 18, className = "" }: { uri: string; si
         toggle();
       }}
     >
-      {saved ? <HeartIcon key={`heart-${burst}`} size={size} /> : <HeartOutlineIcon size={size} />}
+      {saved ? <HeartIcon key={burst} size={size} /> : <HeartOutlineIcon size={size} />}
       {burst > 0 && saved && (
-        <span className="like-burst" key={`sparks-${burst}`} aria-hidden>
+        <span className="like-burst" key={burst} aria-hidden>
           {Array.from({ length: 6 }, (_, i) => (
             <i key={i} />
           ))}

@@ -1,7 +1,7 @@
 {
   "name": "quackify",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.0.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,6 @@
     "tauri": "tauri",
     "app:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "app:build": "tauri build",
-    "app:dev-build": "tauri build --config src-tauri/tauri.dev.conf.json --config src-tauri/tauri.dev-install.conf.json",
     "i18n:check": "node scripts/i18n-check.mjs",
     "release": "node scripts/release.mjs"
   },

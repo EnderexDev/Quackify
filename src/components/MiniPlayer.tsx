@@ -2,8 +2,7 @@
 // song, the line being sung, the progress bar in the player's mode, and like, previous, play,
 // next and lyrics. The cover opens the song page (and its lyrics) in Quackify; the mic turns it
 // into the lyrics version: a taller window with the lyrics in
-// the middle, following the song. A song with no lyrics (an instrumental, an episode) keeps the
-// compact card, with a line saying so under the artists. Dragged from anywhere that is not a button or a line; the pin
+// the middle, following the song. Dragged from anywhere that is not a button or a line; the pin
 // lets it go behind other windows, the × hides it.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -16,7 +15,7 @@ import { usePlayer } from "../state/player";
 import { toast } from "../state/toast";
 import { coverColors, type CoverColors } from "../util/coverColors";
 import { Cover } from "./Cover";
-import { AppLogo, CloseIcon, MicIcon, NextIcon, PauseIcon, PinIcon, PlayIcon, PrevIcon } from "./icons";
+import { CloseIcon, DuckIcon, MicIcon, NextIcon, PauseIcon, PinIcon, PlayIcon, PrevIcon } from "./icons";
 import { LikeButton } from "./LikeButton";
 import { LyricLine } from "./PlayerBar";
 import { ProgressBar } from "./ProgressBar";
@@ -30,13 +29,7 @@ export function MiniPlayer() {
   const mode = useProgressMode();
   const [, tick] = useState(0);
   const [onTop, setOnTop] = useState(true);
-  /** null until the saved mode is read: the window already has that mode's height. */
-  const [lyricsOn, setLyricsOn] = useState<boolean | null>(null);
-  /** Whether the song has lyrics to show. While the next song's load, the last answer holds,
-   * so two instrumentals in a row do not flash the tall card. */
-  const [hasLyrics, setHasLyrics] = useState(true);
-  /** The height the window was last given (true: tall). */
-  const sized = useRef<boolean | null>(null);
+  const [lyricsOn, setLyricsOn] = useState(false);
   const [colors, setColors] = useState<CoverColors>(IDLE);
   const image = song?.image ?? null;
 
@@ -50,31 +43,8 @@ export function MiniPlayer() {
   }, [image]);
 
   useEffect(() => {
-    invoke<boolean>("mini_player_lyrics").then(
-      (on) => {
-        sized.current = on;
-        setLyricsOn(on);
-      },
-      () => setLyricsOn(false),
-    );
+    invoke<boolean>("mini_player_lyrics").then(setLyricsOn, () => {});
   }, []);
-
-  // A failed load keeps the tall card: it has the Try again button.
-  const lyrics = useLyrics(song?.uri ?? null);
-  const known =
-    lyrics.status === "loading" ? null : lyrics.status === "failed" || (lyrics.status === "ready" && !!lyrics.lyrics?.lines.length);
-  useEffect(() => {
-    if (known !== null) setHasLyrics(known);
-  }, [known]);
-  const tall = !!lyricsOn && hasLyrics;
-
-  useEffect(() => {
-    if (lyricsOn === null || sized.current === tall) return;
-    sized.current = tall;
-    invoke("mini_player_fit", { tall }).catch(() => {
-      sized.current = null;
-    });
-  }, [tall, lyricsOn]);
 
   // Re-render a few times a second while playing, so the bar and the sung line move.
   useEffect(() => {
@@ -102,11 +72,8 @@ export function MiniPlayer() {
 
   const switchLyrics = () => {
     const next = !lyricsOn;
-    const before = sized.current;
-    sized.current = next && hasLyrics;
     setLyricsOn(next);
-    invoke("mini_player_set_lyrics", { on: next, tall: next && hasLyrics }).catch((e) => {
-      sized.current = before;
+    invoke("mini_player_set_lyrics", { on: next }).catch((e) => {
       setLyricsOn(!next);
       toast(e);
     });
@@ -118,7 +85,7 @@ export function MiniPlayer() {
 
   return (
     <div
-      className={`mini ${song && !p.playing ? "paused" : ""} ${song ? "" : "idle"} ${tall ? "with-lyrics" : ""}`}
+      className={`mini ${song && !p.playing ? "paused" : ""} ${song ? "" : "idle"} ${lyricsOn ? "with-lyrics" : ""}`}
       style={style}
       onMouseDown={onDown}
     >
@@ -133,18 +100,14 @@ export function MiniPlayer() {
             <Cover src={song.image} className="mini-cover" />
           </button>
         ) : (
-          <AppLogo className="mini-cover mini-logo" />
+          <DuckIcon size={44} className="mini-cover mini-duck" />
         )}
         <div className="mini-text">
           <div className="mini-title" title={song?.name}>
             {song?.name ?? t("Nothing playing")}
           </div>
           <div className="mini-artists">{song ? song.artists.map((a) => a.name).join(", ") : t("Play something in Quackify")}</div>
-          {song && lyricsOn && !tall ? (
-            <div className="mini-note">{isTrack ? t("Instrumental, no lyrics") : t("Episodes have no lyrics")}</div>
-          ) : (
-            song && isTrack && !lyricsOn && <LyricLine track={song} />
-          )}
+          {song && isTrack && !lyricsOn && <LyricLine track={song} />}
         </div>
         <div className="mini-window-buttons">
           <button className="icon-btn" onClick={() => invoke("mini_player_close")} aria-label={t("Close the mini player")} title={t("Close")}>
@@ -162,7 +125,7 @@ export function MiniPlayer() {
         </div>
       </div>
 
-      {tall && <MiniLyrics uri={song?.uri ?? null} />}
+      {lyricsOn && <MiniLyrics uri={song?.uri ?? null} />}
 
       <ProgressBar
         uri={song?.uri ?? null}
@@ -188,7 +151,7 @@ export function MiniPlayer() {
         <button
           className={`icon-btn mini-mic ${lyricsOn ? "on" : ""}`}
           onClick={switchLyrics}
-          aria-pressed={!!lyricsOn}
+          aria-pressed={lyricsOn}
           aria-label={t("Lyrics")}
           title={t("Lyrics")}
         >

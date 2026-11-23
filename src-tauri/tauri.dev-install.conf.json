@@ -1,6 +1,0 @@
-{
-  "mainBinaryName": "quackify-dev",
-  "bundle": {
-    "createUpdaterArtifacts": false
-  }
-}

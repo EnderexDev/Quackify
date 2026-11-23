@@ -63,10 +63,9 @@
   box-shadow: var(--shadow-cover);
 }
 
-/* No cover: the logo in its place, its own rounded square without the cover's shadow. */
-.mini-logo {
-  border-radius: 0;
-  box-shadow: none;
+.mini-duck {
+  padding: 8px;
+  background: var(--surface-2);
 }
 
 .mini-text {
@@ -85,17 +84,6 @@
 .mini-artists {
   color: var(--muted);
   font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* With the lyrics on and none to show: the compact card, saying why. */
-.mini-note {
-  margin-top: 1px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
