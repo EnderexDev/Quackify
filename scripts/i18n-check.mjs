@@ -3,7 +3,7 @@
 // the likely leftovers. Exits 1 when something is missing.
 import fs from "fs";
 import path from "path";
-import ts from "typescript";
+import { parseSync } from "oxc-parser";
 
 const root = path.resolve(import.meta.dirname, "../src");
 const files = [];
@@ -32,17 +32,21 @@ const leftovers = [];
 for (const f of files) {
   const src = fs.readFileSync(f, "utf8");
   const rel = path.relative(root, f);
-  // Every call t(<string literal>, ...) as TypeScript reads it: comments skipped, any quotes and
-  // spacing, escapes decoded the way the app sees them.
-  const kind = f.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  // Every call t(<string literal>, ...) as the parser reads it: comments skipped, any quotes and
+  // spacing, escapes decoded the way the app sees them. oxc-parser, since TypeScript 7 has no JS API.
   const visit = (node) => {
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "t") {
+    if (Array.isArray(node)) return node.forEach(visit);
+    if (!node || typeof node !== "object") return;
+    if (node.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "t") {
       const arg = node.arguments[0];
-      if (arg && (ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg))) used.set(arg.text, rel);
+      if (arg?.type === "Literal" && typeof arg.value === "string") used.set(arg.value, rel);
+      else if (arg?.type === "TemplateLiteral" && arg.expressions.length === 0) used.set(arg.quasis[0].value.cooked, rel);
     }
-    ts.forEachChild(node, visit);
+    for (const k in node) if (k !== "parent") visit(node[k]);
   };
-  visit(ts.createSourceFile(f, src, ts.ScriptTarget.Latest, true, kind));
+  const { program, errors } = parseSync(f, src);
+  if (errors.length) { console.log(`PARSE ERROR in ${rel}: ${errors[0].message}`); process.exit(1); }
+  visit(program);
   // Likely leftovers: JSX text with letters, and label/title/aria-label/placeholder literals.
   src.split("\n").forEach((line, i) => {
     if (/\/\/|^\s*\*|^\s*\/\*/.test(line.trim().slice(0, 2))) return;
